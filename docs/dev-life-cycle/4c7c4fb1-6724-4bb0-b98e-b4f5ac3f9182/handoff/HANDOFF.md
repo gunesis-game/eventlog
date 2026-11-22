@@ -206,3 +206,13 @@ Cycle 1 is active in the define phase. The execution lock is claimed and verifie
 - **Latest durable design context:** Continue from the newest decision checkpoints in the plan. Prior handoff sections contain superseded snapshots; the plan's latest decisions are the active design checkpoint. User-approved decisions include deterministic IDs, append(channel,event), cross-channel event association/promotion, local rebuildable index, finite floats with bit-preserving signed zero, nullable primitive fields, strict validation, and record schema version 1.
 - **No implementation or tests:** No source code changes, builds, or Go tests have been performed.
 - **Resume protocol:** Before ordinary development, read the lock first. It is released. Read lifecycle docs, validate the registry, then claim the lock on main and confirm the published claim before any ordinary project changes.
+
+
+## Session handoff — 2026-11-22T18:51:00Z
+
+- User requested unlock for transition to a new session.
+- Cycle 1 remains in **define**. No implementation, local checkout, build, or Go tests have started.
+- Decisions added in this session and persisted in the plan: canonical identity bytes (UTF-8 bytewise field sorting, type tags, length-prefix encoding, width preservation, IEEE float bit preservation incl signed zero, package path+struct name); UUID v5 namespace-based SHA-1 with separate domain prefixes for channel/event; segments are source of truth, local index rebuildable; duplicate physical event occurrences allowed; latest occurrence promotes logical HEAD and can associate the event with multiple channels without separate promotion records; segment-first then index update; atomic index replacement; global monotonic sequence on every persisted record, stored in segments.
+- The compaction sequence is still only a proposal and **not approved**: write compacted temp segments, sync, rename, atomically update index, delete obsolete segments last.
+- Outstanding define decisions: exact canonical byte layout and fixed namespace UUID, durable promotion/channel-association semantics and index format, crash-safe compaction/recovery protocol, sync cadence/flush/close guarantees, primitive allowlist, envelope/versioning, replay/tailing and acceptance criteria.
+- Next session should read execution-lock first; lock will be released and Cycle 1 marked paused. Resume Cycle 1 in define through the required claim protocol.
