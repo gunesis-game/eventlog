@@ -6,7 +6,7 @@
 - **Objective:** Define eventlog's initial product requirements and core design decisions before implementation.
 - **Registry status:** in-progress
 - **Persisted phase:** define
-- **Last updated:** 2026-11-22T14:39:08Z
+- **Last updated:** 2026-11-22T15:24:15.040Z
 
 ## Current repository state
 
@@ -89,3 +89,13 @@ Execution lock remains active for cycle 1. Continue the define phase and synchro
 - **Outstanding work:** Finalize Event/Fields/FieldOf API and supported primitive representation; decide framing, durability, recovery, concurrency and tailing behavior; reconcile approved requirements and architecture documentation.
 - **Next action:** Resume cycle 4c7c4fb1-6724-4bb0-b98e-b4f5ac3f9182 in the define phase after a fresh lock claim is published and confirmed on shared main.
 - **Recovery disposition:** Cycle temporarily marked paused while the terminated worker's lock is released; cycle identity, sequence, execution order, timestamps, and phase are preserved.
+
+
+## Recovery completed and cycle resumed
+
+- **Resumed at:** 2026-11-22T15:24:15.040Z
+- The user explicitly confirmed the previous worker had terminated and authorized recovery.
+- The previous cycle state was checkpointed; the registry was temporarily set to paused; the stale lock was released and confirmed on shared main.
+- A fresh active lock for this same cycle was committed and fetched back from shared main before the registry was returned to in-progress.
+- **Current owner:** ChatGPT; **current phase:** define; **implementation:** not started.
+- Continue by resolving the outstanding API and storage design questions listed above. Do not begin implementation until the critical decisions and acceptance criteria are ready.
