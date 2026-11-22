@@ -7,7 +7,7 @@
 - **Execution order:** 1
 - **Status:** in-progress
 - **Status reason:** null
-- **Current phase:** assess
+- **Current phase:** define
 - **Created:** 2026-11-22T16:00:00+02:00
 
 ## Objective
@@ -16,67 +16,98 @@ Define eventlog's initial product requirements and core design decisions before 
 
 ## Problem and context
 
-The repository describes eventlog as a lightweight disk-backed append-only Go log for event-sourced systems. It intends to support durable sequential event writes, replay after restart, and transition into live tailing. The codebase is currently scaffolded; requirements, architecture, commands, and README content remain placeholders. Specific storage format, API, concurrency, durability, and recovery behavior are not yet established.
+The repository describes eventlog as a lightweight disk-backed append-only Go log intended for event-oriented applications. The scaffold proposes persistence, ordered replay, and transition into live tailing. Requirements, architecture, commands, and README content remain placeholders. No implementation or tests were found during initial assessment.
+
+## Confirmed product direction
+
+- **Primary scope:** General-purpose embedded event storage (Option C); the library should not depend on domain-specific event meanings or an event-sourcing framework.
+- **Ownership:** One process owns a log at a time. Multiple goroutines may use the library, but writes are coordinated internally.
+- **Design intent:** Keep it reusable and small, with a simple reliability-focused API.
+
+These are confirmed product direction decisions, not yet detailed API or file-format decisions.
 
 ## Scope
 
 ### In scope
-- Establish initial use cases and requirements for the core event-log library.
-- Identify critical correctness guarantees and non-goals.
-- Compare reasonable design options for on-disk representation, append/read API, recovery, concurrency, and live tailing.
-- Record approved requirements and architectural decisions in maintained project docs.
+- Establish product goals, workload assumptions, guarantees, and non-goals.
+- Define append, replay/read, recovery, and tailing semantics.
+- Compare storage framing/encoding, durability, concurrency, and API options.
+- Record approved requirements and design decisions in maintained project documentation.
 
 ### Out of scope
-- Implementing the Go library.
-- Adding dependencies or tooling.
-- Defining speculative requirements without marking them as proposals or open questions.
-- Building a full event-sourcing framework, database, or broker.
+- Implementing the Go library in this cycle.
+- Distributed or multi-process writer coordination.
+- Adding dependencies or tooling without clear need.
+- Full event-sourcing frameworks, databases, or brokers.
+- Introducing domain-specific assumptions into the storage layer.
 
 ## Constraints, dependencies, and risks
 
-- **Constraints:** Follow steering.md and docs/dev-life-cycle/README.md. Ordinary work is on main, serialized, cycle-tracked, and verified. No project-specific Go commands are yet verified.
-- **Dependencies:** User/product direction on priorities; repository docs are the current evidence.
-- **Risks:** Overdesign; ambiguous durability semantics; unsafe crash recovery; concurrency assumptions; unclear behavior around corruption and live tailing.
-- **Open decisions:** Intended workload and limits; durability level; event framing/encoding; public API; ordering and concurrency model; recovery behavior; reader/tailer semantics; portability; versioning; performance goals.
+- **Constraints:** Follow steering.md and docs/dev-life-cycle/README.md. Work on main, serialized, cycle-tracked, and verified. No project-specific Go commands are yet verified.
+- **Dependencies:** User confirmation of critical design trade-offs.
+- **Risks:** Overdesign; unclear durability promises; unsafe recovery; concurrency/tailing contract ambiguity; portability and performance targets.
+
+## Open decisions
+
+- Public API shape and whether events are opaque byte payloads.
+- On-disk framing, metadata, checksums, and format/version strategy.
+- Sequence numbering, record identity, and ordering guarantees.
+- Durability defaults and configurable sync policy.
+- Corruption and incomplete-tail recovery behavior.
+- Reader/tailer interface, cancellation, and replay-to-live transition semantics.
+- Log rotation/segmentation and size limits (whether required initially).
+- Portability expectations and performance goals.
+
+## Proposed baseline (not yet approved)
+
+- Append-only binary record format with explicit framing.
+- Strict sequence ordering.
+- Sequential replay and a tail mode.
+- Safe recovery from incomplete trailing records.
+- Configurable durability/sync policy with documented guarantees.
+- Standard-library-only dependencies.
+- Cross-platform Go where practical.
 
 ## Design and implementation approach
 
-Begin with a product-level requirements discussion. Make core design recommendations with explicit trade-offs, confirm decisions with the user, then update requirements and architecture docs. Keep the first implementation scope small and validate it against testable acceptance criteria.
+Confirm product requirements and trade-offs in discussion before documenting them as approved. Keep initial implementation scope minimal. Do not begin implementation until critical choices are resolved and recorded.
 
 ## Ordered tasks
 
-- [ ] Establish product goals, workload assumptions, non-goals, and required guarantees.
-- [ ] Define event write, replay/read, and tailing behavior.
-- [ ] Decide data framing/format, durability and recovery strategy, and concurrency model.
-- [ ] Define initial public API shape and error behavior.
+- [x] Establish primary workload direction and ownership model.
+- [ ] Define payload representation and event write/read contract.
+- [ ] Decide framing, durability, recovery, concurrency and tailing behavior.
+- [ ] Define initial API shape and error behavior.
 - [ ] Update requirements and architecture docs with confirmed decisions.
-- [ ] Review scope and consistency; prepare implementation-ready next cycle or continuation plan.
+- [ ] Review consistency; close this cycle and prepare implementation-ready scope.
 
 ## Acceptance criteria
 
-- [ ] Confirmed requirements are clearly separated from proposals and open questions.
+- [ ] Confirmed requirements are separated from proposals and open questions.
 - [ ] Core design decisions are explicit, justified, and captured in architecture documentation.
 - [ ] Initial API and operational guarantees are understandable and testable.
-- [ ] No implementation work begins on unresolved critical design choices.
+- [ ] No implementation begins while critical design choices remain unresolved.
 - [ ] Focused documentation review completed; cycle checkpoint and lifecycle state reconciled.
 
 ## Verification strategy
 
-- **Local checks:** Not yet established; inspect available tools and project validation before selecting checks.
-- **CI/integration checks:** Existing steering-state validation workflow is available; no Go implementation/test CI exists yet.
-- **Manual review:** Confirm consistency across requirements, architecture, coding standards, and README; ensure choices are not stated as facts before approval.
+- **Local checks:** Inspect available project validation and documentation format; select appropriate checks before using them.
+- **CI/integration checks:** Existing lifecycle validator workflow is available; no Go implementation/test CI established yet.
+- **Manual review:** Check requirements, architecture, coding standards, README and commands docs for consistency and avoid stating proposals as facts.
 
 ## Persisted phase checkpoint
 
-- **Current phase:** assess
-- **Phase exit evidence:** Goals, workload assumptions, unknowns, constraints, and decision areas identified sufficiently to define requirements and design.
-- **Next concrete action:** Present the initial product/design questions and recommended baseline choices for user review.
-- **Last updated:** 2026-11-22T16:00:00+02:00
+- **Current phase:** define
+- **Assess exit evidence:** Repository scaffold and governance were inspected; purpose, current state, risks, unknowns, and decision areas identified. User confirmed general-purpose embedded storage and single-process ownership.
+- **Next concrete action:** Work through the remaining product/design decisions with recommendations and user confirmation.
+- **Last updated:** 2026-11-22T14:39:08Z
 
 ## Progress and decisions
 
-- Cycle created and execution lock claim confirmed on remote main.
-- No product design decisions approved yet.
+- Cycle 1 claimed and resumed; execution lock claim confirmed on shared main.
+- Confirmed: general-purpose embedded event storage (Option C).
+- Confirmed: single process owns a log; in-process concurrent access can be coordinated by the library.
+- Proposals are recorded as proposals pending approval; no implementation performed.
 
 ## Completion review
 
