@@ -293,3 +293,15 @@ Confirm product requirements and trade-offs in discussion before documenting the
 - Readers must reject unsupported future versions with a clear error instead of attempting to interpret them.
 - Versioning applies consistently to persisted record types, including event data and structural records; exact record taxonomy and version migration policy remain to be specified.
 - No implementation, build, or Go tests have started.
+
+
+## Design checkpoint — canonical identity encoding — 2026-11-22
+
+- **User approved:** canonical identity encoding is independent of field ordering; fields are sorted by bytewise UTF-8 field name.
+- Each field encoding includes a type tag and length-prefixed field name/value to avoid ambiguous concatenation.
+- Preserve exact integer and floating-point widths and IEEE-754 bit patterns, including the distinction between positive and negative zero.
+- Include Go package path and struct type name in the persisted type identity.
+- Deterministic hash-based UUID derivation uses the canonical encoded bytes.
+- This encoding makes identity stable across field-order changes, but identity intentionally changes with field values, primitive types, or consumer type identity.
+- Exact hash and UUID algorithm, canonical byte layout details, and compatibility/versioning policy remain to be decided.
+- No implementation, build, or Go tests have started.
