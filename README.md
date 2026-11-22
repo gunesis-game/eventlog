@@ -1,5 +1,26 @@
-# Agent instructions
+# eventlog
 
-Read [steering.md](steering.md) before acting. It governs work in this repository.
+> Replace this template with the product's README before the first implementation cycle.
 
-Project facts and guidance live in [docs/project/](docs/project/), including [architecture.md](docs/project/architecture.md) and [coding-standards.md](docs/project/coding-standards.md). Follow the repository's documented development lifecycle for ordinary work. If instructions conflict, identify the conflict and follow the authority and conflict-resolution rules in steering.md.
+## Overview
+<Describe what the product is, who it serves, and its current status.>
+
+## Getting started
+<Prerequisites and setup instructions.>
+
+## Usage
+<Core workflows or examples.>
+
+## Development
+<Commands for install, run, test, lint, and build. Link to docs/project/commands.md.>
+
+## Documentation
+- [Requirements](docs/project/requirements.md)
+- [Architecture](docs/project/architecture.md)
+- [Coding standards](docs/project/coding-standards.md)
+- [Commands](docs/project/commands.md)
+- [Steering](steering.md)
+- [Development lifecycle](docs/dev-life-cycle/README.md)
+
+## License
+<Replace with this product's licensing terms.>
