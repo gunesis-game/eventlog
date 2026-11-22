@@ -305,3 +305,11 @@ Confirm product requirements and trade-offs in discussion before documenting the
 - This encoding makes identity stable across field-order changes, but identity intentionally changes with field values, primitive types, or consumer type identity.
 - Exact hash and UUID algorithm, canonical byte layout details, and compatibility/versioning policy remain to be decided.
 - No implementation, build, or Go tests have started.
+
+
+## Design checkpoint — deterministic UUID algorithm — 2026-11-22
+
+- **User approved UUID v5** (namespace-based SHA-1) for deterministic IDs.
+- Use a fixed eventlog namespace, with distinct domain prefixes for channel IDs and event IDs so the two ID classes cannot collide by kind.
+- UUID v5 derivation uses the approved canonical identity bytes as its name input; details of exact byte composition and the concrete namespace UUID remain to be recorded.
+- No implementation, build, or Go tests have started.
