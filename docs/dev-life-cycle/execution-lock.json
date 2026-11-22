@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "status": "released",
+  "status": "active",
   "cycle_id": "4c7c4fb1-6724-4bb0-b98e-b4f5ac3f9182",
   "workflow": "standard",
   "worker_id": "ChatGPT",
-  "claimed_at": "2026-11-22T15:37:30Z",
-  "released_at": "2026-11-22",
-  "release_evidence": "User explicitly requested project unlock for a new session; cycle plan and handoff checkpointed in commits 351dc20e83ecf3265410f5fa2eb45baff5fdfd11 and d0adb812004234d3ae5e74bc44d30fb462b73644."
+  "claimed_at": "2026-11-22T16:25:00Z",
+  "released_at": null,
+  "release_evidence": null
 }
