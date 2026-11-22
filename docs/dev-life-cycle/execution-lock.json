@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "status": "released",
-  "cycle_id": null,
-  "workflow": null,
-  "worker_id": null,
-  "claimed_at": null,
-  "released_at": "2026-11-22T16:01:00+02:00",
-  "release_evidence": "Cycle 1 is paused at assess pending user confirmation of product requirements and workload assumptions; checkpoint persisted in its handoff and registry."
+  "status": "active",
+  "cycle_id": "4c7c4fb1-6724-4bb0-b98e-b4f5ac3f9182",
+  "workflow": "standard",
+  "worker_id": "ChatGPT",
+  "claimed_at": "2026-11-22T14:39:08Z",
+  "released_at": null,
+  "release_evidence": null
 }
