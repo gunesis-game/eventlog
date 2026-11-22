@@ -5,7 +5,7 @@
 - **Cycle UUID:** 4c7c4fb1-6724-4bb0-b98e-b4f5ac3f9182
 - **Sequence:** 1
 - **Execution order:** 1
-- **Status:** in-progress
+- **Status:** paused
 - **Status reason:** null
 - **Current phase:** define
 - **Created:** 2026-11-22T16:00:00+02:00
@@ -126,7 +126,7 @@ Confirm product requirements and trade-offs in discussion before documenting the
 - **Current phase:** define
 - **Assess exit evidence:** Repository scaffold and governance were inspected; purpose, current state, risks, unknowns, and decision areas identified sufficiently to define. User confirmed general-purpose embedded storage, single-process ownership, and an explicit Event/Fields persistence allowlist contract.
 - **Next concrete action:** Resolve the remaining primitive, record envelope, durability, and reader/tailer decisions before promoting the approved design to project documentation.
-- **Last updated:** 2026-11-22T16:00:00Z
+- **Last updated:** 2026-11-22T15:36:55.080Z
 
 ## Progress and decisions
 
@@ -138,6 +138,7 @@ Confirm product requirements and trade-offs in discussion before documenting the
 - Confirmed recovery: truncate only an unterminated final suffix; fail on invalid complete records; never skip corruption.
 - The earlier redaction design is superseded; no full-struct inspection or automatic redaction is required.
 - No implementation, build, or Go tests have started.
+- User requested a new session; cycle paused and lock to be released after checkpoint.
 
 ## Completion review
 
@@ -147,3 +148,12 @@ Confirm product requirements and trade-offs in discussion before documenting the
 - [ ] Documentation reconciled
 - [ ] Handoff updated
 - [ ] Registry status, phase, and completion timestamp updated consistently
+
+
+## Session handoff
+
+- **Paused at:** 2026-11-22T15:36:55.080Z
+- **Reason:** User is moving development to a new session and requested the project be unlocked.
+- **Current phase:** define
+- **Last question:** Choose durability policy: sync every append, or buffer writes and sync periodically. No choice has been made.
+- **Resume instruction:** New session must claim the execution lock, read this plan and the handoff, and continue with the durability question.
