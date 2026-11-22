@@ -43,6 +43,8 @@ The repository describes eventlog as a lightweight disk-backed append-only Go lo
   This is the agreed API direction; implementation details, including selector name resolution, remain to be validated.
 - **Serialization:** Built-in JSON persistence for v1; no custom codecs.
 - **Record framing:** Newline-delimited JSON (NDJSON), one JSON event record per line, terminated by a newline.
+- **Incomplete final append recovery:** If the file ends with bytes after the last newline, treat that unterminated suffix as an incomplete final record and truncate it to the last complete newline before continuing.
+- **Complete-record corruption:** If a newline-terminated record contains invalid JSON or an invalid record structure, stop with a corruption error. Do not silently skip it or continue with later records.
 - **Redaction:** The earlier redaction feature is superseded by the explicit Event/Fields allowlist contract. Consumers decide which fields to expose; eventlog persists only those fields.
 
 ## Scope
@@ -74,7 +76,6 @@ The repository describes eventlog as a lightweight disk-backed append-only Go lo
 - Record envelope/schema metadata and format versioning.
 - Sequence numbering, record identity, and ordering guarantees.
 - Durability/sync defaults and guarantees.
-- Corruption and incomplete-tail recovery behaviour.
 - Reader/tailer interface, cancellation, and replay-to-live transition semantics.
 - Log rotation/segmentation and size limits (whether required initially).
 - Portability expectations and performance goals.
@@ -85,7 +86,6 @@ The repository describes eventlog as a lightweight disk-backed append-only Go lo
 - NDJSON framing, one complete JSON record per newline-terminated line.
 - Strict sequence ordering.
 - Sequential replay and a tail mode.
-- Safe recovery from incomplete trailing records.
 - Configurable durability/sync policy with documented guarantees.
 - Standard-library-only dependencies.
 - Cross-platform Go where practical.
@@ -101,8 +101,9 @@ Confirm product requirements and trade-offs in discussion before documenting the
 - [x] Define Event interface and Fields/FieldOf API direction.
 - [x] Replace redaction design with explicit allowlist Event contract.
 - [x] Select built-in JSON serialization and NDJSON record framing.
+- [x] Define incomplete-final-record and complete-record-corruption recovery policy.
 - [ ] Finalize primitive allowlist and API edge cases.
-- [ ] Decide record envelope/versioning, durability, recovery, concurrency and tailing behaviour.
+- [ ] Decide record envelope/versioning, durability, concurrency and tailing behaviour.
 - [ ] Update requirements and architecture docs with confirmed decisions.
 - [ ] Review consistency; close this cycle and prepare implementation-ready scope.
 
@@ -124,7 +125,7 @@ Confirm product requirements and trade-offs in discussion before documenting the
 
 - **Current phase:** define
 - **Assess exit evidence:** Repository scaffold and governance were inspected; purpose, current state, risks, unknowns, and decision areas identified sufficiently to define. User confirmed general-purpose embedded storage, single-process ownership, and an explicit Event/Fields persistence allowlist contract.
-- **Next concrete action:** Resolve the remaining record envelope, durability, recovery, and reader/tailer decisions before promoting the approved design to project documentation.
+- **Next concrete action:** Resolve the remaining primitive, record envelope, durability, and reader/tailer decisions before promoting the approved design to project documentation.
 - **Last updated:** 2026-11-22T16:00:00Z
 
 ## Progress and decisions
@@ -134,6 +135,7 @@ Confirm product requirements and trade-offs in discussion before documenting the
 - Confirmed consumer-defined Event structs expose an explicit Fields allowlist; only those fields are persisted.
 - Confirmed generic FieldOf selector API direction, primitive-only selected values, and named primitive types when their underlying type is allowed.
 - Confirmed built-in JSON serialization and NDJSON framing (one JSON record per newline-terminated line).
+- Confirmed recovery: truncate only an unterminated final suffix; fail on invalid complete records; never skip corruption.
 - The earlier redaction design is superseded; no full-struct inspection or automatic redaction is required.
 - No implementation, build, or Go tests have started.
 
