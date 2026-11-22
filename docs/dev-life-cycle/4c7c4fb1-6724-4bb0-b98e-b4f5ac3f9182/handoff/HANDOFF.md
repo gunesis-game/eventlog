@@ -153,3 +153,19 @@ Cycle 1 is paused for handoff and the execution lock is released. A new session 
 - Events require an existing channel. Every event record references the channel ID; channel-less events and implicit channel creation are disallowed.
 - Conceptual record shapes: channel `{id, type, fields}`; event `{id, channel: {id}, type, fields}`. Exact schema and API signatures remain open.
 - Next: settle record envelope/versioning and channel/event API details, then reconcile requirements and architecture docs. No implementation has started.
+
+
+## Current session handoff — 2026-11-22
+
+- User requested the project be unlocked to move development to a new session.
+- Cycle 1 remains in `define`; no implementation, build, or Go tests have started.
+- Latest confirmed channel design:
+  - A channel is a first-class persisted entity represented by a consumer-defined struct implementing a library-owned `Channel` interface analogous to `Event`.
+  - Both `Channel` and `Event` expose `Fields() Fields`; both use the same primitive-only field mechanism.
+  - Channel creation is explicit, persists a channel record, and returns its generated ID.
+  - Every event must reference exactly one existing channel ID. Channel-less events and implicit channel creation are forbidden.
+  - Conceptual record shapes are channel `{id, type, fields}` and event `{id, channel: {id}, type, fields}`; exact schema and API signatures remain open.
+- Buffered/periodic sync is confirmed. Exact cadence/trigger, flush API, close semantics, and crash-loss window remain open.
+- Other open decisions include the primitive allowlist, selector edge cases, record envelope/versioning and ordering, replay/tailing semantics, rotation/limits, portability, and performance goals.
+- **Next discussion:** decide how the generated channel ID is passed to the event append operation.
+- **Resume instruction:** claim the execution lock before continuing this cycle.
