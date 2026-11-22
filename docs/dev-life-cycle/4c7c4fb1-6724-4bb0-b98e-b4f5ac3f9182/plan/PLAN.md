@@ -323,3 +323,11 @@ Confirm product requirements and trade-offs in discussion before documenting the
 - Index file updates should use atomic replacement to avoid partial index state after a crash.
 - Sync/durability policy remains buffered/periodic; detailed sync and atomic-replacement protocol are still open.
 - No implementation, build, or Go tests have started.
+
+
+## Design checkpoint — global sequence numbers — 2026-11-22
+
+- **User approved:** every persisted record (including channel creation and event append/promotion occurrences) receives a globally monotonically increasing sequence number.
+- Sequence numbers are stored in segment records, not solely in the index; they are the authoritative ordering evidence and are independent of physical segment placement.
+- Recovery derives global logical event order from the latest occurrence of each event ID, ordered by sequence descending. Channel records also occupy sequence numbers in the global record stream.
+- No implementation, build, or Go tests have started.
