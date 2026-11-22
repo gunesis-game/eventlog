@@ -31,6 +31,7 @@
 - **Confirmed:** General-purpose embedded storage primitive, independent of domain semantics.
 - **Confirmed:** Single process owns a log at a time; internal coordination may support concurrent goroutines.
 - **Confirmed:** Generic typed events are the intended public API (Option 3).
+- **Confirmed redaction direction:** Consumers retain their original event struct and sensitive values; eventlog exposes type-safe field selectors without string names, performs redaction on an internal copy before encoding, and does not require consumers to clear fields. Exact selector API is still open.
 - **Proposed:** Generic log API with caller-supplied codec; binary framing, ordered replay, tailing, safe recovery of incomplete trailing records, configurable sync, stdlib-only dependencies.
 - **Open:** Codec interface, exact API, file format/versioning, durability, checksum, recovery/corruption, tail contract, segmentation, limits, portability, and performance goals.
 - **Constraints:** Main-only; one contributor at a time; lifecycle tracking; lock-first protocol; truthful verification; no branches/force pushes.
@@ -59,7 +60,7 @@
 
 - **Current phase:** define
 - **Assess exit evidence:** Repository state and governance inspected; general-purpose storage, single-process ownership, and generic event API direction confirmed.
-- **Next concrete action:** Present codec design choices and recommended API shape, then confirm encoding approach.
+- **Next concrete action:** Continue defining the codec API and design the exact type-safe redaction selector interface consistent with the newly confirmed behavior.
 
 ## Uncommitted or unpushed work
 
