@@ -47,6 +47,11 @@ The repository describes eventlog as a lightweight disk-backed append-only Go lo
 - **Complete-record corruption:** If a newline-terminated record contains invalid JSON or an invalid record structure, stop with a corruption error. Do not silently skip it or continue with later records.
 - **Redaction:** The earlier redaction feature is superseded by the explicit Event/Fields allowlist contract. Consumers decide which fields to expose; eventlog persists only those fields.
 
+- **Channel model:** A channel is a first-class persisted entity, represented by a consumer-defined struct and a library-owned `Channel` interface analogous to `Event`. The interface exposes `Fields() Fields`; channel fields use the same primitive-only Fields mechanism as event fields. A channel record has its own generated ID, consumer type identity, and explicitly exposed fields.
+- **Channel lifecycle:** Channel creation is an explicit operation that persists the channel record and returns its generated ID. A channel must exist before events can be appended to it; appending an event never implicitly creates a channel.
+- **Mandatory event association:** Every event belongs to exactly one existing channel and must persist a reference to that channel's ID. Channel-less events are not allowed.
+- **Record direction (conceptual, not finalized schema):** Channel records contain `id`, `type`, and `fields`. Event records contain their own `id`, a `channel.id` reference, `type`, and `fields`. Exact JSON envelope and versioning remain open.
+
 ## Scope
 
 ### In scope
@@ -73,8 +78,8 @@ The repository describes eventlog as a lightweight disk-backed append-only Go lo
 - Exact implementation of the generic selector and field-name discovery (Go has no built-in nameof; likely reflection-based selector resolution).
 - Exact primitive allowlist and handling of nullable values.
 - Public API error behaviour and validation of Fields.
-- Record envelope/schema metadata and format versioning.
-- Sequence numbering, record identity, and ordering guarantees.
+- Exact record envelope/schema metadata and format versioning, including channel record representation.
+- Sequence numbering and ordering guarantees across channel and event records.
 - Durability/sync defaults and guarantees.
 - Reader/tailer interface, cancellation, and replay-to-live transition semantics.
 - Log rotation/segmentation and size limits (whether required initially).
@@ -103,7 +108,7 @@ Confirm product requirements and trade-offs in discussion before documenting the
 - [x] Select built-in JSON serialization and NDJSON record framing.
 - [x] Define incomplete-final-record and complete-record-corruption recovery policy.
 - [ ] Finalize primitive allowlist and API edge cases.
-- [ ] Decide record envelope/versioning, durability, concurrency and tailing behaviour.
+- [ ] Finalize record envelope/versioning, durability, concurrency and tailing behaviour.
 - [ ] Update requirements and architecture docs with confirmed decisions.
 - [ ] Review consistency; close this cycle and prepare implementation-ready scope.
 
@@ -175,4 +180,14 @@ Confirm product requirements and trade-offs in discussion before documenting the
 - Example direction discussed: `UserCreated`, `UserEmailChanged`, and `UserDeleted` may all belong to a logical `users` channel.
 - This is a newly introduced requirement and must be considered in the event API, persisted record envelope, replay/filtering, and documentation. Do not assume the channel is necessarily a Go type or infer a concrete channel API before discussion.
 - The primitive-only selector constraint remains unchanged.
+- No implementation has started.
+
+
+## Design checkpoint — first-class channels — 2026-11-22
+
+- User confirmed channels are first-class persisted entities represented by consumer-defined structs, with a library-owned `Channel` interface analogous to `Event`; both expose `Fields() Fields` and use the same primitive-only field mechanism.
+- Creating a channel is explicit, persists a channel record, and returns its generated ID.
+- A channel must exist before an event is appended. Every event has a mandatory reference to an existing channel ID; channel-less events and implicit channel creation are not allowed.
+- Conceptual record shapes: channel record `{id, type, fields}`; event record `{id, channel: {id}, type, fields}`. These are design examples, not a finalized JSON schema.
+- Exact operation names/signatures, type identity encoding, validation, record envelope/versioning, and channel read/query semantics remain open.
 - No implementation has started.
