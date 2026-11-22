@@ -15,58 +15,65 @@
 - **Collaboration state:** Cycle 1 resumed. Execution lock active and verified on shared main for ChatGPT.
 - **Relevant environment:** No Go source or test suite discovered; project-specific commands remain unverified.
 
-
 ## Completed work
 
 - Inspected repository metadata and tree, README, steering policy, lifecycle README, lock and registry schemas/state, plan/handoff templates, requirements, architecture, coding standards, commands documentation, and workflows.
 - Initial assessment checkpoint persisted; cycle paused while awaiting product direction.
-- User confirmed general-purpose embedded event storage (Option C) as primary product direction.
-- User confirmed single-process ownership of a log file. Library may coordinate concurrent goroutines in that process.
-- User confirmed generic typed events (Option 3) as the public API direction; a codec/serialization boundary remains to be designed.
-- Resumed cycle 1; active lock claim commit ae5a99c863e19209c13692a4e39c4b9e1467d6d0 was fetched back and verified on remote main.
-- Registry moved to define; plan updated with confirmed direction and open questions.
+- User confirmed general-purpose embedded event storage (Option C).
+- User confirmed single-process ownership; concurrent goroutines may be coordinated inside the library.
+- Confirmed typed generic event API direction.
+- Confirmed consumer structs remain unrestricted and may contain runtime-only or sensitive fields, but eventlog must persist only the explicitly returned field set.
+- Replaced previous redaction approach with an explicit allowlist persistence contract.
+- Agreed consumers implement a library-owned `Event` interface returning `eventlog.Fields`.
+- `Fields` will hold heterogeneous primitive values, with generic `FieldOf` constraining values.
+- Preferred field-name API uses a typed selector (e.g. `FieldOf(func(v *UserCreated) *string { return &v.Name }, e)`) to derive names rather than manually supplied strings. This exact implementation is not finalized; reflection may be needed.
+- Initial serialization is built-in JSON; custom codecs/encoders/decoders are not in v1 scope.
+- Cycle 1 is active on main under lifecycle lock; no implementation started.
 
-## Decisions and constraints
+## Confirmed decisions and constraints
 
-- **Confirmed:** General-purpose embedded storage primitive, independent of domain semantics.
-- **Confirmed:** Single process owns a log at a time; internal coordination may support concurrent goroutines.
-- **Confirmed:** Generic typed events are the intended public API (Option 3).
-- **Confirmed redaction direction:** Consumers retain their original event struct and sensitive values; eventlog exposes type-safe field selectors without string names, performs redaction on an internal copy before encoding, and does not require consumers to clear fields. Exact selector API is still open.
-- **Proposed:** Generic log API with caller-supplied codec; binary framing, ordered replay, tailing, safe recovery of incomplete trailing records, configurable sync, stdlib-only dependencies.
-- **Open:** Codec interface, exact API, file format/versioning, durability, checksum, recovery/corruption, tail contract, segmentation, limits, portability, and performance goals.
-- **Constraints:** Main-only; one contributor at a time; lifecycle tracking; lock-first protocol; truthful verification; no branches/force pushes.
+- General-purpose embedded storage, independent of event/domain semantics.
+- Single process owns a log at a time; library may coordinate concurrent goroutines.
+- Consumer-defined struct types remain unconstrained; only their Event method's returned Fields are persisted.
+- Library Event interface and Fields container form the persistence allowlist.
+- Generic FieldOf constructor limits each value to approved primitive types.
+- Avoid string field names by deriving the name through a selector.
+- Built-in JSON serialization; no custom codec in initial scope.
+- Earlier redaction feature is superseded; security responsibility remains with consumers to expose only intended fields.
+
+## Proposed / open
+
+- Exact Go API and generic selector implementation, including reflection behavior.
+- Primitive type set and handling of named types, pointers, nullability, time values, and nested data.
+- On-disk framing, versioning, checksums, sequence and ordering.
+- Durability/sync defaults and guarantees.
+- Incomplete-tail and corruption recovery.
+- Replay/tailing API and replay-to-live behavior.
+- Segmentation/rotation, limits, portability and performance goals.
 
 ## Verification evidence
 
-| Check | Revision | Result | Evidence / limitation |
-|---|---|---|---|
-| Lock claim | ae5a99c863e19209c13692a4e39c4b9e1467d6d0 | Confirmed | Lock file fetched back from shared main and matched cycle/workflow/worker |
-| Registry resume | d84a4e9b8720fcf537eb98f750e31a37f38bf91f | Persisted | Cycle in-progress, phase define |
-| Plan checkpoint | 08686e648c358a0dcfb069198b95b0d10ba2a4d9 | Persisted | General-purpose scope, ownership, and generic event API direction captured |
-| Build/tests | — | Not run | No implementation exists |
+- Cycle lock claim and resume previously fetched back and confirmed.
+- Plan updated with current Event/Fields/selector/JSON direction in commit `885c6d3ccca35593e63dbd2e1493b57fd74577e9`.
+- Build/tests not run: implementation has not started.
 
 ## Documentation state
 
-- **Updated:** Lifecycle registry, cycle plan, handoff (this checkpoint).
-- **Still required:** Requirements and architecture docs after decisions; README bootstrap; commands doc after commands are verified.
-- **Audit boundary:** No implementation cycles completed; historical documentation audit not due.
-
-## Open issues, risks, and blockers
-
-- Codec contract and generic API design need confirmation before file format and operational guarantees can be finalized.
-- Risk: choosing a design prematurely without defining guarantees and trade-offs.
+- Updated cycle plan.
+- Handoff updated in this checkpoint.
+- Requirements and architecture documents will be reconciled once remaining decisions are confirmed.
+- No implementation or Go validation performed.
 
 ## Persisted phase checkpoint
 
 - **Current phase:** define
-- **Assess exit evidence:** Repository state and governance inspected; general-purpose storage, single-process ownership, and generic event API direction confirmed.
-- **Next concrete action:** Continue defining the codec API and design the exact type-safe redaction selector interface consistent with the newly confirmed behavior.
+- **Assess exit evidence:** Repository governance and initial state reviewed; general-purpose scope, single-process ownership, and explicit typed persistence allowlist confirmed.
+- **Next concrete action:** Validate feasibility and ergonomics of the generic field selector and settle the supported primitive representation, then proceed to operational guarantees.
 
 ## Uncommitted or unpushed work
 
-- None known; all repository changes were made through remote contents commits.
-
+- None known; remote contents API used.
 
 ## Continuation instructions
 
-Execution lock remains active for cycle 1. Continue define phase, confirm critical design decisions, and persist subsequent phase changes with synchronized registry/plan/handoff updates. Before stopping, checkpoint the handoff, release the lock on main, and verify the released lock remotely.
+Execution lock remains active for cycle 1. Continue the define phase and synchronize registry, plan, and handoff for each checkpoint. Do not begin implementation until design decisions and acceptance criteria are ready. Before stopping, checkpoint, release the lock on main, and verify the lock release.
