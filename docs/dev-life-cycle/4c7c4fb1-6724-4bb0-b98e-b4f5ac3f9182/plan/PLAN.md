@@ -20,25 +20,37 @@ The repository describes eventlog as a lightweight disk-backed append-only Go lo
 
 ## Confirmed product direction
 
-- **Primary scope:** General-purpose embedded event storage (Option C); the library should not depend on domain-specific event meanings or an event-sourcing framework.
-- **Ownership:** One process owns a log at a time. Multiple goroutines may use the library, but writes will be coordinated internally.
-- **Public event API direction:** Consumers implement a library-owned `Event` interface whose method returns `eventlog.Fields`. Eventlog persists only this explicit representation, not the consumer's full struct.
-- **Persistable fields:** `Fields` contains heterogeneous primitive values; a generic `FieldOf` constructor constrains each value to supported primitive types.
-- **Field names:** Consumers prefer type-safe field selectors (e.g. `FieldOf(func(v *UserCreated) *string { return &v.Name }, e`) to derive field identity rather than hand-written string names. The selector may require reflection internally; feasibility and implementation details remain to be validated.
-- **Serialization:** Built-in JSON persistence for initial scope; consumers are not expected to supply custom encoders/decoders.
-- **Redaction:** The earlier explicit redaction requirement is superseded by the Event allowlist contract. Consumers explicitly expose only persisted fields; eventlog does not inspect or redact their original structs.
-- **Redaction requirement:** Consumers keep their own event structs intact, including sensitive fields. Eventlog must offer an easy, type-safe field-selector redaction API (not string field names); it must redact an internal copy before serialization so the caller's original event is unchanged and sensitive values are never persisted.
-- **Design intent:** Keep it reusable and small, with a simple reliability-focused API.
+- **Primary scope:** General-purpose embedded event storage; independent of domain semantics and event-sourcing frameworks.
+- **Ownership:** One process owns a log at a time. Multiple goroutines may concurrently use the library; writes are coordinated internally.
+- **Public event API:** Consumers implement a library-owned Event interface returning eventlog.Fields.
+- **Persistence allowlist:** Consumer event structs remain unrestricted. Only the explicitly returned Fields are persisted; eventlog does not inspect, serialize, or redact the full event struct.
+- **Fields:** Heterogeneous primitive values.
+- **Field construction:** Generic FieldOf selector constrains selected values to supported primitive types and derives the field name from a typed selector rather than a manually supplied string.
+- **Named primitive types:** Supported when their underlying type is in the primitive allowlist (e.g. type UserID string, type AccountBalance int64, type IsActive bool). Exact allowlist remains to be finalized.
+- **API direction:**
+  ```go
+  type Event interface {
+      Fields() Fields
+  }
 
-These are confirmed product direction decisions, not yet detailed API or file-format decisions.
+  type Fields []Field
 
+  func FieldOf[T any, V Primitive](
+      selector func(*T) *V,
+      event *T,
+  ) Field
+  ```
+  This is the agreed API direction; implementation details, including selector name resolution, remain to be validated.
+- **Serialization:** Built-in JSON persistence for v1; no custom codecs.
+- **Record framing:** Newline-delimited JSON (NDJSON), one JSON event record per line, terminated by a newline.
+- **Redaction:** The earlier redaction feature is superseded by the explicit Event/Fields allowlist contract. Consumers decide which fields to expose; eventlog persists only those fields.
 
 ## Scope
 
 ### In scope
 - Establish product goals, workload assumptions, guarantees, and non-goals.
 - Define append, replay/read, recovery, and tailing semantics.
-- Compare storage framing/encoding, durability, concurrency, and API options.
+- Define record representation, durability, concurrency, and API behaviour.
 - Record approved requirements and design decisions in maintained project documentation.
 
 ### Out of scope
@@ -56,21 +68,21 @@ These are confirmed product direction decisions, not yet detailed API or file-fo
 
 ## Open decisions
 
-- Exact implementation of the generic selector and field-name discovery (Go has no built-in `nameof`; likely reflection-based selector resolution).
-- Event contract and `Fields` concrete representation; selector API implementation and reflection trade-offs remain to be finalized.
-- Public generic API shape and error behavior.
-- On-disk framing, metadata, checksums, and format/version strategy.
+- Exact implementation of the generic selector and field-name discovery (Go has no built-in nameof; likely reflection-based selector resolution).
+- Exact primitive allowlist and handling of nullable values.
+- Public API error behaviour and validation of Fields.
+- Record envelope/schema metadata and format versioning.
 - Sequence numbering, record identity, and ordering guarantees.
-- Durability defaults and configurable sync policy.
-- Corruption and incomplete-tail recovery behavior.
+- Durability/sync defaults and guarantees.
+- Corruption and incomplete-tail recovery behaviour.
 - Reader/tailer interface, cancellation, and replay-to-live transition semantics.
 - Log rotation/segmentation and size limits (whether required initially).
 - Portability expectations and performance goals.
 
 ## Proposed baseline (not yet approved)
 
-- Library-owned `Event` contract returning `Fields`; `FieldOf` uses generic primitive constraints and selector-derived names. JSON is built-in; no custom codec in initial scope.
-- Append-only binary record format with explicit framing.
+- Library-owned Event contract returning Fields; FieldOf uses generic primitive constraints and selector-derived names. JSON is built-in; no custom codec in initial scope.
+- NDJSON framing, one complete JSON record per newline-terminated line.
 - Strict sequence ordering.
 - Sequential replay and a tail mode.
 - Safe recovery from incomplete trailing records.
@@ -86,12 +98,13 @@ Confirm product requirements and trade-offs in discussion before documenting the
 
 - [x] Establish primary workload direction and ownership model.
 - [x] Select typed generic events as public API direction.
-- [ ] Define `Event` interface, `Fields` representation, and `FieldOf` generic selector contract.
-- [x] Replace redaction design with explicit allowlist `Event` contract.
-- [ ] Decide framing, durability, recovery, concurrency and tailing behavior.
+- [x] Define Event interface and Fields/FieldOf API direction.
+- [x] Replace redaction design with explicit allowlist Event contract.
+- [x] Select built-in JSON serialization and NDJSON record framing.
+- [ ] Finalize primitive allowlist and API edge cases.
+- [ ] Decide record envelope/versioning, durability, recovery, concurrency and tailing behaviour.
 - [ ] Update requirements and architecture docs with confirmed decisions.
 - [ ] Review consistency; close this cycle and prepare implementation-ready scope.
-
 
 ## Acceptance criteria
 
@@ -111,18 +124,18 @@ Confirm product requirements and trade-offs in discussion before documenting the
 
 - **Current phase:** define
 - **Assess exit evidence:** Repository scaffold and governance were inspected; purpose, current state, risks, unknowns, and decision areas identified sufficiently to define. User confirmed general-purpose embedded storage, single-process ownership, and an explicit Event/Fields persistence allowlist contract.
-- **Next concrete action:** Define codec contract options and API shape, then confirm encoding approach.
-- **Last updated:** 2026-11-22T14:39:08Z
-
+- **Next concrete action:** Resolve the remaining record envelope, durability, recovery, and reader/tailer decisions before promoting the approved design to project documentation.
+- **Last updated:** 2026-11-22T16:00:00Z
 
 ## Progress and decisions
 
 - Cycle 1 resumed; execution lock claim confirmed on shared main.
-- Confirmed: general-purpose embedded event storage (Option C).
-- Confirmed: single process owns a log; in-process concurrent access can be coordinated by the library.
-- Confirmed: consumers implement a library-defined Event interface returning Fields; generic FieldOf selectors identify fields without strings. Built-in JSON serialization; no custom codecs planned for v1.
-- Proposals are recorded as proposals pending approval; no implementation performed.
-
+- Confirmed general-purpose embedded event storage and single-process ownership, with concurrent goroutine access coordinated internally.
+- Confirmed consumer-defined Event structs expose an explicit Fields allowlist; only those fields are persisted.
+- Confirmed generic FieldOf selector API direction, primitive-only selected values, and named primitive types when their underlying type is allowed.
+- Confirmed built-in JSON serialization and NDJSON framing (one JSON record per newline-terminated line).
+- The earlier redaction design is superseded; no full-struct inspection or automatic redaction is required.
+- No implementation, build, or Go tests have started.
 
 ## Completion review
 
