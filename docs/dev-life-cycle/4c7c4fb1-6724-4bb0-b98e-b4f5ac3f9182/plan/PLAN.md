@@ -263,3 +263,10 @@ Confirm product requirements and trade-offs in discussion before documenting the
 - Therefore, equal field-name/value/type sets produce the same canonical field representation regardless of input order.
 - The encoding must still define deterministic ordering for field names (bytewise UTF-8 ordering is the proposed rule) and reject duplicate field names rather than silently choosing one.
 - No implementation, build, or Go tests have started.
+
+
+## Design checkpoint — field-name validation — 2026-11-22
+
+- **User approved:** field names are case-sensitive; empty names are invalid; duplicate names are rejected; names are not trimmed or normalized. Thus names differing only by case are distinct (for example, `userID` and `userid`).
+- Canonical sorting remains deterministic bytewise UTF-8 ordering by field name.
+- No implementation, build, or Go tests have started.
