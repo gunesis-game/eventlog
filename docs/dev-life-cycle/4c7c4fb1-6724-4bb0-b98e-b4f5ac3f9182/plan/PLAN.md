@@ -21,10 +21,12 @@ The repository describes eventlog as a lightweight disk-backed append-only Go lo
 ## Confirmed product direction
 
 - **Primary scope:** General-purpose embedded event storage (Option C); the library should not depend on domain-specific event meanings or an event-sourcing framework.
-- **Ownership:** One process owns a log at a time. Multiple goroutines may use the library, but writes are coordinated internally.
+- **Ownership:** One process owns a log at a time. Multiple goroutines may use the library, but writes will be coordinated internally.
+- **Public event API direction:** Generic typed events (Option 3). Users work with Go event types rather than raw bytes. A serialization/codec boundary is required to persist and restore the type.
 - **Design intent:** Keep it reusable and small, with a simple reliability-focused API.
 
 These are confirmed product direction decisions, not yet detailed API or file-format decisions.
+
 
 ## Scope
 
@@ -49,7 +51,8 @@ These are confirmed product direction decisions, not yet detailed API or file-fo
 
 ## Open decisions
 
-- Public API shape and whether events are opaque byte payloads.
+- Codec interface: built-in serialization versus caller-supplied codec.
+- Public generic API shape and error behavior.
 - On-disk framing, metadata, checksums, and format/version strategy.
 - Sequence numbering, record identity, and ordering guarantees.
 - Durability defaults and configurable sync policy.
@@ -60,6 +63,7 @@ These are confirmed product direction decisions, not yet detailed API or file-fo
 
 ## Proposed baseline (not yet approved)
 
+- Generic API with a caller-selected or injected codec to encode/decode T; avoid forcing a serialization format on the storage library.
 - Append-only binary record format with explicit framing.
 - Strict sequence ordering.
 - Sequential replay and a tail mode.
@@ -75,11 +79,12 @@ Confirm product requirements and trade-offs in discussion before documenting the
 ## Ordered tasks
 
 - [x] Establish primary workload direction and ownership model.
-- [ ] Define payload representation and event write/read contract.
+- [x] Select typed generic events as public API direction.
+- [ ] Define codec contract and event write/read API.
 - [ ] Decide framing, durability, recovery, concurrency and tailing behavior.
-- [ ] Define initial API shape and error behavior.
 - [ ] Update requirements and architecture docs with confirmed decisions.
 - [ ] Review consistency; close this cycle and prepare implementation-ready scope.
+
 
 ## Acceptance criteria
 
@@ -98,16 +103,19 @@ Confirm product requirements and trade-offs in discussion before documenting the
 ## Persisted phase checkpoint
 
 - **Current phase:** define
-- **Assess exit evidence:** Repository scaffold and governance were inspected; purpose, current state, risks, unknowns, and decision areas identified. User confirmed general-purpose embedded storage and single-process ownership.
-- **Next concrete action:** Work through the remaining product/design decisions with recommendations and user confirmation.
+- **Assess exit evidence:** Repository scaffold and governance were inspected; purpose, current state, risks, unknowns, and decision areas identified sufficiently to define. User confirmed general-purpose embedded storage, single-process ownership, and typed generic events.
+- **Next concrete action:** Define codec contract options and API shape, then confirm encoding approach.
 - **Last updated:** 2026-11-22T14:39:08Z
+
 
 ## Progress and decisions
 
-- Cycle 1 claimed and resumed; execution lock claim confirmed on shared main.
+- Cycle 1 resumed; execution lock claim confirmed on shared main.
 - Confirmed: general-purpose embedded event storage (Option C).
 - Confirmed: single process owns a log; in-process concurrent access can be coordinated by the library.
+- Confirmed: public API direction uses generic typed events (Option 3); codec is still open.
 - Proposals are recorded as proposals pending approval; no implementation performed.
+
 
 ## Completion review
 
