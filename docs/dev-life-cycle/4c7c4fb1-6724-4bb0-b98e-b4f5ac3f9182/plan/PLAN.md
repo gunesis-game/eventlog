@@ -22,7 +22,11 @@ The repository describes eventlog as a lightweight disk-backed append-only Go lo
 
 - **Primary scope:** General-purpose embedded event storage (Option C); the library should not depend on domain-specific event meanings or an event-sourcing framework.
 - **Ownership:** One process owns a log at a time. Multiple goroutines may use the library, but writes will be coordinated internally.
-- **Public event API direction:** Generic typed events (Option 3). Users work with Go event types rather than raw bytes. A serialization/codec boundary is required to persist and restore the type.
+- **Public event API direction:** Consumers implement a library-owned `Event` interface whose method returns `eventlog.Fields`. Eventlog persists only this explicit representation, not the consumer's full struct.
+- **Persistable fields:** `Fields` contains heterogeneous primitive values; a generic `FieldOf` constructor constrains each value to supported primitive types.
+- **Field names:** Consumers prefer type-safe field selectors (e.g. `FieldOf(func(v *UserCreated) *string { return &v.Name }, e`) to derive field identity rather than hand-written string names. The selector may require reflection internally; feasibility and implementation details remain to be validated.
+- **Serialization:** Built-in JSON persistence for initial scope; consumers are not expected to supply custom encoders/decoders.
+- **Redaction:** The earlier explicit redaction requirement is superseded by the Event allowlist contract. Consumers explicitly expose only persisted fields; eventlog does not inspect or redact their original structs.
 - **Redaction requirement:** Consumers keep their own event structs intact, including sensitive fields. Eventlog must offer an easy, type-safe field-selector redaction API (not string field names); it must redact an internal copy before serialization so the caller's original event is unchanged and sensitive values are never persisted.
 - **Design intent:** Keep it reusable and small, with a simple reliability-focused API.
 
@@ -52,8 +56,8 @@ These are confirmed product direction decisions, not yet detailed API or file-fo
 
 ## Open decisions
 
-- Codec interface: built-in serialization versus caller-supplied codec.
-- Redaction API details: approved direction is type-safe field selection without string names; library performs redaction on an internal copy before encoding. Exact selector API and generic implementation details remain open.
+- Exact implementation of the generic selector and field-name discovery (Go has no built-in `nameof`; likely reflection-based selector resolution).
+- Event contract and `Fields` concrete representation; selector API implementation and reflection trade-offs remain to be finalized.
 - Public generic API shape and error behavior.
 - On-disk framing, metadata, checksums, and format/version strategy.
 - Sequence numbering, record identity, and ordering guarantees.
@@ -65,7 +69,7 @@ These are confirmed product direction decisions, not yet detailed API or file-fo
 
 ## Proposed baseline (not yet approved)
 
-- Generic API with a caller-selected or injected codec to encode/decode T; avoid forcing a serialization format on the storage library.
+- Library-owned `Event` contract returning `Fields`; `FieldOf` uses generic primitive constraints and selector-derived names. JSON is built-in; no custom codec in initial scope.
 - Append-only binary record format with explicit framing.
 - Strict sequence ordering.
 - Sequential replay and a tail mode.
@@ -82,8 +86,8 @@ Confirm product requirements and trade-offs in discussion before documenting the
 
 - [x] Establish primary workload direction and ownership model.
 - [x] Select typed generic events as public API direction.
-- [ ] Define codec contract and event write/read API.
-- [ ] Design and specify the type-safe redaction field-selector API, including how redaction works on a copy.
+- [ ] Define `Event` interface, `Fields` representation, and `FieldOf` generic selector contract.
+- [x] Replace redaction design with explicit allowlist `Event` contract.
 - [ ] Decide framing, durability, recovery, concurrency and tailing behavior.
 - [ ] Update requirements and architecture docs with confirmed decisions.
 - [ ] Review consistency; close this cycle and prepare implementation-ready scope.
@@ -106,7 +110,7 @@ Confirm product requirements and trade-offs in discussion before documenting the
 ## Persisted phase checkpoint
 
 - **Current phase:** define
-- **Assess exit evidence:** Repository scaffold and governance were inspected; purpose, current state, risks, unknowns, and decision areas identified sufficiently to define. User confirmed general-purpose embedded storage, single-process ownership, and typed generic events.
+- **Assess exit evidence:** Repository scaffold and governance were inspected; purpose, current state, risks, unknowns, and decision areas identified sufficiently to define. User confirmed general-purpose embedded storage, single-process ownership, and an explicit Event/Fields persistence allowlist contract.
 - **Next concrete action:** Define codec contract options and API shape, then confirm encoding approach.
 - **Last updated:** 2026-11-22T14:39:08Z
 
@@ -116,7 +120,7 @@ Confirm product requirements and trade-offs in discussion before documenting the
 - Cycle 1 resumed; execution lock claim confirmed on shared main.
 - Confirmed: general-purpose embedded event storage (Option C).
 - Confirmed: single process owns a log; in-process concurrent access can be coordinated by the library.
-- Confirmed: public API direction uses generic typed events (Option 3); codec is still open.
+- Confirmed: consumers implement a library-defined Event interface returning Fields; generic FieldOf selectors identify fields without strings. Built-in JSON serialization; no custom codecs planned for v1.
 - Proposals are recorded as proposals pending approval; no implementation performed.
 
 
