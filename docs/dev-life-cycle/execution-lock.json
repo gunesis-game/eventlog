@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "status": "locked",
-  "cycle_id": "4c7c4fb1-6724-4bb0-b98e-b4f5ac3f9182",
-  "workflow": "standard",
-  "worker_id": "ChatGPT",
-  "claimed_at": "2026-11-22T20:31:58+02:00",
-  "released_at": null,
-  "release_evidence": null
+  "status": "released",
+  "cycle_id": null,
+  "workflow": null,
+  "worker_id": null,
+  "claimed_at": null,
+  "released_at": "2026-11-22T20:51:00+02:00",
+  "release_evidence": "Cycle 1 paused in define for session handoff. Handoff checkpoint commit 8e8c99aec79dd7525575b4d0a20fd5ab37fbd4a4; registry pause commit 5e9172aa8f4cca2a1026f713b9bd7495063237dc."
 }
