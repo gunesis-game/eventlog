@@ -121,3 +121,13 @@ Cycle 1 is paused for handoff and the execution lock is released. A new session 
 - **Unresolved next discussion:** durability policy. The previous session was asked whether to sync every append or buffer and sync periodically; the user has not answered yet.
 - Other open topics: exact primitive allowlist and selector behaviour, record envelope/versioning, ordering, replay/tailing API, portability/performance, and docs reconciliation.
 - **Next action:** new session claims execution lock, reads this handoff and plan, then continues with the durability decision.
+
+
+## New-session resume checkpoint — 2026-11-22T15:37:30Z
+
+- The released lock was claimed on `main` by ChatGPT in lock-only commit `c9b6f4e803ad0cb01f2e6585d3ec3f7630dc4c2b`; the active lock was fetched back and confirmed.
+- The cycle registry was then changed from `paused` to `in-progress` in commit `fdb815fcb587cd1303a562f6e64c4881162c29c9`. The cycle remains in `define`.
+- User's latest API clarification: retain the simple selector approach; selector values must be primitive. A selector for a nested struct such as `*Address` is unsupported; do not add complexity to support it.
+- No implementation, build, or Go tests have started.
+- The previous checkpoint says the next unresolved decision is durability: sync each append versus buffered/periodic sync. The intervening short agreement replies are not mapped to a specific proposal in the persisted record, so do not infer a durability choice from them.
+- Continue the define phase by confirming durability, then resolve remaining record envelope/versioning and replay/tailing guarantees before updating product requirements and architecture.
