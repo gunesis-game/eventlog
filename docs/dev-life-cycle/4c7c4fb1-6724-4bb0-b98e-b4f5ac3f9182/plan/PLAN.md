@@ -313,3 +313,13 @@ Confirm product requirements and trade-offs in discussion before documenting the
 - Use a fixed eventlog namespace, with distinct domain prefixes for channel IDs and event IDs so the two ID classes cannot collide by kind.
 - UUID v5 derivation uses the approved canonical identity bytes as its name input; details of exact byte composition and the concrete namespace UUID remain to be recorded.
 - No implementation, build, or Go tests have started.
+
+
+## Design checkpoint — segment-first, rebuildable index — 2026-11-22
+
+- **User approved:** write the segment record first, then update the index. Segment data is the source of truth; the index is a replaceable performance cache and must be rebuildable from segments.
+- Re-appending an existing event writes another physical occurrence; index logic promotes the event to global HEAD without duplicating the logical event, retaining channel associations.
+- Recovery scans segment records to reconstruct index state and logical order; latest occurrence provides promotion/order evidence, so no separate promotion record is required for this design.
+- Index file updates should use atomic replacement to avoid partial index state after a crash.
+- Sync/durability policy remains buffered/periodic; detailed sync and atomic-replacement protocol are still open.
+- No implementation, build, or Go tests have started.
