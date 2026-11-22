@@ -270,3 +270,11 @@ Confirm product requirements and trade-offs in discussion before documenting the
 - **User approved:** field names are case-sensitive; empty names are invalid; duplicate names are rejected; names are not trimmed or normalized. Thus names differing only by case are distinct (for example, `userID` and `userid`).
 - Canonical sorting remains deterministic bytewise UTF-8 ordering by field name.
 - No implementation, build, or Go tests have started.
+
+
+## Design checkpoint — nullable primitive fields — 2026-11-22
+
+- **User approved:** nullable primitive fields are supported in v1. A nil pointer represents null and is distinct from zero, false, and empty string.
+- Canonical identity encoding must include an explicit null marker, distinct from any concrete value encoding.
+- Nullable fields follow the same primitive allowlist, named-type, float validation, and deterministic field-name rules.
+- No implementation, build, or Go tests have started.
