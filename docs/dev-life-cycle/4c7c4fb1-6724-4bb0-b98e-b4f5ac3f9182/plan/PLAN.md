@@ -228,3 +228,11 @@ Confirm product requirements and trade-offs in discussion before documenting the
 - **Segment metadata/checksums:** file references and checksums were discussed as useful index/segment metadata; exact checksum scope and format remain open.
 - **Implementation state:** no implementation, build, or Go tests have started. Work remains in `define`.
 - **Next-session instructions:** claim the execution lock; read this plan and handoff; continue defining canonical identity encoding/UUID derivation, global ordering/promotion records, segment recovery/compaction, and the rebuildable index format. Do not start implementation until the cycle's critical design and acceptance criteria are complete.
+
+
+## Design checkpoint — floating-point fields — 2026-11-22
+
+- **User decision confirmed:** the primitive field allowlist must include floating-point values; float32 and float64 are in scope. Named types whose underlying type is one of these floating-point types are included under the existing named-primitive rule.
+- The primitive allowlist is therefore not limited to strings, booleans, and integer types.
+- **Still open:** define the handling of NaN and positive/negative infinity, negative zero, and canonical floating-point encoding for deterministic event/channel IDs. JSON has no standard representation for non-finite numbers, so the persistence and validation contract must address these explicitly before implementation.
+- No implementation, build, or Go tests have started.
