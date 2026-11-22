@@ -166,3 +166,13 @@ Confirm product requirements and trade-offs in discussion before documenting the
 - Additional user clarification from the prior session: keep the field-selection API simple; selectors target primitive fields only. A selector returning a pointer to a nested struct (for example `*Address`) is not supported and must not be made to compile through extra generic abstractions. Keep selected values within the primitive allowlist.
 - No implementation has started.
 - The previous handoff's durability question remains the next unresolved question unless the user's intervening agreement messages are clarified.
+
+
+## Design checkpoint — channel concept and durability — 2026-11-22
+
+- **Durability decision confirmed:** buffered/periodic synchronization. Each append is not required to synchronously force the record to disk. The exact sync trigger/interval, flush API, close semantics, and crash-loss window remain open design details.
+- **New product concept introduced:** every event belongs to a channel. A channel groups related events even when those events are represented by different consumer-defined Go struct types. Channel identity and lifecycle/API semantics are not yet finalized.
+- Example direction discussed: `UserCreated`, `UserEmailChanged`, and `UserDeleted` may all belong to a logical `users` channel.
+- This is a newly introduced requirement and must be considered in the event API, persisted record envelope, replay/filtering, and documentation. Do not assume the channel is necessarily a Go type or infer a concrete channel API before discussion.
+- The primitive-only selector constraint remains unchanged.
+- No implementation has started.
