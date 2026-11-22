@@ -5,7 +5,7 @@
 - **Cycle UUID:** 4c7c4fb1-6724-4bb0-b98e-b4f5ac3f9182
 - **Sequence:** 1
 - **Execution order:** 1
-- **Status:** paused
+- **Status:** in-progress
 - **Status reason:** null
 - **Current phase:** define
 - **Created:** 2026-11-22T16:00:00+02:00
@@ -203,3 +203,13 @@ Confirm product requirements and trade-offs in discussion before documenting the
 - Buffered/periodic sync is confirmed; cadence, flush/close semantics, and crash-loss window remain open.
 - **Next discussion:** decide how the generated channel ID is passed into event append, then continue record envelope/versioning, channel/event API, primitive allowlist, and replay/tailing decisions.
 - **Resume:** the next session must claim the execution lock before continuing.
+
+
+## Resume checkpoint — 2026-11-22T16:25:00Z
+
+- The execution lock was claimed in lock-only commit c8020efbb2bdeaa63cfbb2fd40fae6e3ce2b824c and fetched back from `main`; the active lock names ChatGPT and this cycle.
+- The registry was resumed to `in-progress` in commit 3b45d73a949d6a0c0311390e54c42aff90d286bb. The cycle remains in `define`.
+- No local checkout or working-tree state is available in this session; repository reads and writes are being performed against the remote `main` branch through GitHub.
+- No implementation, build, or Go tests have started.
+- Latest user decisions remain: Channel is a struct/interface analogous to Event; channel creation is explicit and returns its generated ID; every event requires an existing channel; selectors remain primitive-only.
+- **Next discussion:** settle how the generated channel ID is supplied to the event append operation before finalizing record envelope/versioning and replay/tailing semantics.
