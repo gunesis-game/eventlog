@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "status": "active",
-  "cycle_id": "4c7c4fb1-6724-4bb0-b98e-b4f5ac3f9182",
-  "workflow": "standard",
-  "worker_id": "ChatGPT",
-  "claimed_at": "2026-11-22T15:23:56.072Z",
-  "released_at": null,
-  "release_evidence": null
+  "status": "released",
+  "cycle_id": null,
+  "workflow": null,
+  "worker_id": null,
+  "claimed_at": null,
+  "released_at": "2026-11-22T15:37:13.367Z",
+  "release_evidence": "Released at the user's request for continuation in a new session. Cycle 1 plan and handoff checkpointed; cycle registry set to paused. New session must claim lock before continuing."
 }
