@@ -255,3 +255,11 @@ Confirm product requirements and trade-offs in discussion before documenting the
 - Floating-point constraints remain: reject NaN and infinities; preserve IEEE-754 width and value; preserve the distinction between positive and negative zero in canonical identity and persistence.
 - The `Fields` API remains primitive-only; selectors for nested structs are unsupported.
 - No implementation, build, or Go tests have started.
+
+
+## Design checkpoint — canonical field ordering — 2026-11-22
+
+- **User approved:** canonical identity encoding ignores the order in which fields are returned or declared. Fields are sorted by field name before canonical encoding.
+- Therefore, equal field-name/value/type sets produce the same canonical field representation regardless of input order.
+- The encoding must still define deterministic ordering for field names (bytewise UTF-8 ordering is the proposed rule) and reject duplicate field names rather than silently choosing one.
+- No implementation, build, or Go tests have started.
