@@ -48,8 +48,9 @@
 ## Proposed / open
 
 - Exact primitive allowlist and nullable value behaviour.
+- Exact Channel interface/API and explicit create operation signatures; channel type identity encoding and channel read/query semantics.
 - Exact Go selector implementation, field-name resolution, and API error behaviour.
-- Record envelope/schema metadata and format-version strategy.
+- Record envelope/schema metadata and format-version strategy, including channel records and mandatory event channel references.
 - Sequence numbering, record identity, and ordering.
 - Durability/sync defaults and guarantees.
 - Replay/tailing API, cancellation, and replay-to-live behaviour.
@@ -142,3 +143,13 @@ Cycle 1 is paused for handoff and the execution lock is released. A new session 
 - Existing decisions remain: primitive-only FieldOf selectors; Event/Fields allowlist; JSON/NDJSON; truncate only an incomplete unterminated suffix and fail on malformed complete records.
 - No implementation, build, or Go tests have started.
 - **Next discussion:** clarify what a channel represents operationally and how callers associate an event with one.
+
+
+## First-class channel decision — 2026-11-22
+
+- A channel is a persisted entity, not merely a string label or append-time grouping parameter.
+- Consumers represent channels with their own structs implementing a library-owned `Channel` interface analogous to `Event`; both expose `Fields() Fields` and use the same primitive-only field-selection mechanism.
+- Channel creation is explicit and returns the generated channel ID after persisting its channel record.
+- Events require an existing channel. Every event record references the channel ID; channel-less events and implicit channel creation are disallowed.
+- Conceptual record shapes: channel `{id, type, fields}`; event `{id, channel: {id}, type, fields}`. Exact schema and API signatures remain open.
+- Next: settle record envelope/versioning and channel/event API details, then reconcile requirements and architecture docs. No implementation has started.
