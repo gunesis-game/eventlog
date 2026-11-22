@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "status": "unlocked",
+  "status": "locked",
   "cycle_id": "4c7c4fb1-6724-4bb0-b98e-b4f5ac3f9182",
   "workflow": "standard",
-  "worker_id": null,
-  "claimed_at": null,
-  "released_at": "2026-11-22T20:24:00+02:00",
-  "release_evidence": "User requested project unlock to continue in a new session."
+  "worker_id": "ChatGPT",
+  "claimed_at": "2026-11-22T20:31:58+02:00",
+  "released_at": null,
+  "release_evidence": null
 }
