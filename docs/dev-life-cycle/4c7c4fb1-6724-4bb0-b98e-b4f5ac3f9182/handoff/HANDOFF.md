@@ -6,7 +6,7 @@
 - **Objective:** Define eventlog's initial product requirements and core design decisions before implementation.
 - **Registry status:** in-progress
 - **Persisted phase:** define
-- **Last updated:** 2026-11-22T15:24:15.040Z
+- **Last updated:** 2026-11-22T16:00:00Z
 
 ## Current repository state
 
@@ -19,56 +19,60 @@
 
 - Inspected repository metadata and tree, README, steering policy, lifecycle README, lock and registry schemas/state, plan/handoff templates, requirements, architecture, coding standards, commands documentation, and workflows.
 - Initial assessment checkpoint persisted; cycle paused while awaiting product direction.
-- User confirmed general-purpose embedded event storage (Option C).
+- User confirmed general-purpose embedded event storage.
 - User confirmed single-process ownership; concurrent goroutines may be coordinated inside the library.
-- Confirmed typed generic event API direction.
-- Confirmed consumer structs remain unrestricted and may contain runtime-only or sensitive fields, but eventlog must persist only the explicitly returned field set.
-- Replaced previous redaction approach with an explicit allowlist persistence contract.
-- Agreed consumers implement a library-owned `Event` interface returning `eventlog.Fields`.
-- `Fields` will hold heterogeneous primitive values, with generic `FieldOf` constraining values.
-- Preferred field-name API uses a typed selector (e.g. `FieldOf(func(v *UserCreated) *string { return &v.Name }, e)`) to derive names rather than manually supplied strings. This exact implementation is not finalized; reflection may be needed.
-- Initial serialization is built-in JSON; custom codecs/encoders/decoders are not in v1 scope.
-- Cycle 1 is active on main under lifecycle lock; no implementation started.
+- Confirmed typed generic event API direction: consumers implement a library-owned Event interface returning eventlog.Fields.
+- Confirmed consumer event structs remain unrestricted and may contain runtime-only or sensitive fields, but eventlog persists only the explicitly returned Fields.
+- Confirmed Fields holds heterogeneous primitive values and FieldOf constrains selected values to the approved primitive set.
+- Confirmed field identity is derived from a typed selector rather than a hand-written string; reflection may be needed internally.
+- Confirmed named types are supported when their underlying type remains within the primitive allowlist (e.g. UserID string, AccountBalance int64, IsActive bool). Exact allowlist still needs final confirmation.
+- Confirmed built-in JSON serialization for v1; custom codecs/encoders/decoders are not in v1 scope.
+- Confirmed newline-delimited JSON (NDJSON): one JSON record per line, terminated by a newline.
+- The previous redaction design is superseded by the explicit Event/Fields allowlist contract; eventlog does not inspect or redact source event structs.
+- Cycle 1 remains active on main in define phase; no implementation started.
 
 ## Confirmed decisions and constraints
 
 - General-purpose embedded storage, independent of event/domain semantics.
 - Single process owns a log at a time; library may coordinate concurrent goroutines.
-- Consumer-defined struct types remain unconstrained; only their Event method's returned Fields are persisted.
+- Consumer-defined event structs remain unconstrained; only their Event method's returned Fields are persisted.
 - Library Event interface and Fields container form the persistence allowlist.
-- Generic FieldOf constructor limits each value to approved primitive types.
-- Avoid string field names by deriving the name through a selector.
+- Generic FieldOf constructor limits each selected value to primitive types; named primitive types are supported when their underlying type is in the allowlist.
+- Avoid manually supplied string field names; derive names from typed selectors.
 - Built-in JSON serialization; no custom codec in initial scope.
-- Earlier redaction feature is superseded; security responsibility remains with consumers to expose only intended fields.
+- NDJSON record framing: one JSON record followed by a newline.
+- Earlier redaction feature is superseded; consumers explicitly expose only intended fields.
 
 ## Proposed / open
 
-- Exact Go API and generic selector implementation, including reflection behavior.
-- Primitive type set and handling of named types, pointers, nullability, time values, and nested data.
-- On-disk framing, versioning, checksums, sequence and ordering.
+- Exact primitive allowlist and nullable value behaviour.
+- Exact Go selector implementation, field-name resolution, and API error behaviour.
+- Record envelope/schema metadata and format-version strategy.
+- Sequence numbering, record identity, and ordering.
 - Durability/sync defaults and guarantees.
-- Incomplete-tail and corruption recovery.
-- Replay/tailing API and replay-to-live behavior.
-- Segmentation/rotation, limits, portability and performance goals.
+- Incomplete trailing record and corruption recovery.
+- Replay/tailing API, cancellation, and replay-to-live behaviour.
+- Segmentation/rotation, record limits, portability, and performance goals.
 
 ## Verification evidence
 
 - Cycle lock claim and resume previously fetched back and confirmed.
-- Plan updated with current Event/Fields/selector/JSON direction in commit `885c6d3ccca35593e63dbd2e1493b57fd74577e9`.
-- Build/tests not run: implementation has not started.
+- Previous plan checkpoint was persisted; the latest plan update records the confirmed Event/Fields/FieldOf, JSON, and NDJSON decisions.
+- No implementation, build, or Go tests were run because the cycle remains in define.
+- The lifecycle validator has not yet been run in this checkpoint.
 
 ## Documentation state
 
-- Updated cycle plan.
-- Handoff updated in this checkpoint.
-- Requirements and architecture documents will be reconciled once remaining decisions are confirmed.
+- Cycle plan updated with confirmed API and NDJSON decisions; stale redaction wording removed.
+- Handoff updated to reflect current decisions and remaining open questions.
+- Requirements and architecture documents remain placeholders and will be reconciled after the operational contract is finalized.
 - No implementation or Go validation performed.
 
 ## Persisted phase checkpoint
 
 - **Current phase:** define
-- **Assess exit evidence:** Repository governance and initial state reviewed; general-purpose scope, single-process ownership, and explicit typed persistence allowlist confirmed.
-- **Next concrete action:** Validate feasibility and ergonomics of the generic field selector and settle the supported primitive representation, then proceed to operational guarantees.
+- **Assess exit evidence:** Repository governance and initial state reviewed; general-purpose scope, single-process ownership, explicit typed persistence allowlist, built-in JSON, and NDJSON framing confirmed.
+- **Next concrete action:** Resolve the primitive allowlist and operational guarantees: record envelope/versioning, durability, incomplete-tail recovery, and replay/tailing semantics.
 
 ## Uncommitted or unpushed work
 
@@ -77,7 +81,6 @@
 ## Continuation instructions
 
 Execution lock remains active for cycle 1. Continue the define phase and synchronize registry, plan, and handoff for each checkpoint. Do not begin implementation until design decisions and acceptance criteria are ready. Before stopping, checkpoint, release the lock on main, and verify the lock release.
-
 
 ## Unexpected-worker termination recovery checkpoint
 
@@ -90,7 +93,6 @@ Execution lock remains active for cycle 1. Continue the define phase and synchro
 - **Next action:** Resume cycle 4c7c4fb1-6724-4bb0-b98e-b4f5ac3f9182 in the define phase after a fresh lock claim is published and confirmed on shared main.
 - **Recovery disposition:** Cycle temporarily marked paused while the terminated worker's lock is released; cycle identity, sequence, execution order, timestamps, and phase are preserved.
 
-
 ## Recovery completed and cycle resumed
 
 - **Resumed at:** 2026-11-22T15:24:15.040Z
@@ -99,3 +101,10 @@ Execution lock remains active for cycle 1. Continue the define phase and synchro
 - A fresh active lock for this same cycle was committed and fetched back from shared main before the registry was returned to in-progress.
 - **Current owner:** ChatGPT; **current phase:** define; **implementation:** not started.
 - Continue by resolving the outstanding API and storage design questions listed above. Do not begin implementation until the critical decisions and acceptance criteria are ready.
+
+## Latest design checkpoint
+
+- **Updated:** 2026-11-22T16:00:00Z
+- User approved NDJSON framing: each event is one JSON record followed by a newline.
+- The cycle plan now records the confirmed Event/Fields/FieldOf API direction, named primitive type support, built-in JSON, and NDJSON.
+- The exact primitive allowlist and the behaviour for incomplete trailing lines/corruption remain undecided.
