@@ -213,3 +213,18 @@ Confirm product requirements and trade-offs in discussion before documenting the
 - No implementation, build, or Go tests have started.
 - Latest user decisions remain: Channel is a struct/interface analogous to Event; channel creation is explicit and returns its generated ID; every event requires an existing channel; selectors remain primitive-only.
 - **Next discussion:** settle how the generated channel ID is supplied to the event append operation before finalizing record envelope/versioning and replay/tailing semantics.
+
+
+## Session handoff checkpoint — 2026-11-22T19:26:00+02:00
+
+- User confirmed Go package path and struct type name may define the type identity used for deterministic IDs. Renaming/moving a type therefore changes its identity; document this as a persisted compatibility consideration.
+- **Channel ID:** deterministic UUID derived from channel type identity plus canonical representation of all fields returned by `Channel.Fields()`. Channel fields participate in identity; channel ID is independent of event ID.
+- **Event ID:** deterministic UUID derived from event type identity plus canonical representation of all fields returned by `Event.Fields()`. Channel ID is explicitly excluded from event ID calculation.
+- **Append API direction:** retain `log.Append(channel, event)`; channel and event are supplied together. The channel's deterministic ID is resolved internally.
+- **Duplicate event semantics:** event identity is global across channels. Re-appending an existing event promotes that one logical event to the HEAD of the entire log, rather than creating a second logical event. The event may be associated with multiple channels; the latest example explicitly chose association with both channels.
+- **Ordering/storage distinction:** logical order is global and independent of physical segment placement. User proposed segment splitting/reorganization followed by scavenging to remove obsolete physical copies. A logical promotion operation persisted in segments, followed by asynchronous physical compaction/scavenging, was discussed as a possible implementation; not yet finalized.
+- **Durable source of truth:** segment files alone must reconstruct the complete logical log, including event promotions and channel associations. An index must be rebuildable and must not be authoritative.
+- **Initial index:** use a local index file for the first draft, not SQLite. Keep the index implementation replaceable so a database-backed index can be considered later.
+- **Segment metadata/checksums:** file references and checksums were discussed as useful index/segment metadata; exact checksum scope and format remain open.
+- **Implementation state:** no implementation, build, or Go tests have started. Work remains in `define`.
+- **Next-session instructions:** claim the execution lock; read this plan and handoff; continue defining canonical identity encoding/UUID derivation, global ordering/promotion records, segment recovery/compaction, and the rebuildable index format. Do not start implementation until the cycle's critical design and acceptance criteria are complete.
