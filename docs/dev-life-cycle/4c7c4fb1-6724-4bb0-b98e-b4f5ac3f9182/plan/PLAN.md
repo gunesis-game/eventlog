@@ -285,3 +285,11 @@ Confirm product requirements and trade-offs in discussion before documenting the
 - **User approved:** validation is strict and failures return errors. Invalid fields, unsupported types, duplicate names, non-finite floats, and references to nonexistent channels must fail explicitly.
 - No silent omission, coercion, or automatic correction of invalid input is permitted.
 - No implementation, build, or Go tests have started.
+
+
+## Design checkpoint — record versioning — 2026-11-22
+
+- **User approved:** every persisted record carries an explicit schema version, starting at version 1.
+- Readers must reject unsupported future versions with a clear error instead of attempting to interpret them.
+- Versioning applies consistently to persisted record types, including event data and structural records; exact record taxonomy and version migration policy remain to be specified.
+- No implementation, build, or Go tests have started.
