@@ -196,3 +196,13 @@ Cycle 1 is active in the define phase. The execution lock is claimed and verifie
 - **Checksums:** checksums and references to segment files were proposed; decide record-level versus segment-level coverage and metadata format later.
 - **Next-session focus:** define canonical serialization/type identity and UUID derivation; specify promotion and channel-association records; specify crash-safe segment rotation/compaction/scavenging; define the rebuildable index file format and recovery procedure. Then finish primitive allowlist, envelope/versioning, durability, replay/tailing and acceptance criteria.
 - **Operational note:** current work was performed through GitHub remote file operations on `main`; there is no local checkout/working-tree status or Go test evidence from this session.
+
+
+## Lifecycle reconciliation checkpoint — 2026-11-22
+
+- **Disposition:** The prior release request is honored; Cycle 1 is **paused** in `define` and the execution lock remains released.
+- **Reason:** Remote registry had Cycle 1 marked `in-progress` while `execution-lock.json` was `unlocked`, violating the lifecycle invariant.
+- **Repair:** Preserve the same cycle UUID, sequence, execution order, start/created timestamps, and phase. Update only the registry status to `paused`; status_reason remains null (pause context is recorded here).
+- **Latest durable design context:** Continue from the newest decision checkpoints in the plan. Prior handoff sections contain superseded snapshots; the plan's latest decisions are the active design checkpoint. User-approved decisions include deterministic IDs, append(channel,event), cross-channel event association/promotion, local rebuildable index, finite floats with bit-preserving signed zero, nullable primitive fields, strict validation, and record schema version 1.
+- **No implementation or tests:** No source code changes, builds, or Go tests have been performed.
+- **Resume protocol:** Before ordinary development, read the lock first. It is released. Read lifecycle docs, validate the registry, then claim the lock on main and confirm the published claim before any ordinary project changes.
