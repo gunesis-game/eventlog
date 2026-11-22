@@ -131,3 +131,14 @@ Cycle 1 is paused for handoff and the execution lock is released. A new session 
 - No implementation, build, or Go tests have started.
 - The previous checkpoint says the next unresolved decision is durability: sync each append versus buffered/periodic sync. The intervening short agreement replies are not mapped to a specific proposal in the persisted record, so do not infer a durability choice from them.
 - Continue the define phase by confirming durability, then resolve remaining record envelope/versioning and replay/tailing guarantees before updating product requirements and architecture.
+
+
+## Latest session decisions — 2026-11-22
+
+- User selected **buffered/periodic sync** rather than syncing every append. The sync cadence/trigger and durability guarantees still need definition.
+- User introduced **channels** as a new core concept: each event needs a channel, and a channel groups related events even if their Go struct types differ. Example: different user lifecycle event structs can belong to one logical users channel.
+- Treat channel as an explicit event/logging concept, not as a Go event struct type. Its identifier representation, whether it is supplied per append or by an event, filtering/replay semantics, and relationship to record ordering remain undecided.
+- Revisit the record envelope and reader API with channels in scope.
+- Existing decisions remain: primitive-only FieldOf selectors; Event/Fields allowlist; JSON/NDJSON; truncate only an incomplete unterminated suffix and fail on malformed complete records.
+- No implementation, build, or Go tests have started.
+- **Next discussion:** clarify what a channel represents operationally and how callers associate an event with one.
