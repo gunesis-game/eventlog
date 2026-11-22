@@ -1,9 +1,8 @@
 # eventlog
 
-> Replace this template with the product's README before the first implementation cycle.
-
 ## Overview
-<Describe what the product is, who it serves, and its current status.>
+
+A lightweight, disk-backed append-only log written in Go. Designed as the persistent storage layer for event-sourced systems, it sequentially writes immutable events to disk so applications can reliably rebuild in-memory state after a restart and transition seamlessly into tailing live events.
 
 ## Getting started
 <Prerequisites and setup instructions.>
