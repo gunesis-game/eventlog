@@ -245,3 +245,13 @@ Confirm product requirements and trade-offs in discussion before documenting the
 - **Signed zero:** positive zero and negative zero remain distinct values for deterministic identity (their IEEE-754 bit patterns differ); the persisted encoding must preserve this distinction even though ordinary JSON number text may not reliably do so.
 - Validation must reject non-finite values before persistence and before deterministic ID derivation. This is a confirmed v1 requirement.
 - No implementation, build, or Go tests have started.
+
+
+## Design checkpoint — v1 primitive field allowlist — 2026-11-22
+
+- **User approved the v1 primitive allowlist:** `string`, `bool`; all signed integer types (`int`, `int8`, `int16`, `int32`, `int64`); all unsigned integer types (`uint`, `uint8`, `uint16`, `uint32`, `uint64`); and `float32`, `float64`.
+- Named types whose underlying type is one of the supported primitives are supported. `byte` and `rune` are included as aliases of `uint8` and `int32` respectively.
+- `uintptr`, `complex64`, and `complex128` are excluded.
+- Floating-point constraints remain: reject NaN and infinities; preserve IEEE-754 width and value; preserve the distinction between positive and negative zero in canonical identity and persistence.
+- The `Fields` API remains primitive-only; selectors for nested structs are unsupported.
+- No implementation, build, or Go tests have started.
