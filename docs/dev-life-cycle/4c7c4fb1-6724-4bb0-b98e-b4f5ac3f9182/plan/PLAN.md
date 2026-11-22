@@ -278,3 +278,10 @@ Confirm product requirements and trade-offs in discussion before documenting the
 - Canonical identity encoding must include an explicit null marker, distinct from any concrete value encoding.
 - Nullable fields follow the same primitive allowlist, named-type, float validation, and deterministic field-name rules.
 - No implementation, build, or Go tests have started.
+
+
+## Design checkpoint — strict validation errors — 2026-11-22
+
+- **User approved:** validation is strict and failures return errors. Invalid fields, unsupported types, duplicate names, non-finite floats, and references to nonexistent channels must fail explicitly.
+- No silent omission, coercion, or automatic correction of invalid input is permitted.
+- No implementation, build, or Go tests have started.
