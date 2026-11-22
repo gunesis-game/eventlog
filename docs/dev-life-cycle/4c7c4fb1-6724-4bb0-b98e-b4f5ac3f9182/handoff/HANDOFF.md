@@ -179,3 +179,20 @@ Cycle 1 is active in the define phase. The execution lock is claimed and verifie
 - No implementation, build, or Go tests have started.
 - Latest user decisions remain: Channel is a struct/interface analogous to Event; channel creation is explicit and returns its generated ID; every event requires an existing channel; selectors remain primitive-only.
 - **Next discussion:** settle how the generated channel ID is supplied to the event append operation before finalizing record envelope/versioning and replay/tailing semantics.
+
+
+## Session handoff — 2026-11-22T19:26:00+02:00
+
+- User requested the project be unlocked to continue in a new session. The execution lock has been released on `main`; the cycle registry is to be marked paused for handoff. The new session must claim the lock before continuing.
+- Cycle remains in `define`. No implementation, build, or Go tests have started.
+- User confirmed Go package path and struct type name may define type identity for deterministic IDs. Renaming/moving a type changes its identity and is a persisted compatibility concern.
+- **Deterministic Channel ID:** UUID from channel type identity plus canonical representation of all `Channel.Fields()` values.
+- **Deterministic Event ID:** UUID from event type identity plus canonical representation of all `Event.Fields()` values. Channel ID is not part of Event ID.
+- **API direction:** keep `log.Append(channel, event)`; pass channel and event together. Channel ID is calculated internally.
+- **Duplicate handling:** Event ID is global across channels. Re-appending an existing event does not create another logical event; it promotes the existing event to HEAD of the entire log. The event can be associated with multiple channels; user explicitly chose association with both channels when the same event is appended under another channel.
+- **Storage direction:** logical global ordering is separate from physical segment placement. Segment files alone must reconstruct the complete log, including promotions and channel associations. The index is derived/rebuildable, not authoritative.
+- **Initial index:** use a local index file rather than SQLite. Keep the index replaceable so SQLite or another database can be considered later.
+- **Segmentation:** user suggested splitting the segment at the existing event, moving the suffix into a new active segment, and scavenging obsolete copies from the prior segment. Alternative discussed: persist a logical promotion operation first, then compact/scavenge asynchronously. Exact algorithm, crash protocol, and performance trade-offs remain open.
+- **Checksums:** checksums and references to segment files were proposed; decide record-level versus segment-level coverage and metadata format later.
+- **Next-session focus:** define canonical serialization/type identity and UUID derivation; specify promotion and channel-association records; specify crash-safe segment rotation/compaction/scavenging; define the rebuildable index file format and recovery procedure. Then finish primitive allowlist, envelope/versioning, durability, replay/tailing and acceptance criteria.
+- **Operational note:** current work was performed through GitHub remote file operations on `main`; there is no local checkout/working-tree status or Go test evidence from this session.
