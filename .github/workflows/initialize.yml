@@ -1,0 +1,42 @@
+name: Initialize Repository
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  initialize:
+    # This workflow is for repositories generated from this template only.
+    if: github.repository != 'gunesis-game/project-steering-template'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Initialize README
+        shell: bash
+        run: |
+          test -f README.template.md
+          repo_name="${GITHUB_REPOSITORY#*/}"
+          sed "s/^# <Project name>$/# ${repo_name}/" README.template.md > README.md
+          rm -f README.template.md TEMPLATE_VERSION
+
+      - name: Commit initialization
+        shell: bash
+        run: |
+          if git diff --quiet; then
+            echo "Repository is already initialized."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "chore: initialize repository"
+          git push

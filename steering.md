@@ -1,0 +1,90 @@
+# Steering
+
+## 1. Purpose and authority
+This file establishes the repository's governing development principles. Its north star is:
+
+1. **Development work is tracked and executed through the persisted development-cycle mechanism, subject to the explicit governance-maintenance exemption below.**
+2. **All work is performed on the `main` branch only.**
+3. **Development execution is serialized: only one agent or contributor may actively do development work in this repository at a time.**
+
+The detailed lifecycle rules, registry contract, standard and micro cycle workflows, phase machine, plan and handoff formats, shared execution lock, verification loop, documentation audits, and completion gates are defined in [docs/dev-life-cycle/README.md](docs/dev-life-cycle/README.md). That document and its registry/schema/templates are the operational specification for the cycle mechanism.
+
+**Governance-maintenance exemption:** Changes whose scope is limited to `steering.md` and/or the development-cycle mechanism under `docs/dev-life-cycle/`, and whose purpose is to amend those governance or lifecycle rules, are exempt from creating, selecting, resuming, or completing a development cycle. They are also exempt from claiming the development-cycle execution lock; otherwise the mechanism could prevent its own repair or create recursive cycles. This exemption applies only to those governance files and does not authorize unrelated project changes. It does not, by itself, waive other repository controls such as branch, security, or access requirements. If a change also includes ordinary project work, that work must be tracked through the normal cycle mechanism.
+
+**User authority and policy changes:** User instructions govern the requested outcome. A user may explicitly authorize a change to this steering policy or lifecycle specification. When the request is to amend these governance files, apply the governance-maintenance exemption above rather than requiring a cycle to change the rules that define cycles. For ordinary work, follow the lifecycle selection and priority rules in the lifecycle README. If project sources disagree, identify the conflict and resolve it explicitly; do not silently weaken unrelated requirements.
+
+Apply these rules alongside the project's established requirements. Project-specific requirements and constraints must be established from project evidence. Never invent project-specific facts or silently import another project's commands, paths, architecture, platforms, dependencies, or quality requirements.
+
+## 2. Establish project context before acting
+
+Discover the project before changing it:
+
+- Inspect the repository's structure, relevant source, documentation, configuration, tests, automation, and current Git state.
+- Read the instructions and documentation relevant to the requested area. Find existing conventions and decisions before introducing new ones.
+- Establish the project's purpose, users, supported behavior, architecture, technology choices, constraints, quality expectations, and current status from available evidence.
+- Distinguish verified facts from assumptions, proposals, and unknowns.
+- Identify relevant dependencies, interfaces, compatibility expectations, and risks.
+
+Never assume project-specific facts. Discover them from the repository, its documentation, configuration, implementation, tests, and automation. If information cannot be established, identify it as unknown rather than inventing an answer.
+
+## 3. Operating principles
+
+- **Understand before changing.** Trace existing behavior and dependencies before editing.
+- **Preserve intent.** Maintain established behavior, public contracts, compatibility, and project conventions unless the requested change requires otherwise.
+- **Keep changes focused.** Prefer the smallest coherent implementation; avoid unrelated refactoring, speculative abstractions, and unnecessary dependencies.
+- **Make decisions explicit.** Explain consequential trade-offs and record durable project decisions in the appropriate project documentation.
+- **Keep evidence honest.** Never claim that a change, test, build, CI run, review, or deployment succeeded unless it was performed and its result observed.
+- **Control scope.** Do not expand the task or introduce tools, infrastructure, or policy changes without a clear need and appropriate authorization.
+- **Protect existing work.** Inspect the working tree before editing. Preserve user changes; never overwrite or discard unrelated work.
+- **Keep project guidance accurate.** Documentation must describe actual, verified behavior and remain consistent with implementation.
+
+## 4. Main branch only
+
+The `main` branch is the default working branch and policy for this template. Product teams may adopt another branch/review model only through an explicit governance change in their derived repository: document the policy, update this section, and reconcile the lifecycle lock/claim workflow and verification rules to that model. Do not silently fork the mechanism or bypass branch protections. PR-based work requires a lock protocol that safely coordinates claims across branches and is documented before ordinary work.
+
+- Start development on `main` and keep the working branch set to `main` throughout the work.
+- Do not create, switch to, or work on feature, fix, task, release, or other branches.
+- Do not use a branch as a workaround for repository permissions, branch protection, or a failing check.
+- Before making changes, verify the current branch is `main` and inspect its working tree and upstream state.
+- Keep commits on `main`, following the repository's applicable commit and signing requirements.
+- Never force-push, rewrite shared history, bypass required protections, or disable checks.
+- If `main` is unavailable, the checkout is on another branch, or repository protections prevent the required direct-main workflow, stop and report the exact blocker.
+
+The main-only rule does not authorize bypassing repository security, review, or protection controls.
+
+## 5. Development-cycle mechanism
+
+Ordinary development tasks must be managed through the persisted development-cycle mechanism. Standard and eligible micro workflows both require a persisted registry record, the repository-wide execution lock, main-only work, and truthful verification.
+
+Before ordinary development work, read `docs/dev-life-cycle/execution-lock.json` first, before any other repository file or task analysis. If it is active, stop without inspecting project content. If released, follow the start/resume and priority protocol in [docs/dev-life-cycle/README.md](docs/dev-life-cycle/README.md). A claim is effective only after its lock-only commit has been pushed to and confirmed on the shared `origin/main`; a rejected push means the claim was lost and the worker must stop and re-read the remote lock, never force-push or continue from a local claim. The registry at `docs/dev-life-cycle/cycle-index.json` is authoritative for cycle identity, ordering, workflow, status, and current phase. Standard cycles require their plan and handoff files; micro cycles record their objective, eligibility rationale, acceptance condition, verification evidence, and outcome directly in the registry. The shared lock at `docs/dev-life-cycle/execution-lock.json` is authoritative for exclusive execution ownership.
+
+The governance-maintenance exemption in Section 1 applies when changing `steering.md` or the lifecycle mechanism itself. Do not create a cycle or claim the lifecycle lock for such a self-maintenance change.
+
+The lifecycle README is the single source of truth for:
+- choosing standard versus micro cycles and the strict micro eligibility rules;
+- creating, prioritizing, preempting, and selecting cycles;
+- persisted phases and permitted transitions;
+- evidence required to enter and exit phases;
+- maintaining standard-cycle plans and handoffs;
+- repository-wide exclusive execution ownership and handoff between contributors;
+- implementation checkpoints and exact-revision verification/CI feedback;
+- documentation review and historical consolidation;
+- cycle completion and registry updates.
+
+Do not invent an alternative tracker, treat chat history as durable state, or mark a cycle complete without satisfying its documented gates. If lifecycle records are invalid or inconsistent, follow the lifecycle README's recovery rules.
+
+**Cancellation and blockers:** Standard cycles may be paused, blocked, cancelled, or completed. A blocked cycle must include a concrete blocker and the action/owner needed to unblock it; blocked work cannot hold the execution lock. Cancelled cycles are terminal and retain their record, with a cancellation reason. Never delete or reuse a cycle record. Micro cycles that become blocked, cancelled, or need preemption must first be promoted to standard with plan/handoff records. The validator enforces that a lock is active if and only if a cycle is in-progress and that the active lock matches that cycle.
+
+**Urgent-work preemption:** A user explicitly marks a request urgent or directs it to take priority. Checkpoint the active cycle, including exact phase, work completed, pending work, verification, and next action; pause it and release the lock before starting urgent work. Urgent work starts next, ahead of paused/pending cycles. Once it completes, resume the paused cycle before pending work. Ordinary requests do not preempt unless urgency is explicit.
+
+## 6. Project documentation
+
+Project requirements, architecture, interfaces, operational guidance, and durable decisions belong in the project's maintained documentation—not in this generic steering file and not solely in temporary cycle records. Consult [docs/project/architecture.md](docs/project/architecture.md) for architectural boundaries and decisions, and [docs/project/coding-standards.md](docs/project/coding-standards.md) for implementation conventions aligned with that architecture.
+
+Update the existing authoritative documentation when behavior or decisions change. Avoid parallel sources of truth, duplicated explanations, and instructions that contradict implementation.
+
+## 7. Communication
+
+Communicate status accurately and concisely. Distinguish verified facts from assumptions, proposals, unknowns, and blockers. State what was changed, what verification actually ran and against which revision, what remains unverified, and the next required action.
+
+Do not imply that work is complete because code was written, a commit was created, a plan was filled in, or a CI run was merely started. The cycle registry and its completion gates determine ordinary cycle status.

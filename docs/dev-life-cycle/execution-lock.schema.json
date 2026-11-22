@@ -1,0 +1,186 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/gunesis-game/project-steering-template/blob/main/docs/dev-life-cycle/execution-lock.schema.json",
+  "title": "Development Execution Lock",
+  "description": "Structural schema for the repository-wide exclusive development execution lock.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "status",
+    "cycle_id",
+    "workflow",
+    "worker_id",
+    "claimed_at",
+    "released_at",
+    "release_evidence"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "status": {
+      "enum": [
+        "released",
+        "active"
+      ]
+    },
+    "cycle_id": {
+      "oneOf": [
+        {
+          "type": "string",
+          "format": "uuid"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "workflow": {
+      "oneOf": [
+        {
+          "enum": [
+            "standard",
+            "micro"
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "worker_id": {
+      "oneOf": [
+        {
+          "type": "string",
+          "minLength": 1
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "claimed_at": {
+      "$ref": "#/$defs/nullableTimestamp"
+    },
+    "released_at": {
+      "$ref": "#/$defs/nullableTimestamp"
+    },
+    "release_evidence": {
+      "oneOf": [
+        {
+          "type": "string",
+          "minLength": 1
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "active"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "cycle_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "workflow": {
+            "enum": [
+              "standard",
+              "micro"
+            ]
+          },
+          "worker_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "claimed_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "released_at": {
+            "type": "null"
+          },
+          "release_evidence": {
+            "type": "null"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "released"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "cycle_id": {
+            "type": "null"
+          },
+          "workflow": {
+            "type": "null"
+          },
+          "worker_id": {
+            "type": "null"
+          },
+          "claimed_at": {
+            "type": "null"
+          },
+          "released_at": {
+            "oneOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "release_evidence": {
+            "oneOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "nullableTimestamp": {
+      "oneOf": [
+        {
+          "type": "string",
+          "format": "date-time"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,25 @@
+name: Steering state validation
+
+on:
+  push:
+    paths:
+      - 'docs/dev-life-cycle/**'
+      - 'scripts/validate-steering.py'
+      - '.github/workflows/steering-validation.yml'
+  pull_request:
+    paths:
+      - 'docs/dev-life-cycle/**'
+      - 'scripts/validate-steering.py'
+      - '.github/workflows/steering-validation.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate cycle registry and execution lock
+        run: python3 scripts/validate-steering.py
