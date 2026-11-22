@@ -4,9 +4,9 @@
 
 - **Cycle UUID:** 4c7c4fb1-6724-4bb0-b98e-b4f5ac3f9182
 - **Objective:** Define eventlog's initial product requirements and core design decisions before implementation.
-- **Registry status:** in-progress
+- **Registry status:** paused
 - **Persisted phase:** define
-- **Last updated:** 2026-11-22T16:00:00Z
+- **Last updated:** 2026-11-22T15:36:55.080Z
 
 ## Current repository state
 
@@ -30,7 +30,7 @@
 - Confirmed newline-delimited JSON (NDJSON): one JSON record per line, terminated by a newline.
 - User approved recovery semantics: truncate an unterminated trailing suffix back to the last complete newline; fail with a corruption error on invalid newline-terminated records; never skip a damaged record to continue replay.
 - The previous redaction design is superseded by the explicit Event/Fields allowlist contract; eventlog does not inspect or redact source event structs.
-- Cycle 1 remains active on main in define phase; no implementation started.
+- Cycle 1 is paused for session handoff on main in define phase; no implementation started.
 
 ## Confirmed decisions and constraints
 
@@ -81,7 +81,7 @@
 
 ## Continuation instructions
 
-Execution lock remains active for cycle 1. Continue the define phase and synchronize registry, plan, and handoff for each checkpoint. Do not begin implementation until design decisions and acceptance criteria are ready. Before stopping, checkpoint, release the lock on main, and verify the lock release.
+Cycle 1 is paused for handoff and the execution lock is released. A new session must claim the lock before continuing. Resume the define phase; do not begin implementation until design decisions and acceptance criteria are ready.
 
 ## Unexpected-worker termination recovery checkpoint
 
@@ -110,3 +110,14 @@ Execution lock remains active for cycle 1. Continue the define phase and synchro
 - The cycle plan now records the confirmed Event/Fields/FieldOf API direction, named primitive type support, built-in JSON, and NDJSON.
 - User approved recovery semantics: truncate an incomplete unterminated final suffix; fail on malformed complete records without skipping them.
 - The exact primitive allowlist, record envelope/versioning, durability, and replay/tailing behaviour remain undecided.
+
+
+## Session handoff checkpoint
+
+- **Paused at:** 2026-11-22T15:36:55.080Z
+- User requested to continue development in a new session and explicitly asked to unlock the project.
+- Current durable decisions: general-purpose embedded event log; single-process ownership with goroutine concurrency; Event/Fields allowlist; primitive-only selected values including named primitive types; built-in JSON; NDJSON framing; truncate incomplete unterminated final suffix; fail on malformed complete records without skipping.
+- No implementation, build, or Go tests have started.
+- **Unresolved next discussion:** durability policy. The previous session was asked whether to sync every append or buffer and sync periodically; the user has not answered yet.
+- Other open topics: exact primitive allowlist and selector behaviour, record envelope/versioning, ordering, replay/tailing API, portability/performance, and docs reconciliation.
+- **Next action:** new session claims execution lock, reads this handoff and plan, then continues with the durability decision.
