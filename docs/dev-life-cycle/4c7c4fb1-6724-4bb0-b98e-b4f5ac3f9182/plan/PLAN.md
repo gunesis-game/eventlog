@@ -23,6 +23,7 @@ The repository describes eventlog as a lightweight disk-backed append-only Go lo
 - **Primary scope:** General-purpose embedded event storage (Option C); the library should not depend on domain-specific event meanings or an event-sourcing framework.
 - **Ownership:** One process owns a log at a time. Multiple goroutines may use the library, but writes will be coordinated internally.
 - **Public event API direction:** Generic typed events (Option 3). Users work with Go event types rather than raw bytes. A serialization/codec boundary is required to persist and restore the type.
+- **Redaction requirement:** Consumers keep their own event structs intact, including sensitive fields. Eventlog must offer an easy, type-safe field-selector redaction API (not string field names); it must redact an internal copy before serialization so the caller's original event is unchanged and sensitive values are never persisted.
 - **Design intent:** Keep it reusable and small, with a simple reliability-focused API.
 
 These are confirmed product direction decisions, not yet detailed API or file-format decisions.
@@ -52,6 +53,7 @@ These are confirmed product direction decisions, not yet detailed API or file-fo
 ## Open decisions
 
 - Codec interface: built-in serialization versus caller-supplied codec.
+- Redaction API details: approved direction is type-safe field selection without string names; library performs redaction on an internal copy before encoding. Exact selector API and generic implementation details remain open.
 - Public generic API shape and error behavior.
 - On-disk framing, metadata, checksums, and format/version strategy.
 - Sequence numbering, record identity, and ordering guarantees.
@@ -81,6 +83,7 @@ Confirm product requirements and trade-offs in discussion before documenting the
 - [x] Establish primary workload direction and ownership model.
 - [x] Select typed generic events as public API direction.
 - [ ] Define codec contract and event write/read API.
+- [ ] Design and specify the type-safe redaction field-selector API, including how redaction works on a copy.
 - [ ] Decide framing, durability, recovery, concurrency and tailing behavior.
 - [ ] Update requirements and architecture docs with confirmed decisions.
 - [ ] Review consistency; close this cycle and prepare implementation-ready scope.
