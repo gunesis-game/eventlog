@@ -191,3 +191,15 @@ Confirm product requirements and trade-offs in discussion before documenting the
 - Conceptual record shapes: channel record `{id, type, fields}`; event record `{id, channel: {id}, type, fields}`. These are design examples, not a finalized JSON schema.
 - Exact operation names/signatures, type identity encoding, validation, record envelope/versioning, and channel read/query semantics remain open.
 - No implementation has started.
+
+
+## Session handoff — 2026-11-22
+
+- User requested the project be unlocked to move development to a new session.
+- Cycle remains in the `define` phase; implementation, builds, and Go tests have not started.
+- Latest confirmed design: Channel is a first-class persisted entity represented by a consumer-defined struct implementing a library-owned `Channel` interface analogous to `Event`; both expose `Fields() Fields` and use primitive-only fields.
+- Channel creation is explicit, persists a channel record, and returns its generated ID. Every event must reference exactly one existing channel; channel-less events and implicit channel creation are disallowed.
+- Conceptual records: channel `{id, type, fields}`; event `{id, channel: {id}, type, fields}`. Exact API signatures and final schema remain open.
+- Buffered/periodic sync is confirmed; cadence, flush/close semantics, and crash-loss window remain open.
+- **Next discussion:** decide how the generated channel ID is passed into event append, then continue record envelope/versioning, channel/event API, primitive allowlist, and replay/tailing decisions.
+- **Resume:** the next session must claim the execution lock before continuing.
