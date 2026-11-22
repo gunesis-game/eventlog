@@ -236,3 +236,12 @@ Confirm product requirements and trade-offs in discussion before documenting the
 - The primitive allowlist is therefore not limited to strings, booleans, and integer types.
 - **Still open:** define the handling of NaN and positive/negative infinity, negative zero, and canonical floating-point encoding for deterministic event/channel IDs. JSON has no standard representation for non-finite numbers, so the persistence and validation contract must address these explicitly before implementation.
 - No implementation, build, or Go tests have started.
+
+
+## Design checkpoint — floating-point canonicalization — 2026-11-22
+
+- **User approved:** reject NaN, positive infinity, and negative infinity. Only finite float32 and float64 values are valid persisted primitive fields.
+- **Precision:** preserve the source floating-point width and IEEE-754 value; serialization and deterministic identity encoding must not round through a lower-precision representation.
+- **Signed zero:** positive zero and negative zero remain distinct values for deterministic identity (their IEEE-754 bit patterns differ); the persisted encoding must preserve this distinction even though ordinary JSON number text may not reliably do so.
+- Validation must reject non-finite values before persistence and before deterministic ID derivation. This is a confirmed v1 requirement.
+- No implementation, build, or Go tests have started.
