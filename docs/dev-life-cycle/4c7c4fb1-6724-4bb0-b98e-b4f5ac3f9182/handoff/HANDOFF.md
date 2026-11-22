@@ -77,3 +77,15 @@
 ## Continuation instructions
 
 Execution lock remains active for cycle 1. Continue the define phase and synchronize registry, plan, and handoff for each checkpoint. Do not begin implementation until design decisions and acceptance criteria are ready. Before stopping, checkpoint, release the lock on main, and verify the lock release.
+
+
+## Unexpected-worker termination recovery checkpoint
+
+- **Checkpointed at:** 2026-11-22T15:23:21.602Z
+- **Reason:** The prior worker did not release the active execution lock. The user explicitly confirmed that the prior worker has terminated and authorized lock recovery.
+- **Persisted phase:** define (unchanged).
+- **Work completed at the last durable checkpoint:** General-purpose embedded storage scope, single-process ownership, typed Event/Fields allowlist persistence, generic field-selector direction, and built-in JSON for v1 were recorded as confirmed direction. The plan's checked tasks remain the authoritative progress record.
+- **Implementation state:** No implementation was started. No build or tests were run; this is consistent with the define phase.
+- **Outstanding work:** Finalize Event/Fields/FieldOf API and supported primitive representation; decide framing, durability, recovery, concurrency and tailing behavior; reconcile approved requirements and architecture documentation.
+- **Next action:** Resume cycle 4c7c4fb1-6724-4bb0-b98e-b4f5ac3f9182 in the define phase after a fresh lock claim is published and confirmed on shared main.
+- **Recovery disposition:** Cycle temporarily marked paused while the terminated worker's lock is released; cycle identity, sequence, execution order, timestamps, and phase are preserved.
