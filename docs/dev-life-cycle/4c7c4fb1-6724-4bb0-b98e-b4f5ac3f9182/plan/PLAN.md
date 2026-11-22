@@ -157,3 +157,12 @@ Confirm product requirements and trade-offs in discussion before documenting the
 - **Current phase:** define
 - **Last question:** Choose durability policy: sync every append, or buffer writes and sync periodically. No choice has been made.
 - **Resume instruction:** New session must claim the execution lock, read this plan and the handoff, and continue with the durability question.
+
+
+## Resume checkpoint — 2026-11-22T15:37:30Z
+
+- Cycle 1 resumed in the `define` phase in a new session.
+- The execution lock claim was committed to `main` and fetched back successfully before the registry was changed to `in-progress`.
+- Additional user clarification from the prior session: keep the field-selection API simple; selectors target primitive fields only. A selector returning a pointer to a nested struct (for example `*Address`) is not supported and must not be made to compile through extra generic abstractions. Keep selected values within the primitive allowlist.
+- No implementation has started.
+- The previous handoff's durability question remains the next unresolved question unless the user's intervening agreement messages are clarified.
