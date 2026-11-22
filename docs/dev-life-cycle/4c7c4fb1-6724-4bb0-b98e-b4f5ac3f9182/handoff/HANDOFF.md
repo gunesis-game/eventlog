@@ -28,6 +28,7 @@
 - Confirmed named types are supported when their underlying type remains within the primitive allowlist (e.g. UserID string, AccountBalance int64, IsActive bool). Exact allowlist still needs final confirmation.
 - Confirmed built-in JSON serialization for v1; custom codecs/encoders/decoders are not in v1 scope.
 - Confirmed newline-delimited JSON (NDJSON): one JSON record per line, terminated by a newline.
+- User approved recovery semantics: truncate an unterminated trailing suffix back to the last complete newline; fail with a corruption error on invalid newline-terminated records; never skip a damaged record to continue replay.
 - The previous redaction design is superseded by the explicit Event/Fields allowlist contract; eventlog does not inspect or redact source event structs.
 - Cycle 1 remains active on main in define phase; no implementation started.
 
@@ -41,6 +42,7 @@
 - Avoid manually supplied string field names; derive names from typed selectors.
 - Built-in JSON serialization; no custom codec in initial scope.
 - NDJSON record framing: one JSON record followed by a newline.
+- Recovery: truncate an unterminated final suffix to the last newline; a malformed newline-terminated record is a corruption error; do not skip corruption.
 - Earlier redaction feature is superseded; consumers explicitly expose only intended fields.
 
 ## Proposed / open
@@ -50,7 +52,6 @@
 - Record envelope/schema metadata and format-version strategy.
 - Sequence numbering, record identity, and ordering.
 - Durability/sync defaults and guarantees.
-- Incomplete trailing record and corruption recovery.
 - Replay/tailing API, cancellation, and replay-to-live behaviour.
 - Segmentation/rotation, record limits, portability, and performance goals.
 
@@ -71,8 +72,8 @@
 ## Persisted phase checkpoint
 
 - **Current phase:** define
-- **Assess exit evidence:** Repository governance and initial state reviewed; general-purpose scope, single-process ownership, explicit typed persistence allowlist, built-in JSON, and NDJSON framing confirmed.
-- **Next concrete action:** Resolve the primitive allowlist and operational guarantees: record envelope/versioning, durability, incomplete-tail recovery, and replay/tailing semantics.
+- **Assess exit evidence:** Repository governance and initial state reviewed; general-purpose scope, single-process ownership, explicit typed persistence allowlist, built-in JSON, NDJSON framing, and recovery semantics confirmed.
+- **Next concrete action:** Resolve the primitive allowlist and operational guarantees: record envelope/versioning, durability, and replay/tailing semantics.
 
 ## Uncommitted or unpushed work
 
@@ -107,4 +108,5 @@ Execution lock remains active for cycle 1. Continue the define phase and synchro
 - **Updated:** 2026-11-22T16:00:00Z
 - User approved NDJSON framing: each event is one JSON record followed by a newline.
 - The cycle plan now records the confirmed Event/Fields/FieldOf API direction, named primitive type support, built-in JSON, and NDJSON.
-- The exact primitive allowlist and the behaviour for incomplete trailing lines/corruption remain undecided.
+- User approved recovery semantics: truncate an incomplete unterminated final suffix; fail on malformed complete records without skipping them.
+- The exact primitive allowlist, record envelope/versioning, durability, and replay/tailing behaviour remain undecided.
