@@ -4,9 +4,9 @@
 
 - **Cycle UUID:** 4c7c4fb1-6724-4bb0-b98e-b4f5ac3f9182
 - **Objective:** Define eventlog's initial product requirements and core design decisions before implementation.
-- **Registry status:** paused
+- **Registry status:** in-progress
 - **Persisted phase:** define
-- **Last updated:** 2026-11-22T15:36:55.080Z
+- **Last updated:** 2026-11-22T16:25:00Z
 
 ## Current repository state
 
@@ -82,7 +82,7 @@
 
 ## Continuation instructions
 
-Cycle 1 is paused for handoff and the execution lock is released. A new session must claim the lock before continuing. Resume the define phase; do not begin implementation until design decisions and acceptance criteria are ready.
+Cycle 1 is active in the define phase. The execution lock is claimed and verified on remote main for ChatGPT. Continue the design discussion; do not begin implementation until design decisions and acceptance criteria are ready.
 
 ## Unexpected-worker termination recovery checkpoint
 
@@ -169,3 +169,13 @@ Cycle 1 is paused for handoff and the execution lock is released. A new session 
 - Other open decisions include the primitive allowlist, selector edge cases, record envelope/versioning and ordering, replay/tailing semantics, rotation/limits, portability, and performance goals.
 - **Next discussion:** decide how the generated channel ID is passed to the event append operation.
 - **Resume instruction:** claim the execution lock before continuing this cycle.
+
+
+## Resume checkpoint — 2026-11-22T16:25:00Z
+
+- The execution lock was claimed in lock-only commit c8020efbb2bdeaa63cfbb2fd40fae6e3ce2b824c and fetched back from `main`; the active lock names ChatGPT and this cycle.
+- The registry was resumed to `in-progress` in commit 3b45d73a949d6a0c0311390e54c42aff90d286bb. The cycle remains in `define`.
+- No local checkout or working-tree state is available in this session; repository reads and writes are being performed against the remote `main` branch through GitHub.
+- No implementation, build, or Go tests have started.
+- Latest user decisions remain: Channel is a struct/interface analogous to Event; channel creation is explicit and returns its generated ID; every event requires an existing channel; selectors remain primitive-only.
+- **Next discussion:** settle how the generated channel ID is supplied to the event append operation before finalizing record envelope/versioning and replay/tailing semantics.
