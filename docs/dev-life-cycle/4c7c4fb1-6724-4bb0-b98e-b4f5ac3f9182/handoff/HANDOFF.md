@@ -4,44 +4,50 @@
 **Workflow:** Standard  
 **Phase:** Define  
 **Status:** Blocked pending user design approval  
-**Execution lock:** Claimed and verified in commit 043aa48a3442a0717914b731cf2f6f6a2c7cbfa2; release commit follows this checkpoint.
+**Execution lock:** Claimed and verified in commit 0ea33ca9124b986a172835e94bd35a0f53529fac; release commit follows this checkpoint.
 
 ## Checkpoint
 - Resumed Cycle 1 from Define and verified lock was released.
 - Claimed execution lock and verified remote main claim commit.
-- Re-read current plan and handoff.
-- User explicitly decided: **all sequence/cursor management stays internal to the log**. Consumers do not pass sequence cursors to Read or manage storage sequence positions.
-- Updated public API proposal accordingly; proposal remains pending approval as a whole.
+- Re-read current handoff.
+- User explicitly decided: all sequence/cursor management stays internal to the log. Consumers do not pass sequence cursors or manage storage positions.
+- User explicitly selected **typed reconstruction**: consumers should receive their original concrete Go event structs when reading, rather than generic persisted fields.
+- This choice supersedes the earlier generic Occurrence proposal containing EventID, ChannelID, EventType, and Fields as consumer-facing values.
 - No source implementation, build or tests performed.
 
 ## Approved design baseline
 Preserve consolidated baseline in PLAN.md: append-only disk-backed Go log; single-process ownership; concurrent goroutines supported; Event/Channel Fields() contracts; primitive allowlist and nullable primitives; deterministic UUID v5 identity; typed versioned NDJSON records channel/event/commit; transaction commits and SHA-256 framing; recovery/rollback; periodic sync; channel-scoped replay-to-live reader; segment rotation; rebuildable index; manifest and reader-pinned compaction; stdlib-only Linux/Windows support.
 
-## Pending proposal for approval
-A minimal API surface:
+## Current API direction (not fully finalized)
 - `Open(path string) (*Log, error)`
 - `(*Log).Append(channel Channel, event Event) error`
-- `(*Log).ChannelID(channel Channel) (UUID, error)`
-- `(*Log).Read(ctx context.Context, channelID UUID) (*Reader, error)` — no consumer-supplied cursor; replay from earliest retained channel history, then live.
-- `(*Reader).Next() (Occurrence, error)`, `(*Reader).Close() error`
-- `(*Log).Flush() error`, `(*Log).Compact() error`, `(*Log).Close() error`
-- stable sentinel errors for validation, invalid channel, closed log/reader, corruption, unsupported schema, and storage failure; wrapping preserves cause and supports errors.Is.
+- Channel-based `Read(ctx, ...)` with no consumer-supplied sequence/cursor.
+- Reader replays matching channel history then tails live events.
+- Consumer-facing occurrences reconstruct the original concrete event struct (typed reconstruction), rather than exposing generic persisted fields as the primary event value.
+- Global sequence, transaction IDs, storage offsets and cursors remain internal.
+- Flush, Compact, Close and sentinel error model remain proposed.
 
-Proposed public Occurrence metadata: event UUID, channel UUID, event type name, and selected typed Fields. **Global sequence, transaction IDs, and storage cursors are internal and are not exposed to consumers.** Reader semantics: channel-only, replay from the earliest retained occurrence then live without gaps/duplicates, context cancellation, Close wakes waiters. EOF only after closed and no more data can be delivered.
+## Typed reconstruction: decisions still required
+1. Decide how concrete event and channel types are registered or otherwise made available when opening an existing log.
+2. Define how a reader selects the concrete Go type from persisted type identity, including unknown/unregistered types.
+3. Define whether Occurrence exposes the reconstructed Event only, or also a reconstructed Channel value; avoid exposing internal UUIDs unless a consumer use case requires them.
+4. Define behavior for renamed/moved Go types and schema/type evolution across application versions.
+5. Ensure reconstruction restores only the explicitly selected Fields and preserves nullable primitive values and exact primitive types.
 
-These are discussion proposals only; detailed names, types, error cases and reader close semantics remain open until approval.
+A possible shape for discussion is `Occurrence{Event Event, Channel Channel}`, where both values are concrete consumer-defined implementations. This is illustrative, not approved API.
 
 ## Remaining Define work
-1. Approve or revise API/error proposal.
-2. Finalize Reader/Occurrence, cancellation, and close semantics.
-3. Define benchmark scenarios and memory/performance criteria.
-4. Create acceptance-test matrix for transaction failures, recovery, checksums/sequences, replay/live races, index rebuild, and compaction crash windows.
-5. Final consistency review and explicit approval to exit Define.
+1. Finalize typed registration and reconstruction contract.
+2. Finalize Occurrence and Reader semantics, cancellation, and close behavior.
+3. Finalize API/error model.
+4. Define benchmark scenarios and memory/performance criteria.
+5. Create acceptance-test matrix for transaction failures, recovery, checksums/sequences, replay/live races, index rebuild, typed reconstruction failures, and compaction crash windows.
+6. Final consistency review and explicit approval to exit Define.
 
 ## Next action
-Await user feedback on the revised API proposal, then continue the Define decisions. Do not implement before Define is complete and explicitly approved.
+Continue Define by resolving the type-registration/reconstruction contract. Do not implement before Define is complete and explicitly approved.
 
 ## Verification
 - Lock claim was verified against remote main.
-- Handoff checkpoint committed before lock release.
+- This checkpoint records the user's typed-reconstruction decision.
 - No project source changes; no build or tests run.
