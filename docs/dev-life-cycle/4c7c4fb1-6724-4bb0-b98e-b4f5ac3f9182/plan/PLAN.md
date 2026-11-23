@@ -131,7 +131,7 @@ Confirm product requirements and trade-offs in discussion before documenting the
 - **Current phase:** define
 - **Assess exit evidence:** Repository scaffold and governance were inspected; purpose, current state, risks, unknowns, and decision areas identified sufficiently to define. User confirmed general-purpose embedded storage, single-process ownership, and an explicit Event/Fields persistence allowlist contract.
 - **Next concrete action:** Resolve the remaining primitive, record envelope, durability, and reader/tailer decisions before promoting the approved design to project documentation.
-- **Last updated:** 2026-11-22T15:36:55.080Z
+- **Last updated:** 2026-11-23T16:00:00+02:00
 
 ## Progress and decisions
 
@@ -455,3 +455,11 @@ Approved by the user on 2026-11-23:
 ## Design checkpoint — interrupted compaction temporary files (approved)
 
 Approved by the user on 2026-11-23 (Option B): recovery ignores temporary compaction files. Temporary files are cleaned up only after finalized source segments have been validated. Temporary artifacts must not be treated as authoritative log input. This keeps recovery anchored on validated finalized segments and prevents incomplete temporary compaction output from affecting logical event history.
+
+
+## Resume checkpoint — Option B approved and cycle resumed — 2026-11-23T16:00:00+02:00
+
+- User approved Option B for interrupted compaction artifacts: recovery ignores temporary compaction files and cleans them up only after finalized source segments are validated. This is now a confirmed design decision.
+- Cycle 1 was resumed from paused to in-progress in `define`. The execution lock was claimed in lock-only commit `e1c8c087c682c50685b176c236b05311510d1288` and fetched back from shared `main` to confirm the active claim. Registry resume commit: `a8074ce9353ac207acee39ea3067de1ac53d4410`.
+- No implementation, build, or Go tests have started. No local checkout is available; updates are remote via GitHub contents API.
+- Continue defining the remaining implementation-ready details: API/error behavior and selector resolution, index/manifest shape and recovery ordering, reader/replay/tailing semantics, segment rotation/size limits, portability/performance assumptions, and testable acceptance criteria.
