@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "status": "released",
+  "status": "active",
   "cycle_id": "4c7c4fb1-6724-4bb0-b98e-b4f5ac3f9182",
   "workflow": "standard",
   "worker_id": "ChatGPT GPT-6",
-  "claimed_at": "2026-11-23T16:00:00+02:00",
-  "released_at": "2026-11-23T22:47:00+02:00",
-  "release_evidence": "User requested session transfer. Cycle 1 Define checkpoint saved in plan/handoff; last open decision is Append error-reporting API (recommend return error directly)."
+  "claimed_at": "2026-11-23T22:53:27+02:00",
+  "released_at": null,
+  "release_evidence": null
 }
