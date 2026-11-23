@@ -29,7 +29,7 @@ Earlier plan sections contain stale proposed APIs, open-decision lists, and hist
 
 ## Next design question
 
-Define v1 portability and performance assumptions: supported OS/filesystems, storage placement, and whether the initial release is standard-library-only. Recommend standard-library-only Go, local filesystem storage, and cross-platform support where practical; state performance expectations qualitatively until benchmarks are established.
+Define the v1 public API surface and error model: exact type signatures, reader interface, context handling, and stable error categories. Recommend documenting the current agreed APIs (`Open`, `Append`, `Flush`, `Close`, unified reader) and defining errors for validation, corruption/recovery, unsupported schema, I/O, and closed-state operations.
 
 ## Session instructions
 
@@ -57,3 +57,9 @@ Define v1 portability and performance assumptions: supported OS/filesystems, sto
 ## Latest checkpoint — rebuildable index — 2026-11-23
 
 - User approved a replaceable local index derived from authoritative segment files. Index tracks event IDs, channel associations, HEAD/latest occurrence, sequence positions, and offsets. `Open()` validates and rebuilds when missing or inconsistent; replacement is atomic.
+
+
+## Latest checkpoint — portability and performance — 2026-11-23
+
+- Standard-library-only Go, local filesystem storage, Linux and Windows only (macOS excluded). Linux and Windows are equal-priority supported targets. Any platform-specific unsupported or unreliable behavior must use an alternative strategy that works on both; core features must not become platform-exclusive.
+- Performance targets qualitative until benchmarks. Prioritize correctness, recovery, predictable memory use, and cross-platform parity.
