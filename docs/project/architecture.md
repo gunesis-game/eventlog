@@ -15,7 +15,7 @@ eventlog is an embedded Go library using local filesystem storage. A single proc
 - **Append transaction writer:** Coordinates concurrent appends, sequence assignment, transaction records and commit marker. A new channel is included in the same transaction as its first event. Writes are recoverable as all-or-nothing at transaction boundaries.
 - **Segment manager:** Writes authoritative segment files, rotates at transaction boundaries, and maintains ordered global record sequence. A transaction exceeding target segment size may be placed alone in an oversized segment.
 - **Recovery/index manager:** On Open, validates committed transactions and record sequences, rolls back incomplete trailing transactions, validates derived index, and rebuilds it from segment source data when missing or inconsistent. Index replacement is atomic.
-- **Reader/tailer:** Streams committed historical occurrences then catches up with concurrent appends and transitions to live tailing without gaps or duplicates. Global cursor and optional channel filtering are supported; cancellation and errors are explicit.
+- **Reader/tailer:** Streams committed historical occurrences then catches up with concurrent appends and transitions to live tailing without gaps or duplicates. Global cursor and mandatory single-channel filtering are supported; cancellation and errors are explicit.
 - **Compactor:** Produces temporary replacement segments, validates/checksums and syncs them, renames to final segments, atomically replaces derived index, and removes old segments only after replacement is finalized and validated.
 
 ## Record model and identity
@@ -65,7 +65,7 @@ Automatic sync is every 1 second or 1 MiB, whichever comes first. Flush and Clos
 
 Segments are fixed-target-size and rotated only at transaction boundaries. Oversized transactions may use their own segment. Segment data is authoritative; the local index is rebuildable and contains event IDs, channel associations, latest occurrence/HEAD, global sequence positions and segment offsets.
 
-Compaction ordering: write temporary replacements → validate/checksum → sync → rename/finalize replacements → atomically replace index → remove old segments. Temporary compaction artifacts must not be cleaned until finalized source segments validate. Reader-safe compaction and resource-lifetime details remain unresolved.
+Compaction ordering: write temporary replacements → validate/checksum → sync → rename/finalize replacements → atomically replace index → remove old segments. Temporary compaction artifacts must not be cleaned until finalized source segments validate. Reader-safe compaction is generation-pinned: existing readers hold the generation they opened; new readers use the manifest-switched generation. Old generation files are removed only after the last reader releases them.
 
 ## Portability and dependencies
 
@@ -75,8 +75,7 @@ Use only Go standard library dependencies and local filesystem storage. Linux an
 
 - Public API signatures and error taxonomy.
 - Reader interface details and close/resource semantics.
-- Segment file naming, manifest necessity/format, index schema and exact Open recovery/rebuild ordering.
-- Compaction concurrency with readers/tailers and segment lifetime guarantees.
+- Exact public API/error details, Occurrence fields and cancellation/close semantics.
 - Benchmarks and memory/performance targets.
 
 
@@ -95,3 +94,54 @@ func (r *Reader) Close() error
 ```
 
 The `after` cursor is global and exclusive; `0` starts at the earliest occurrence in the specified channel. Replay and live tailing remain one gap-free stream, restricted to that channel. The exact `Occurrence` fields and cancellation/error details remain open.
+
+
+## Define decision — storage layout, manifest, index, recovery, and compaction (approved)
+
+### Storage layout and segment lifecycle
+
+The storage directory contains a manifest, a rebuildable index, and a segments directory. Segment IDs are monotonically increasing integers and are never reused, including after compaction; they are not record sequence numbers. Finalized segment files are immutable. Only the active segment may be written. Record sequence numbers remain global across all segments.
+
+```text
+eventlog/
+├── manifest.json
+├── index.json
+└── segments/
+    ├── segment-000001.ndjson
+    ├── segment-000002.ndjson
+    └── ...
+```
+### Manifest
+
+A minimal versioned manifest identifies the active finalized segment set and the next segment ID. It is authoritative for the active generation and contains no event payloads. Example shape:
+
+```json
+{
+  "format_version": 1,
+  "generation": 3,
+  "segments": ["segment-000004.ndjson", "segment-000005.ndjson"],
+  "next_segment_id": 6
+}
+```
+Manifest replacement is the atomic generation-switch/compaction commit point: write temporary manifest, validate, sync, then atomically replace it. Old segments are retained until the new manifest is finalized. Unreferenced segment files are recovery candidates for safe cleanup, not automatically authoritative. If manifest corruption leaves multiple plausible complete generations, Open must fail with a recovery/corruption error rather than guessing.
+
+### Rebuildable index
+
+The index is derived metadata and is bound to the manifest generation. It includes event IDs, channel associations, latest occurrence/HEAD, global sequence, segment ID, and byte offsets. If absent, inconsistent, or stale for the active generation, Open rebuilds it from validated authoritative segments and atomically replaces it. Index metadata never overrides segment contents.
+
+### Open recovery order
+
+1. Acquire exclusive single-process ownership.
+2. Validate the manifest and identify its active segment generation.
+3. Validate active segment files, record schemas, and sequence continuity.
+4. Validate transaction boundaries, commit markers, counts, and checksums.
+5. Roll back an incomplete trailing transaction by truncating from its transaction start.
+6. Validate or rebuild the generation-bound index and atomically replace it if needed.
+7. Clean orphan/temp artifacts only after the active finalized source segments validate and cleanup is safe.
+8. Open for appends and mandatory channel-scoped readers.
+
+If the manifest is corrupt or missing in an existing storage directory, recovery may proceed only if exactly one complete generation can be determined unambiguously; otherwise report corruption/recovery failure. Do not select the newest-looking files by filename alone.
+
+### Reader-safe compaction
+
+Each reader pins the generation it started against. Compaction constructs replacement segments and index without modifying files used by current readers, validates and syncs them, then atomically switches the manifest. New readers use the new generation; existing readers continue using their pinned generation. Old generation files are deleted only after the last reader releases its pin. This policy applies equally on Linux and Windows, avoiding platform-specific reader semantics.
