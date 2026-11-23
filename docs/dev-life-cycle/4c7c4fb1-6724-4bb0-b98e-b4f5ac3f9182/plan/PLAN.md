@@ -483,3 +483,8 @@ User approved Option A: resolve the field by invoking the selector on a zero-val
 ## Design checkpoint — Field validation timing approved — 2026-11-23
 
 User approved validation at append time. Validate returned event/channel Fields when the append operation is performed; invalid data must return a clear error and must not be silently omitted or coerced. No implementation/build/tests have started.
+
+
+## Design checkpoint — validation atomicity approved — 2026-11-23
+
+User approved Option A for append validation failures: all-or-nothing. Validate all returned event/channel fields before writing any record; if any field is invalid, return a clear error and leave the log unchanged, with no partial event/channel record. No implementation, build, or tests have started.
