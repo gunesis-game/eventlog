@@ -48,8 +48,8 @@ The repository describes eventlog as a lightweight disk-backed append-only Go lo
 - **Redaction:** The earlier redaction feature is superseded by the explicit Event/Fields allowlist contract. Consumers decide which fields to expose; eventlog persists only those fields.
 
 - **Channel model:** A channel is a first-class persisted entity, represented by a consumer-defined struct and a library-owned `Channel` interface analogous to `Event`. The interface exposes `Fields() Fields`; channel fields use the same primitive-only Fields mechanism as event fields. A channel record has its own generated ID, consumer type identity, and explicitly exposed fields.
-- **Channel lifecycle:** Channel creation is an explicit operation that persists the channel record and returns its generated ID. A channel must exist before events can be appended to it; appending an event never implicitly creates a channel.
-- **Mandatory event association:** Every event belongs to exactly one existing channel and must persist a reference to that channel's ID. Channel-less events are not allowed.
+- **Channel lifecycle (current decision):** No standalone channel-creation API. `Append(channel, event)` automatically persists a new channel together with its first event, atomically, when that channel is new. A channel without an event is not created. This supersedes the earlier explicit-creation wording.
+- **Mandatory event association:** Each physical event occurrence is associated with one channel. A logical event may accumulate associations across repeated appends; its newest occurrence determines its current channel/HEAD. Channel-less events are not allowed.
 - **Record direction (conceptual, not finalized schema):** Channel records contain `id`, `type`, and `fields`. Event records contain their own `id`, a `channel.id` reference, `type`, and `fields`. Exact JSON envelope and versioning remain open.
 
 ## Scope
@@ -624,3 +624,18 @@ Audit is informational; no implementation, build, or tests were started.
 - This avoids complex regex-based range schemas while preserving JSON parser interoperability and preventing out-of-range values from being persisted.
 - JSON Schema checks typed integer tag, decimal string shape, required fields, and no extra properties; Go validation checks the type-specific range (including unsigned vs signed and width).
 - Cycle 1 remains in Define. No implementation, build, or Go tests have started.
+
+
+## Design checkpoint — JSON Schema version on every record approved — 2026-11-23
+
+- User approved Option A: every persisted record (`channel`, `event`, and `commit`) carries `schema_version: 1` in its envelope.
+- Schema selection is record-local: the version identifies which embedded/versioned JSON Schema validates that record. Unsupported future versions are rejected explicitly.
+- This preserves the approved zero-byte initial log; no file header or metadata record is introduced.
+- No implementation, build, or Go tests have started.
+
+## Design checkpoint — standalone channel creation API rejected — 2026-11-23
+
+- User approved Option A: there is no standalone `CreateChannel` operation. A channel is persisted atomically with the first successful `Append(channel, event)` that uses it; channel-only records/log entities are not created.
+- `Append(channel, event)` may create a new channel implicitly as part of its transaction, or append to an already known channel. Validation of both channel and event occurs before any write. A failed append leaves no partial channel/event transaction.
+- This supersedes the earlier explicit channel-creation API/lifecycle wording and resolves that conflict for the current design.
+- No implementation, build, or Go tests have started.
