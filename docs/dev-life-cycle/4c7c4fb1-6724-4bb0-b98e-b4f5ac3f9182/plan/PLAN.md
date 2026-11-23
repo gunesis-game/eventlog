@@ -598,3 +598,13 @@ Audit is informational; no implementation, build, or tests were started.
 - Example float32 negative zero: `{"type":"float32","value":"80000000"}`; float64 negative zero: `{"type":"float64","value":"8000000000000000"}`.
 - This keeps JSON Schema as validation while using a lossless encoded-string representation where JSON numeric semantics are insufficient. Reject non-finite float values as already approved.
 - Cycle 1 remains in Define. No implementation, build, or Go tests have started.
+
+
+## Design checkpoint — uniform typed JSON field values approved — 2026-11-23
+
+- User approved Option A: encode every persisted primitive field value using a uniform explicit typed-value object, validated through JSON Schema.
+- Each value has a `type` discriminator and typed `value` representation (or type-only `null` variant). String values remain JSON strings; booleans remain JSON booleans; integer values are decimal strings to avoid consumer/parser precision loss; float32/float64 values are raw IEEE bit-pattern hex strings (8/16 lowercase hex digits) to preserve width and signed zero.
+- The typed variants align with the approved primitive tag set: string, bool, int/int8/int16/int32/int64, uint/uint8/uint16/uint32/uint64, float32/float64, and null. Named primitive Go types persist using their underlying type variant.
+- JSON Schema will use strict variant definitions (e.g. `oneOf`, discriminator-like `const` tags, required keys, and `additionalProperties: false`) to validate representation. Exact schema file layout and whether schemas are embedded or stored as standalone files remain open.
+- This JSON representation is separate from the already-approved canonical byte encoding used for deterministic IDs; those identity tags and bytes remain unchanged.
+- Cycle 1 remains in Define. No implementation, build, or Go tests have started.
