@@ -268,3 +268,12 @@ User approved uint32 big-endian for every variable-length component length and c
 - Pending decision (NOT approved): event-to-channel association semantics proposed in the prior conversation: global event identity, multiple retained channel associations, latest append occurrence promotes HEAD, latest channel is channel of latest occurrence, logical order by latest sequence descending, history retained in occurrence records.
 - Next session should resume by asking/confirming that association proposal, then checkpoint it, and continue Define-phase decisions. Verify current Git state and docs before any edits; prior tool output was sometimes unavailable/redacted, so treat actual GitHub fetches as authoritative.
 - Release project execution lock so the next session can claim it.
+
+
+## Resume checkpoint — 2026-11-23T02:33:00+02:00
+
+- User requested Cycle 1 be resumed from the latest handoff. Execution lock was confirmed released before resume.
+- Lock claimed for ChatGPT in lock-only commit `ae0dd75a41772db214bfbe413a545bac2c694976` and fetched back from shared `main`, confirming active ownership.
+- Registry status was updated to `in-progress` in commit `eb36688555dc692fd9934807d9ac611b80581265`; Cycle 1 remains in `define`, with execution order, timestamps, ID and phase preserved.
+- No implementation or tests have started. No local checkout is available; all remote writes are through GitHub API.
+- Continue from the latest handoff checkpoint: event/channel association proposal is still pending user approval. Next ask to confirm or adjust: event ID remains global and channel-independent; repeated append creates a new occurrence; the event retains all channel associations; its latest occurrence determines HEAD channel and latest-sequence ordering; occurrence history stays in segments. Do not treat this proposal as approved until the user confirms.
