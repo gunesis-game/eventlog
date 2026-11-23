@@ -341,3 +341,12 @@ Confirm product requirements and trade-offs in discussion before documenting the
 - `Append()` does not promise crash durability before a successful sync; recent appended records may be lost on crash within the unsynced window.
 - No implementation or tests have started. The current cycle remains in define.
 - Next: finalize record taxonomy/envelope, UUID and canonical encoding details, and promotion/association record semantics before implementation.
+
+
+## Design checkpoint — crash-safe compaction protocol approved — 2026-11-23
+
+- User approved this compaction order: (1) write replacement segment files under temporary names, (2) validate their contents/checksums, (3) sync replacement files, (4) rename them to final segment names, (5) atomically replace the index so it references the new segment set, and (6) delete obsolete segments only after index replacement.
+- Recovery contract: before index replacement, old segments remain authoritative/intact; after index replacement but before cleanup, old and new segments may coexist and recovery must reconcile duplicate physical occurrences; after obsolete-segment deletion, compacted segments must reconstruct the complete logical log.
+- Interrupted compaction may leave temporary files or duplicate physical segment copies. Recovery should tolerate and reconcile these safely; temp-file cleanup policy remains to be defined.
+- This protocol is now a confirmed design decision. Exact index/manifest contents, duplicate reconciliation details, and cleanup rules remain open.
+- No implementation, build, or tests have started; cycle remains in define.
