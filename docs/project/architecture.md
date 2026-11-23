@@ -15,7 +15,7 @@ eventlog is an embedded Go library using local filesystem storage. A single proc
 - **Append transaction writer:** Coordinates concurrent appends, sequence assignment, transaction records and commit marker. A new channel is included in the same transaction as its first event. Writes are recoverable as all-or-nothing at transaction boundaries.
 - **Segment manager:** Writes authoritative segment files, rotates at transaction boundaries, and maintains ordered global record sequence. A transaction exceeding target segment size may be placed alone in an oversized segment.
 - **Recovery/index manager:** On Open, validates committed transactions and record sequences, rolls back incomplete trailing transactions, validates derived index, and rebuilds it from segment source data when missing or inconsistent. Index replacement is atomic.
-- **Reader/tailer:** Streams committed historical occurrences for exactly one consumer-provided Channel value, catches up with concurrent appends, and transitions to live tailing without gaps or duplicates. Global sequence/cursor/offset management is internal; consumers do not provide or receive storage cursors. Cancellation and errors are explicit. Reads reconstruct concrete consumer-defined Event types; the reconstruction mechanism remains open.
+- **Reader/tailer:** Streams committed historical occurrences for exactly one consumer-provided Channel value, catches up with concurrent appends, and transitions to live tailing without gaps or duplicates. Global sequence/cursor/offset management is internal; consumers do not provide or receive storage cursors. Cancellation and errors are explicit. Reads are generic over the consumer's concrete Event struct type; eventlog allocates and reconstructs that type internally without a registration/factory/prototype API.
 - **Compactor:** Produces temporary replacement segments, validates/checksums and syncs them, renames to final segments, atomically replaces derived index, and removes old segments only after replacement is finalized and validated.
 
 ## Record model and identity
@@ -83,7 +83,7 @@ Use only Go standard library dependencies and local filesystem storage. Linux an
 
 Every reader targets exactly one consumer-provided `Channel` value; no all-channel reader is exposed. Consumers do not pass channel UUIDs or global sequence cursors. The library owns channel identity resolution, sequence/cursor tracking, and offsets.
 
-The intended flow is `Read(ctx, channel)` followed by ordered `Next()` calls that return the original concrete consumer-defined Event type, with replay-to-live handoff handled internally. These are API directions, not finalized signatures. The type-reconstruction mechanism, whether an occurrence wrapper is needed, reader close behavior, and detailed cancellation/error semantics remain open.
+The intended flow is a generic typed read, e.g. `Read[MyEvent](ctx, channel)`, followed by ordered `Next()` calls returning `MyEvent` (or a documented occurrence wrapper containing it), with replay-to-live handoff handled internally. The consumer supplies only the concrete generic type; eventlog performs allocation, decoding, field assignment, and persisted-type verification. No registration, prototype, Channel factory, or custom decoder is exposed. Exact generic constraints, pointer/value convention, mismatched-type behavior, reader close behavior, and detailed cancellation/error semantics remain open.
 
 
 ## Define decision — storage layout, manifest, index, recovery, and compaction (approved)
