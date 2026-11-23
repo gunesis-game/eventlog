@@ -570,3 +570,12 @@ The plan contains stale wording and design conflicts that must be reconciled bef
 10. **API documentation drift:** early FieldOf signature shows no error return and only FieldOf; later decisions add FieldOfNullable and error-reporting selector resolution. Replace early illustrative API with a current consolidated signature/behavior summary once implementation details are finalized.
 
 Audit is informational; no implementation, build, or tests were started.
+
+
+## Design checkpoint — commit markers are first-class records approved — 2026-11-23
+
+- User approved Option A: transaction commit markers are persisted as first-class records in the shared versioned envelope, with `kind: commit` alongside `channel` and `event`. This resolves the record-taxonomy conflict: the envelope's supported kinds are now three, not two.
+- Commit marker data contains the transaction ID, transaction-record count, and SHA-256 checksum of the exact serialized transaction record bytes excluding the marker. The marker itself has its own global sequence number and is not included in the transaction record count or checksum.
+- The transaction ID remains the global sequence number of the first transaction record. For a new channel transaction, channel record then event record then commit marker; for an existing channel, event then commit marker. The count includes channel/event records only, not the commit marker.
+- Recovery exposes transaction records only after validating the corresponding commit marker. An incomplete trailing transaction (including a partial commit marker) is truncated back to the transaction start. This decision specifies marker taxonomy/sequence accounting; precise JSON marker payload/framing remains to be finalized.
+- Cycle 1 remains in Define. No implementation, build, or Go tests have started.
