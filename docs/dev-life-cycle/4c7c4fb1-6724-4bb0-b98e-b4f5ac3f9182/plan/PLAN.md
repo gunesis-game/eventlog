@@ -543,3 +543,8 @@ User approved Option A: every `Append(channel, event)` is persisted as an explic
 
 - If a commit marker is partially written, recovery treats it as an incomplete trailing transaction and truncates the log back to that transaction's start, discarding all records in the transaction (including any channel record), preserving atomicity.
 - Cycle 1 remains in Define; no implementation/build/tests have started.
+
+
+## Design checkpoint — Open missing log behavior approved — 2026-11-23
+
+- User approved: `Open()` creates a new empty log and initializes its storage structure automatically if the log does not exist. Existing logs are recovered on open. No separate initialization command is required.
