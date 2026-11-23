@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "status": "claimed",
+  "status": "active",
   "cycle_id": "4c7c4fb1-6724-4bb0-b98e-b4f5ac3f9182",
   "workflow": "standard",
   "worker_id": "ChatGPT GPT-6 (gunesis-game-owner)",
