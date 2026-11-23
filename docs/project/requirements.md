@@ -43,7 +43,10 @@ eventlog is a lightweight, embedded, disk-backed append-only event log for gener
 
 ### Reading
 - One unified reader supports replay and live tailing. It delivers committed history in order, catches concurrent appends during replay, and transitions to live tailing without gaps or duplicates.
-- Reading uses a global sequence cursor, requires exactly one channel UUID and context cancellation, and reports errors explicitly.
+- Every reader is scoped to exactly one consumer-provided `Channel` value; there is no all-channel reader.
+- Global sequence, cursor, segment offset, and tailing coordination are internal; consumers neither provide nor receive storage cursors or sequence numbers.
+- Context cancellation and explicit errors are required.
+- Reads reconstruct the original concrete consumer-defined Event type. A separate/global event-registration API is rejected; the exact reconstruction mechanism remains open.
 - Re-appended logical events are delivered as separate occurrences.
 
 ### Durability and maintenance
@@ -66,9 +69,9 @@ eventlog is a lightweight, embedded, disk-backed append-only event log for gener
 - Detailed acceptance test matrix.
 
 
-## Approved reader constraint — mandatory channel UUID
+## Current reader decision — channel value and internal cursor
 
-Consumers must provide a typed `UUID` identifying exactly one channel for every reader. There is no unfiltered/all-channel reader, wildcard, or empty-UUID sentinel. A zero/empty UUID is invalid. `ChannelID(channel Channel) (UUID, error)` resolves the deterministic channel identity; the proposed reader signature is `Read(ctx context.Context, after uint64, channelID UUID) (*Reader, error)`. The cursor is global and exclusive; zero starts from the channel's earliest occurrence. Exact public signatures and detailed error/cancellation behavior remain subject to final API review.
+Every reader is scoped to exactly one consumer-provided `Channel` value; there is no all-channel reader. The consumer does not supply a channel UUID or global sequence cursor. The library resolves channel identity and manages sequence/cursor/offset state internally. The unified reader starts with committed history and transitions gap-free into live tailing. Consumer-facing reads return the original concrete Event type. Exact public signatures, reconstruction mechanism, occurrence shape, and detailed cancellation/error semantics remain open.
 
 
 ## Define decision — storage layout, manifest, index, recovery, and compaction (approved)
