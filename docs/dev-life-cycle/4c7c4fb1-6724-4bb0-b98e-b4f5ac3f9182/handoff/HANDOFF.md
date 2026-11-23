@@ -366,3 +366,11 @@ User approved the v1 duplicate-reconciliation rules and they were recorded in PL
 - User approved explicit commit markers for recoverable atomic append transactions. Recovery must expose only fully committed transactions and discard incomplete trailing transactions; new-channel creation and event append are one transaction. Transaction record encoding and recovery details remain open.
 - User requested removal of the GitHub Actions repository initialization workflow. The `.github/workflows/initialize.yml` workflow is being removed; this intentionally disables automatic README templating and template cleanup on pushes. Other workflows are unchanged.
 - Lock is active for Cycle 1 Define. No implementation/build/tests have begun. Continue with the next design question after verifying the workflow deletion.
+
+
+## Session checkpoint — 2026-11-23
+
+- **Append API:** approved `Append(channel, event) error`; return error directly.
+- **Atomic transaction verification:** approved commit markers containing transaction ID, record count, and checksum of transaction records. Recovery validates marker against the transaction and exposes only fully committed transactions; incomplete trailing transactions are discarded. Checksum algorithm, ID format, and exact framing remain to be specified.
+- **GitHub Actions initialization workflow:** `.github/workflows/initialize.yml` deleted in commit `450c2bca54dfbddb782c69c01205ae0513a5d3c9`, deletion verified. No other workflow was changed.
+- Cycle 1 remains in Define; no implementation, build, or Go tests have started. Continue with the next open design question.
