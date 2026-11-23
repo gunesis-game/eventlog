@@ -233,3 +233,8 @@ Cycle 1 is active in the define phase. The execution lock is claimed and verifie
 - Recovery: before index replacement, old segments stay authoritative; after index replacement and before cleanup, old/new may coexist and must be reconciled as duplicate occurrences; post-cleanup, the new segments must fully reconstruct the logical log. Interrupted temp files and duplicates should be tolerated.
 - The plan contains this approval. Details still open: manifest/index shape, duplicate reconciliation, temp cleanup, and remaining define-phase topics.
 - No implementation/build/tests have begun. Cycle 1 remains in define; proceed with design discussion, not implementation.
+
+
+## Latest checkpoint — record taxonomy/envelope approved
+
+User approved the proposed record model. Persisted kinds are `channel` and `event`; event promotion is a later append occurrence, not a separate record. Shared envelope is `version`, `seq`, `kind`, `data`; payloads: channel `id/type/fields`, event `id/channel_id/type/fields`. Recovery validation includes envelope/content, channel references, sequences, and fields; only incomplete trailing suffix is truncated, malformed complete records fail. Latest event occurrence per event ID is logical HEAD and ordering is by descending latest sequence. Float width and signed-zero encoding remains required. See PLAN for the complete approved checkpoint.
