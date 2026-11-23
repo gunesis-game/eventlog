@@ -331,3 +331,13 @@ Confirm product requirements and trade-offs in discussion before documenting the
 - Sequence numbers are stored in segment records, not solely in the index; they are the authoritative ordering evidence and are independent of physical segment placement.
 - Recovery derives global logical event order from the latest occurrence of each event ID, ordered by sequence descending. Channel records also occupy sequence numbers in the global record stream.
 - No implementation, build, or Go tests have started.
+
+
+## Design checkpoint — sync policy accepted — 2026-11-23T02:16:10+02:00
+
+- User accepted the proposed buffered/periodic sync policy: automatic sync every 1 second or when the buffer reaches 1 MiB, whichever occurs first.
+- Explicit `Flush()` is proposed/accepted as a durability boundary that flushes buffered bytes and forces sync.
+- `Close()` attempts final flush and sync before closing.
+- `Append()` does not promise crash durability before a successful sync; recent appended records may be lost on crash within the unsynced window.
+- No implementation or tests have started. The current cycle remains in define.
+- Next: finalize record taxonomy/envelope, UUID and canonical encoding details, and promotion/association record semantics before implementation.
