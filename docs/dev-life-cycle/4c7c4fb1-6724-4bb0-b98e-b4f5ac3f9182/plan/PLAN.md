@@ -671,3 +671,11 @@ Audit is informational; no implementation, build, or tests were started.
 - `Open()` validates the index and automatically rebuilds it from validated committed segment transactions if missing or inconsistent. Index replacement is atomic; index corruption does not imply event loss.
 - This complements the approved segment-first write and atomic index replacement ordering. Index/manifest exact file layout and recovery order still need definition.
 - Cycle 1 remains in Define; no implementation, build, or Go tests have started.
+
+
+## Design checkpoint — portability and performance assumptions — 2026-11-23
+
+- User approved standard-library-only Go and local filesystem storage, with supported platforms restricted to Linux and Windows (not macOS).
+- Linux and Windows are equal-priority supported targets at all times. Any platform-specific capability or filesystem behavior that is unsupported, unreliable, or materially different on either must use an alternative strategy that works on both. Do not accept a Linux-only or Windows-only implementation for core functionality.
+- Performance targets remain qualitative until benchmarks are established. Prioritize correctness, crash recovery, predictable memory use, and cross-platform parity.
+- Cycle 1 remains in Define; no implementation, build, or Go tests have started.
