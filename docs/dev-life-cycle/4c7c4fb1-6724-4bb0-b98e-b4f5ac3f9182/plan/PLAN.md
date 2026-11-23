@@ -500,3 +500,11 @@ User approved a recoverable-atomic append guarantee: if a write fails or a crash
 ## Design checkpoint — Append transaction commit markers approved — 2026-11-23
 
 User approved Option A: every `Append(channel, event)` is persisted as an explicit transaction, with a commit marker written only after all transaction records are complete. Recovery exposes only committed transactions and discards incomplete trailing transactions. A newly created channel record and its event record belong to the same transaction. The exact transaction record encoding, commit marker contents, and recovery/truncation behavior remain to be specified. No implementation/build/tests have started.
+
+
+## Design checkpoint — append return and commit verification approved — 2026-11-23
+
+- User approved the idiomatic append API: `Append(channel, event) error`. Append returns an error directly; no separate result value.
+- User approved commit-marker verification contents: each transaction's commit marker includes a transaction ID, record count, and checksum of the transaction records. Recovery validates these before exposing a transaction; invalid or incomplete trailing transactions are discarded according to the atomic recovery contract. Details of checksum algorithm, transaction-ID format, and precise marker framing remain open.
+- Workflow housekeeping: `.github/workflows/initialize.yml` was deleted from `main` in commit `450c2bca54dfbddb782c69c01205ae0513a5d3c9`; deletion was verified (contents endpoint returned 404). Other workflows were untouched.
+- Cycle 1 remains in Define. No implementation, build, or Go tests have started.
