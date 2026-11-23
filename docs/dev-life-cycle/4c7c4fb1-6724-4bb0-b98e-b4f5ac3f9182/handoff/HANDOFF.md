@@ -1,73 +1,71 @@
-# Cycle 1 — Define Handoff
+# Cycle 1 — Current Handoff
 
 **Cycle ID:** 4c7c4fb1-6724-4bb0-b98e-b4f5ac3f9182  
+**Workflow:** Standard  
 **Phase:** Define  
 **Status:** In progress  
-**Execution lock:** Active — claimed by ChatGPT GPT-6 on 2026-11-23 23:21:56 SAST
+**Execution lock:** Active — ChatGPT GPT-6. Claim commit: 23ccba45fd17e96b039a54d032c0fd25a6ab8621; timestamp correction commit: 41cecfbf49d0a0a62b6ce08670f4a063a3cf01a6.
 
-## Latest approved decisions (current)
+## Current checkpoint
 
-- `Open()` creates a missing log as a zero-byte file and automatically recovers existing logs.
-- `Append(channel, event) error` is the API direction. It validates both objects before writing; new channel + event are persisted atomically in one transaction. No standalone channel creation API; no channel-only entities.
-- Every persisted record, including `channel`, `event`, and `commit`, has `schema_version: 1`. Schema selection is per record. Unsupported future versions are rejected. No header is added.
-- Transactions write channel (if new), event occurrence, then commit marker. Commit marker is first-class, consumes a global sequence, and includes transaction ID (first transaction record sequence), transaction-record count (excluding marker), and SHA-256 checksum of exact serialized transaction-record bytes (excluding marker).
-- Partial/incomplete trailing transaction recovery truncates back to transaction start; only committed transactions are exposed.
-- JSON Schema Draft 2020-12; standalone versioned schema files are canonical and embedded with `go:embed`.
-- Persisted fields use strict typed JSON objects. Strings/bools use native values; integer values use decimal strings (schema validates shape, Go validates exact per-type bounds); floats are raw IEEE hex strings preserving width and signed zero; null is type-only. Non-finite floats rejected.
-- Deterministic IDs use UUID v5 with fixed namespace and distinct event/channel domain prefixes. Canonical identity encoding is field-order independent, sorted bytewise UTF-8, explicit type tags, uint32 big-endian framing, exact primitive widths/bits, package path + struct type name.
-- Channel identity uses channel type + all channel fields. Event identity uses event type + fields, excluding channel. Logical event IDs are global; repeated append creates a new occurrence, latest occurrence defines HEAD/current channel and order, while associations/history are retained.
-- Global sequence numbers are persisted in segment records. Segment files are source of truth; index is rebuildable. Segment-first writes, atomic index replacement.
-- Compaction order approved: temporary replacement segments, validate/checksum, sync, rename to final, atomically replace index, then remove old segments. Recovery ignores temp compaction artifacts and cleans only after finalized sources validate.
-- Sync policy: automatic sync every 1 second or 1 MiB (whichever first); explicit `Flush()` is a durability boundary; `Close()` flushes and syncs; Append isn't crash-durable before sync.
-- Field constructors: `FieldOf` for non-nullable and `FieldOfNullable` for nullable; reflection resolves direct selected field pointer on zero-valued probe and requires unique match. Validation occurs at append, all-or-nothing.
-- Primitive allowlist: string, bool, all signed/unsigned integers (including byte/rune aliases), float32/float64, named types; excludes uintptr/complex. Nullable primitive pointers supported. Reject non-finite floats, duplicate/empty names; names case-sensitive/untrimmed. Canonical field order bytewise UTF-8.
-- Integer range validation decision: JSON Schema validates decimal-string structure; Go enforces exact per-type bounds.
+The execution lock was claimed on main and the active remote lock was verified. Plan contradictions have been reconciled in the current authoritative sections. The registry still correctly identifies Cycle 1 as the sole in-progress standard cycle in Define. This handoff is the current checkpoint; older session notes in PLAN.md are historical.
 
-## Current plan audit / reconciliation
+No implementation, build, or Go tests have started.
 
-Earlier plan sections contain stale proposed APIs, open-decision lists, and historical checkpoints. Newer approved checkpoints take precedence; reconcile stale wording as Define documentation cleanup. Known unresolved areas include: exact transaction byte framing/checksum newline scope; public reader/replay/tailing contract and replay-to-live transition; segment rotation/size limits; index/manifest format and rebuild/recovery order; performance/portability assumptions; consolidated API signatures/error semantics; acceptance criteria and test plan. Durability vs atomicity wording must distinguish recoverability from unsynced crash loss.
+## Approved baseline (do not reopen)
 
-## Next design question
+- Embedded general-purpose append-only event storage; single process owns log, concurrent goroutines supported, no multi-process writer coordination.
+- Consumer Event/Channel contracts expose `Fields() Fields`; only explicitly selected Fields persist.
+- `Append(channel, event) error`; validate both before write; new channel persisted atomically with first event; no standalone channel-create API.
+- Primitive allowlist: string, bool, signed/unsigned integers (byte/rune aliases), float32/float64 and named primitive types; exclude uintptr/complex. Nullable primitive pointers supported. Non-finite floats rejected; exact Go integer bounds checked.
+- `FieldOf` / `FieldOfNullable`; reflection resolves direct selected pointer on zero-valued probe and requires unique selector match. Field validation occurs at Append, all-or-nothing.
+- Field names are case-sensitive, not trimmed; reject empty/duplicate. Sort canonical fields bytewise UTF-8.
+- Deterministic UUID v5 with fixed namespace and distinct event/channel domain prefixes. Canonical encoding sorted fields, type tags, uint32 big-endian framing, exact primitive widths/bits, package path/type identity.
+- Event identity global from event type+fields (not channel). Each occurrence belongs to one channel. Reappend is a distinct occurrence and preserves associations/history; latest occurrence sets HEAD/current channel.
+- NDJSON built-in JSON, zero-byte new log, no header. Every channel/event/commit record has `schema_version: 1`; Draft 2020-12 schemas versioned, standalone canonical, embedded using `go:embed`.
+- Typed JSON values: strings/bools native, integers decimal strings, float32/64 IEEE raw-bit hex strings (8/16 lowercase digits), null type-only. Schema enforces structure; Go checks integer ranges and nonfinite float rejection.
+- Record kinds: `channel`, `event`, `commit`. Global sequence assigned to all records. Transaction ID = sequence of first transaction record. New channel transaction writes channel,event,commit; existing channel writes event,commit. Commit sequence consumes global sequence but excluded from transaction record count/checksum.
+- SHA-256 checksum covers exact serialized transaction record bytes including trailing newline per transaction record; commit marker and its newline excluded.
+- Recovery exposes committed transactions only; incomplete trailing transaction (including partial commit marker) truncates from transaction start. Complete malformed record is corruption, never silently skipped. Unsupported schema version is rejected.
+- `Open()` creates missing log as zero bytes and recovers existing storage.
+- Sync: automatic sync every 1 second or 1 MiB (first threshold wins); `Flush()` and `Close()` sync boundaries. Append is not power-loss durable before sync.
+- Unified replay/live reader: ordered committed history, concurrent catch-up and live tail transition without gaps/duplicates; global cursor, optional channel filter, context cancellation, explicit errors.
+- Segment files authoritative; rebuildable index stores event/channel links, latest occurrence/HEAD, sequences and offsets. Open validates/rebuilds index and atomically replaces it.
+- Fixed target segment size, rotate only at transaction boundaries; oversized transaction can occupy one segment.
+- Compaction: create replacement temp segments, validate/checksum, sync, rename final, atomically replace index, then remove old segments. Temp files cleaned only after finalized source segments validate.
+- Standard library only; local filesystem; Linux and Windows equally supported, macOS excluded. Correctness/recovery/memory predictability prioritized; numeric performance targets deferred to benchmarks.
 
-Define the v1 public API surface and error model: exact type signatures, reader interface, context handling, and stable error categories. Recommend documenting the current agreed APIs (`Open`, `Append`, `Flush`, `Close`, unified reader) and defining errors for validation, corruption/recovery, unsupported schema, I/O, and closed-state operations.
+## Contradictions reconciled in PLAN.md
 
-## Session instructions
+1. Channel lifecycle/API: explicit creation statements superseded; no standalone API, atomic implicit creation with first append.
+2. Record taxonomy: two-kind descriptions superseded; three envelope kinds including commit.
+3. Float JSON: ordinary JSON number proposal superseded by typed IEEE-hex strings.
+4. Stale open decisions and unapproved baseline replaced by a current-only unresolved list and approved baseline.
+5. Old handoff snapshots retained as historical notes; this file is the sole current handoff.
+6. Atomicity separated from durability: recovery rollback vs unsynced crash loss window.
+7. Event/channel semantics clarified: one channel per occurrence, associations retained across logical-event reappend, latest HEAD/current channel.
+8. Sequence/count/checksum accounting clarified: marker sequence counts globally, but commit marker excluded from count and checksum.
+9. Compaction cleanup order clarified: only after finalized source segments validate.
+10. API drift partly resolved: constructor/validation behavior current; precise API/error signatures remain open.
 
-- Resume from this handoff and the current PLAN; do not repeat approved decisions.
-- Define phase only. No implementation, build, or test until Define is complete and explicitly approved.
-- Execution lock is active; do not start another worker. Release it only when handing off.
+## Remaining Define work
 
+1. Consolidate public API signatures and error categories, including reader shape/cursor/filter/context/close semantics.
+2. Specify segment naming/layout, index schema, manifest necessity and Open recovery/rebuild ordering.
+3. Define reader safety and compaction interaction, including close/resource behavior.
+4. Define benchmark scenarios and memory/performance criteria.
+5. Build an acceptance-test matrix covering transaction failures, recovery, checksum/sequence invariants, replay/live races, index rebuild and compaction crash windows.
+6. Update durable project requirements and architecture documentation.
+7. Finish the consistency review and obtain explicit user approval to exit Define.
 
-## Latest checkpoint — checksum newline framing — 2026-11-23
+## Session rules
 
-- User approved SHA-256 over exact serialized NDJSON transaction record bytes including terminating newline(s), excluding commit marker and its newline. Recovery uses the same byte scope.
-- The next unresolved design question is the v1 public API surface and error model: exact type signatures, unified reader interface, context handling, and stable error categories.
+- Resume by verifying the execution lock first. If it is active and owned by this worker/session, continue; if ownership is uncertain or another worker owns it, stop per lifecycle rules.
+- Stay on main; serialized development only.
+- Define phase only: no implementation, build or tests until Define is complete and explicitly approved.
+- Keep plan, registry phase, and handoff consistent.
+- Release the lock only when handing off/pausing/completing, after checkpointing.
 
+## Next action
 
-## Latest checkpoint — unified reader — 2026-11-23
-
-- Unified replay/live stream approved. It starts from committed history, catches up concurrent appends, transitions gap-free and duplicate-free into live tailing, supports global sequence cursor, optional channel filtering, context cancellation, ordered delivery, and explicit errors. Re-appends are separate occurrences.
-
-
-## Latest checkpoint — segment rotation — 2026-11-23
-
-- Fixed target segment size approved; rotate only at transaction boundaries. Transactions are never split. An oversized transaction may occupy its own segment.
-
-
-## Latest checkpoint — rebuildable index — 2026-11-23
-
-- User approved a replaceable local index derived from authoritative segment files. Index tracks event IDs, channel associations, HEAD/latest occurrence, sequence positions, and offsets. `Open()` validates and rebuilds when missing or inconsistent; replacement is atomic.
-
-
-## Latest checkpoint — portability and performance — 2026-11-23
-
-- Standard-library-only Go, local filesystem storage, Linux and Windows only (macOS excluded). Linux and Windows are equal-priority supported targets. Any platform-specific unsupported or unreliable behavior must use an alternative strategy that works on both; core features must not become platform-exclusive.
-- Performance targets qualitative until benchmarks. Prioritize correctness, recovery, predictable memory use, and cross-platform parity.
-
-
-## Session handoff — 2026-11-23 23:32 SAST
-
-- User requested release to move to a new session. Execution lock is being released cleanly.
-- Resume by reading PLAN and this HANDOFF first, verifying lock is released, then claim before continuing.
-- Do not repeat settled decisions. Continue with public API signatures and error model.
-- Define only; implementation/build/tests remain prohibited until Define is complete and explicitly approved.
+Complete the public API/error model and then settle the remaining storage/recovery/reader details. Do not repeat approved design decisions.
