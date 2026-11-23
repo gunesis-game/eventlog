@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "status": "released",
-  "cycle_id": null,
-  "workflow": null,
-  "worker_id": null,
-  "claimed_at": null,
-  "released_at": "2026-11-23T22:03:53Z",
-  "release_evidence": "Cycle 1 API/error-model proposal presented and checkpointed in HANDOFF.md. Awaiting user approval; lock released."
+  "status": "claimed",
+  "cycle_id": "4c7c4fb1-6724-4bb0-b98e-b4f5ac3f9182",
+  "workflow": "standard",
+  "worker_id": "ChatGPT",
+  "claimed_at": "2026-11-23T22:08:29Z",
+  "released_at": null,
+  "release_evidence": null
 }
