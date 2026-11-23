@@ -59,10 +59,9 @@ No implementation, build, or Go tests have started.
 ## Remaining Define work
 
 1. Consolidate public API signatures and error categories, including reader shape/cursor/filter/context/close semantics.
-2. Specify segment naming/layout, index schema, manifest necessity and Open recovery/rebuild ordering.
-3. Define reader safety and compaction interaction, including close/resource behavior.
-4. Define benchmark scenarios and memory/performance criteria.
-5. Build an acceptance-test matrix covering transaction failures, recovery, checksum/sequence invariants, replay/live races, index rebuild and compaction crash windows.
+2. Finalize the public API/error contract and reader Occurrence/cancellation/close details.
+3. Define benchmark scenarios and memory/performance criteria.
+4. Build an acceptance-test matrix covering transaction failures, recovery, checksum/sequence invariants, replay/live races, index rebuild and compaction crash windows.
 6. Finish the consistency review and obtain explicit user approval to exit Define.
 
 ## Session rules
@@ -86,3 +85,54 @@ Complete the public API/error model and then settle the remaining storage/recove
 - API direction: `Read(ctx context.Context, after uint64, channelID UUID) (*Reader, error)`, `Next() (Occurrence, error)`, and `Close() error`.
 - Cursor is global and exclusive; `0` starts at the earliest occurrence for the selected channel. Replay/live transition remains gap-free and channel-filtered.
 - Exact occurrence fields and detailed cancellation/error semantics remain open. No implementation, build, or tests have started.
+
+
+## Define decision — storage layout, manifest, index, recovery, and compaction (approved)
+
+### Storage layout and segment lifecycle
+
+The storage directory contains a manifest, a rebuildable index, and a segments directory. Segment IDs are monotonically increasing integers and are never reused, including after compaction; they are not record sequence numbers. Finalized segment files are immutable. Only the active segment may be written. Record sequence numbers remain global across all segments.
+
+```text
+eventlog/
+├── manifest.json
+├── index.json
+└── segments/
+    ├── segment-000001.ndjson
+    ├── segment-000002.ndjson
+    └── ...
+```
+### Manifest
+
+A minimal versioned manifest identifies the active finalized segment set and the next segment ID. It is authoritative for the active generation and contains no event payloads. Example shape:
+
+```json
+{
+  "format_version": 1,
+  "generation": 3,
+  "segments": ["segment-000004.ndjson", "segment-000005.ndjson"],
+  "next_segment_id": 6
+}
+```
+Manifest replacement is the atomic generation-switch/compaction commit point: write temporary manifest, validate, sync, then atomically replace it. Old segments are retained until the new manifest is finalized. Unreferenced segment files are recovery candidates for safe cleanup, not automatically authoritative. If manifest corruption leaves multiple plausible complete generations, Open must fail with a recovery/corruption error rather than guessing.
+
+### Rebuildable index
+
+The index is derived metadata and is bound to the manifest generation. It includes event IDs, channel associations, latest occurrence/HEAD, global sequence, segment ID, and byte offsets. If absent, inconsistent, or stale for the active generation, Open rebuilds it from validated authoritative segments and atomically replaces it. Index metadata never overrides segment contents.
+
+### Open recovery order
+
+1. Acquire exclusive single-process ownership.
+2. Validate the manifest and identify its active segment generation.
+3. Validate active segment files, record schemas, and sequence continuity.
+4. Validate transaction boundaries, commit markers, counts, and checksums.
+5. Roll back an incomplete trailing transaction by truncating from its transaction start.
+6. Validate or rebuild the generation-bound index and atomically replace it if needed.
+7. Clean orphan/temp artifacts only after the active finalized source segments validate and cleanup is safe.
+8. Open for appends and mandatory channel-scoped readers.
+
+If the manifest is corrupt or missing in an existing storage directory, recovery may proceed only if exactly one complete generation can be determined unambiguously; otherwise report corruption/recovery failure. Do not select the newest-looking files by filename alone.
+
+### Reader-safe compaction
+
+Each reader pins the generation it started against. Compaction constructs replacement segments and index without modifying files used by current readers, validates and syncs them, then atomically switches the manifest. New readers use the new generation; existing readers continue using their pinned generation. Old generation files are deleted only after the last reader releases its pin. This policy applies equally on Linux and Windows, avoiding platform-specific reader semantics.
