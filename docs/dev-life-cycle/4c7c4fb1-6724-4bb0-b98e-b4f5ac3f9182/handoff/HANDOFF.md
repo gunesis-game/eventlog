@@ -8,7 +8,7 @@
 
 ## Current checkpoint
 
-The execution lock was claimed on main and the active remote lock was verified. Plan contradictions have been reconciled in the current authoritative sections. The registry still correctly identifies Cycle 1 as the sole in-progress standard cycle in Define. This handoff is the current checkpoint; older session notes in PLAN.md are historical.
+The execution lock was claimed on main and the active remote lock was verified. Plan contradictions have been reconciled in the current authoritative sections. Durable requirements and architecture docs were updated with approved decisions. The registry still correctly identifies Cycle 1 as the sole in-progress standard cycle in Define. This handoff is the current checkpoint; older session notes in PLAN.md are historical.
 
 No implementation, build, or Go tests have started.
 
@@ -48,6 +48,14 @@ No implementation, build, or Go tests have started.
 9. Compaction cleanup order clarified: only after finalized source segments validate.
 10. API drift partly resolved: constructor/validation behavior current; precise API/error signatures remain open.
 
+## Reconciliation changes
+
+- Plan reconciled and stale checkpoints marked historical. Plan commit: `fbcc5a590001a9e25ec7bc8585ca1c3a0adf5205`; reconciliation checkpoint commit: `d534a08c88342e1b8e8a163ee716f94c6341e363`.
+- Handoff rewritten as the sole current checkpoint (commit `7618a76dcded8a77a1a36b0c771a29cca843b3ad`).
+- Requirements documented (commit `3c87844abb9a60fc7c4b9386a498d6de208e493c`).
+- Architecture documented (commit `21db0b1b77ab2d8578e65afe7629622471d3a5a7`).
+- Validator workflow succeeded for lock claim, plan reconciliation and handoff reconciliation revisions. The latest plan checkpoint's workflow run is still to be confirmed.
+
 ## Remaining Define work
 
 1. Consolidate public API signatures and error categories, including reader shape/cursor/filter/context/close semantics.
@@ -55,8 +63,7 @@ No implementation, build, or Go tests have started.
 3. Define reader safety and compaction interaction, including close/resource behavior.
 4. Define benchmark scenarios and memory/performance criteria.
 5. Build an acceptance-test matrix covering transaction failures, recovery, checksum/sequence invariants, replay/live races, index rebuild and compaction crash windows.
-6. Update durable project requirements and architecture documentation.
-7. Finish the consistency review and obtain explicit user approval to exit Define.
+6. Finish the consistency review and obtain explicit user approval to exit Define.
 
 ## Session rules
 
