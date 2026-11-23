@@ -425,3 +425,15 @@ Approved by the user on 2026-11-23:
 - This applies to package path, type name, field count, field name, field payload, and string lengths.
 - Canonical identity layout: domain prefix; length-prefixed package path; length-prefixed type name; uint32 BE field count; canonical sorted field entries. Each field uses length-prefixed name, one-byte type tag, and length-prefixed value payload.
 - Deterministic framing across architectures; values/components exceeding uint32 limits are rejected before encoding.
+
+
+## Design checkpoint — global event/channel associations and promotion (approved)
+
+Approved by the user on 2026-11-23:
+
+- Event IDs are global and independent of channel association.
+- Re-appending an existing event creates a new physical occurrence.
+- An event may retain associations with multiple channels.
+- The newest occurrence determines the event's logical HEAD and current channel.
+- Logical events are ordered by each event's latest occurrence sequence, descending.
+- Occurrence history is retained in segment records.
