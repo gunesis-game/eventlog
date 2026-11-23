@@ -46,7 +46,7 @@ eventlog is a lightweight, embedded, disk-backed append-only event log for gener
 - Every reader is scoped to exactly one consumer-provided `Channel` value; there is no all-channel reader.
 - Global sequence, cursor, segment offset, and tailing coordination are internal; consumers neither provide nor receive storage cursors or sequence numbers.
 - Context cancellation and explicit errors are required.
-- Reads reconstruct the original concrete consumer-defined Event type. A separate/global event-registration API is rejected; the exact reconstruction mechanism remains open.
+- Reads are typed by a consumer-supplied generic concrete Event struct type. eventlog owns allocation, decoding, and field reconstruction; the consumer does not register types, supply prototypes, implement factories, or provide decoders. A persisted event type must be checked against the requested generic type; mismatch behavior remains to be finalized.
 - Re-appended logical events are delivered as separate occurrences.
 
 ### Durability and maintenance
