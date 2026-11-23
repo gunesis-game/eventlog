@@ -548,3 +548,25 @@ User approved Option A: every `Append(channel, event)` is persisted as an explic
 ## Design checkpoint — Open missing log behavior approved — 2026-11-23
 
 - User approved: `Open()` creates a new empty log and initializes its storage structure automatically if the log does not exist. Existing logs are recovered on open. No separate initialization command is required.
+
+
+## Design checkpoint — empty-log initialization approved — 2026-11-23
+
+- User approved Option A: a newly created log starts as a zero-byte file. No metadata/header record is written; the first transaction supplies versioned records. This avoids a special header record and header-specific recovery logic.
+
+## Plan consistency audit — 2026-11-23
+
+The plan contains stale wording and design conflicts that must be reconciled before Define is considered complete:
+
+1. **Channel creation API/lifecycle conflict:** early text says channel creation is explicit and events may only append to an existing channel, with no implicit creation. Later approved atomic Append design says `Append(channel, event)` creates/persists a new channel record together with the event if the channel is new. Treat the later atomic Append decision as current direction, but explicitly settle whether a standalone channel-create API still exists and what it returns.
+2. **Record taxonomy vs transaction commit markers:** approved envelope says exactly two kinds (`channel`, `event`), while transaction design requires a commit marker record written last and every persisted record has a sequence. The marker's persisted representation, kind/type, envelope participation, and sequence accounting are not specified. Resolve this before implementation.
+3. **JSON vs canonical float encoding:** persistence is NDJSON/JSON, but canonical IDs must preserve float width and signed zero (and Field tags preserve primitive type). Specify the JSON representation for float32/float64 and negative zero so round-trip decoding retains exact type/width/bits; ordinary JSON numbers alone may be insufficient.
+4. **Stale open-decision/task lists:** the early “Open decisions” list and “Proposed baseline (not yet approved)” still list items later approved (primitive allowlist, UUID v5, record envelope, sync, etc.). They are misleading and should be replaced with a current unresolved-only list and approved baseline.
+5. **Stale checkpoint/handoff snapshots:** early progress and handoff text says prior questions remain unresolved (including sync policy/channel API) even though later checkpoints approve them. Preserve these as historical entries, but label them historical and ensure a single current checkpoint points to the latest state.
+6. **Atomic append durability wording:** recoverable atomicity is approved for interrupted writes, while sync is periodic and Append is not crash-durable until sync. Clarify atomicity/recovery guarantee separately from durability guarantee, including what a process/power failure can expose before sync.
+7. **Channel association phrasing:** early statement “every event belongs to exactly one channel” conflicts with later approved global event identity retaining multiple channel associations across repeated appends. Current rule should distinguish one channel per occurrence from multiple channels per logical event over its history/current associations.
+8. **Sequence/transaction framing:** global sequence applies to persisted records; transaction ID is the first record's sequence and commit marker also consumes a sequence in the example. Define record sequence vs transaction record count precisely (whether count excludes the commit marker), including channel/event-only transactions.
+9. **Temporary compaction artifacts:** the duplicate-reconciliation checkpoint says temporary files are “ignored and cleaned up,” while later approved rule says clean only after finalized source segments validate. Use the later cleanup ordering consistently.
+10. **API documentation drift:** early FieldOf signature shows no error return and only FieldOf; later decisions add FieldOfNullable and error-reporting selector resolution. Replace early illustrative API with a current consolidated signature/behavior summary once implementation details are finalized.
+
+Audit is informational; no implementation, build, or tests were started.
