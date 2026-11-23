@@ -29,7 +29,7 @@ Earlier plan sections contain stale proposed APIs, open-decision lists, and hist
 
 ## Next design question
 
-Define segment rotation policy and size limits for v1: whether to rotate segments at a fixed target size, how to handle a single transaction that exceeds the target, and whether segment size is configurable. Recommend fixed target size with transaction-boundary rotation, allowing an oversized transaction to occupy a segment by itself.
+Define the v1 index and manifest design, including what metadata is authoritative, how the rebuildable index is represented, and the startup recovery/rebuild order. Recommend keeping segment files authoritative, a compact local index replaceable, and rebuilding it from validated committed segments when missing or inconsistent.
 
 ## Session instructions
 
@@ -47,3 +47,8 @@ Define segment rotation policy and size limits for v1: whether to rotate segment
 ## Latest checkpoint — unified reader — 2026-11-23
 
 - Unified replay/live stream approved. It starts from committed history, catches up concurrent appends, transitions gap-free and duplicate-free into live tailing, supports global sequence cursor, optional channel filtering, context cancellation, ordered delivery, and explicit errors. Re-appends are separate occurrences.
+
+
+## Latest checkpoint — segment rotation — 2026-11-23
+
+- Fixed target segment size approved; rotate only at transaction boundaries. Transactions are never split. An oversized transaction may occupy its own segment.
