@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
   "status": "released",
-  "cycle_id": "4c7c4fb1-6724-4bb0-b98e-b4f5ac3f9182",
-  "workflow": "standard",
-  "worker_id": "ChatGPT GPT-6",
-  "claimed_at": "2026-11-23T23:08:00+02:00",
+  "cycle_id": null,
+  "workflow": null,
+  "worker_id": null,
+  "claimed_at": null,
   "released_at": "2026-11-23T23:19:00+02:00",
   "release_evidence": {
     "commit": "c707de055e79c3c43d627f0ec2afb061804a00f2",
