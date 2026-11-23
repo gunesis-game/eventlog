@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "status": "claimed",
+  "status": "released",
   "cycle_id": "4c7c4fb1-6724-4bb0-b98e-b4f5ac3f9182",
   "workflow": "standard",
-  "worker_id": "ChatGPT",
+  "worker_id": null,
   "claimed_at": "2026-11-23T02:16:10+02:00",
-  "released_at": null,
-  "release_evidence": null
+  "released_at": "2026-11-23T02:32:00+02:00",
+  "release_evidence": "Handoff commit 05c86ff82038144dc58aafa9971d1116c198da84; registry pause commit f81c996141de72d69df2d29776605abafda1befa."
 }
