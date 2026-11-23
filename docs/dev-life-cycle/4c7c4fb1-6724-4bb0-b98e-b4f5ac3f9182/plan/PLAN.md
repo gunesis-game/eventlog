@@ -656,3 +656,10 @@ Audit is informational; no implementation, build, or tests were started.
 - Each appended occurrence is delivered as a distinct stream occurrence, including re-appends of a logical event. Reader delivery is ordered.
 - Replay-to-live race handling is library-owned; consumers do not coordinate separate replay and subscribe APIs.
 - Cycle 1 remains in Define; no implementation, build, or Go tests have started.
+
+
+## Design checkpoint — transaction-boundary segment rotation approved — 2026-11-23
+
+- User approved Option A: segment files have a fixed target size, with rotation only at transaction boundaries. Transactions are never split across segments.
+- If a single transaction exceeds the target segment size, it is permitted to occupy its own oversized segment rather than being split.
+- Cycle 1 remains in Define; no implementation, build, or Go tests have started.
