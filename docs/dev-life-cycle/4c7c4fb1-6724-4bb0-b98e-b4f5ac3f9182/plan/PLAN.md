@@ -379,3 +379,26 @@ Approved by the user on 2026-11-23:
 - Strings are raw UTF-8 bytes with length prefixes.
 - Canonical identity bytes begin with a fixed encoding-format version.
 - Exact type-tag table, namespace UUID, and byte-composition details remain undecided.
+
+
+## Design checkpoint — primitive type-tag table (approved)
+
+Approved by the user on 2026-11-23. Persisted v1 one-byte tags:
+
+- `0x00`: Null (no payload)
+- `0x01`: String (UTF-8 bytes)
+- `0x02`: Bool (one byte, 0 or 1)
+- `0x10`: int (8-byte signed)
+- `0x11`: int8 (1-byte signed)
+- `0x12`: int16 (2-byte signed)
+- `0x13`: int32 (4-byte signed)
+- `0x14`: int64 (8-byte signed)
+- `0x20`: uint (8-byte unsigned)
+- `0x21`: uint8 (1-byte unsigned)
+- `0x22`: uint16 (2-byte unsigned)
+- `0x23`: uint32 (4-byte unsigned)
+- `0x24`: uint64 (8-byte unsigned)
+- `0x30`: float32 (4 raw IEEE-754 bytes)
+- `0x31`: float64 (8 raw IEEE-754 bytes)
+
+Multi-byte numerics are big-endian. int/uint are fixed 64-bit for architecture-independent encoding. Named primitive types use underlying-type tags. Nullable values encode nil with Null and non-nil with the primitive tag. Unknown tags fail recovery. Reserved ranges are not allocated. Tags are permanent and cannot be reassigned.
