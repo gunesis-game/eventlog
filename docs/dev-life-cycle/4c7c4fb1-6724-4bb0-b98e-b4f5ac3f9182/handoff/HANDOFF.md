@@ -380,3 +380,9 @@ User approved the v1 duplicate-reconciliation rules and they were recorded in PL
 
 - SHA-256 is approved for transaction commit-marker verification. Hash the exact serialized transaction record bytes, excluding the commit marker. Verify during recovery. Use Go standard library `crypto/sha256`; no dependency.
 - Exact transaction framing remains open. Cycle 1 remains in Define; no implementation/build/tests have started.
+
+
+## Session checkpoint — sequential transaction IDs — 2026-11-23
+
+- Sequential monotonically increasing transaction IDs are approved (Option A), aligned with global log sequence ordering and single-writer ownership. Exact numbering/framing and the relationship to record sequence values remain open; IDs must not be reused.
+- No implementation/build/tests have started; Cycle 1 remains in Define.
