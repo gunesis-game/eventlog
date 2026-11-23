@@ -35,7 +35,7 @@ The repository describes eventlog as a lightweight disk-backed append-only Go lo
 - **Atomicity vs durability:** Recovery exposes only committed transactions. Interrupted trailing transaction (including partial commit) is discarded by truncating from transaction start. This recoverable atomicity is distinct from crash durability: Append is not durable until sync. Complete newline-terminated malformed records are corruption and must not be silently skipped.
 - **Recovery/open:** `Open()` creates missing storage as a zero-byte log and recovers existing files. Unsupported schema versions are rejected. Incomplete trailing transaction data is rolled back; only validated committed transactions are exposed.
 - **Sync:** Automatic sync every 1 second or 1 MiB, whichever comes first. `Flush()` is a durability boundary; `Close()` flushes and syncs. Append does not promise power-loss durability before sync.
-- **Reader:** One replay/live stream starts with committed history, catches concurrent appends and transitions gap-free/duplicate-free to live tailing. Uses global sequence cursor, optional channel filter, context cancellation, ordered occurrence delivery, and explicit errors.
+- **Reader:** One replay/live stream is mandatory channel-scoped, starts with committed history, catches concurrent appends and transitions gap-free/duplicate-free to live tailing. Global sequence/cursor/offset management is internal; consumers do not supply or receive storage cursors. Context cancellation, ordered delivery, and explicit errors are required. Consumer-facing reads use typed reconstruction of registered concrete event structs; exact registration and unknown-type behavior remain open.
 - **Segments/index:** Segment files are authoritative; index is rebuildable. Index stores event IDs, channel associations, latest occurrence/HEAD, sequence positions, and offsets. Open validates and rebuilds absent/inconsistent index; index replacement is atomic. Fixed target segment size; rotate only at transaction boundaries, with oversized transaction allowed in its own segment.
 - **Compaction:** Write temporary replacement segments, validate/checksum, sync, rename to final, atomically replace index, then remove old segments. Temporary artifacts are ignored during recovery and only cleaned after finalized source segments validate.
 - **Platforms/dependencies:** Standard library only, local filesystem, Linux and Windows equal-priority supported; macOS excluded. Core behavior must have parity across both. Performance targets remain qualitative until benchmarks.
@@ -64,11 +64,11 @@ The repository describes eventlog as a lightweight disk-backed append-only Go lo
 
 ## Remaining open decisions (current only)
 
-1. **Public API and errors:** Consolidated exact signatures and stable error categories (validation, corruption/recovery, unsupported schema, I/O, closed state), including reader API shape, cursor, channel filtering, context and close semantics.
-2. **Benchmark scenarios and acceptance matrix:** Define measurable scenarios and qualitative limits; convert approved guarantees into verification cases.
-3. **Public API/error contract:** Consolidate exact signatures, stable error categories, Occurrence shape, and detailed cancellation/close semantics.
+1. **Typed reconstruction and registration:** Define how concrete Event types are registered, reconstructed, and handled when unknown/unregistered; decide whether a public Occurrence wrapper is needed or Reader.Next returns Event directly.
+2. **Public API and errors:** Consolidate exact signatures and stable error categories (validation, corruption/recovery, unsupported schema, I/O, closed state), including channel selection, context and close semantics.
+3. **Benchmark scenarios and acceptance matrix:** Define measurable scenarios and qualitative limits; convert approved guarantees into verification cases.
 4. **Performance/memory expectations:** Define measurable benchmark scenarios and acceptable qualitative limits without prematurely fixing numeric targets.
-5. **Acceptance/verification matrix:** Convert all approved guarantees into test cases, including interrupted writes, checksum failures, sequence accounting, reader handoff races, index rebuild and compaction crash windows.
+5. **Acceptance/verification matrix:** Convert all approved guarantees into test cases, including interrupted writes, checksum failures, sequence accounting, typed reconstruction failures, reader handoff races, index rebuild and compaction crash windows.
 
 Items already approved (primitive allowlist, channel creation, transaction markers/checksum, versioned schema, sync policy, reader replay/live behavior, segment rotation, rebuildable index, portability) are not open decisions.
 
@@ -677,14 +677,13 @@ Remaining work is substantive Define completion, not a reason to repeat already-
 - Requirements and architecture docs updated in commits `3c87844abb9a60fc7c4b9386a498d6de208e493c` and `21db0b1b77ab2d8578e65afe7629622471d3a5a7`. Plan/handoff reconciliation is complete; validator checks passed. Next is the remaining Define design work.
 
 
-## Define decision — typed, channel-scoped reader API (approved)
+## Define decision — channel-scoped reader and internal cursor (current user decisions)
 
 - Reader filtering is mandatory: every reader targets exactly one channel. There is no all-channels or unfiltered reader.
-- The channel filter is a typed `UUID`, never a string. Empty/zero UUID is not a wildcard and must be rejected as an invalid channel ID.
-- Proposed API approved as direction: `Read(ctx context.Context, after uint64, channelID UUID) (*Reader, error)`; `Reader.Next() (Occurrence, error)`; `Reader.Close() error`.
-- `after` is a global sequence cursor and means strictly after that sequence. Zero starts at the earliest occurrence in the specified channel.
-- Add `ChannelID(channel Channel) (UUID, error)` to resolve the deterministic ID without consumers duplicating identity logic.
-- Reader provides channel-scoped committed replay and gap-free transition to live tailing; context cancellation stops waiting. Exact occurrence fields and cancellation/error details remain to be finalized.
+- The consumer does not pass a channel UUID or global sequence cursor. All sequence/cursor/offset management is internal to the log.
+- The user selected typed reconstruction: reads return the original concrete consumer-defined Event struct, not a generic map/Fields payload.
+- The exact public signatures, registration mechanism, whether an Occurrence wrapper is necessary, and unknown-type behavior remain under Define discussion; the older UUID/cursor API below is superseded.
+- Reader provides channel-scoped committed replay and gap-free transition to live tailing; context cancellation stops waiting. Detailed cancellation/error behavior remains to be finalized.
 
 
 ## Define decision — storage layout, manifest, index, recovery, and compaction (approved)
