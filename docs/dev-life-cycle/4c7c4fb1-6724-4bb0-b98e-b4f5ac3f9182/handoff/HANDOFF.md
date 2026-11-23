@@ -12,11 +12,7 @@
 - The current approved baseline is consolidated in `plan/PLAN.md`: append-only local event log; one process owner; concurrent goroutine access; typed primitive `Fields()`; deterministic UUID v5 identities; versioned NDJSON records; commit/checksum/recovery rules; periodic sync; segmented storage, rebuildable index, manifest, and reader-pinned compaction; standard-library-only Linux/Windows support.
 - Every reader is scoped to exactly one consumer-provided `Channel` value. Consumers do not supply or receive channel UUIDs, global sequence numbers, cursors, or storage offsets. Those remain internal.
 - Reads must reconstruct the original concrete consumer-defined Event type. A separate/global `Register[T]()` API is rejected. `Append(channel, event)` remains the point where the concrete event type is first supplied.
-- **Reconstruction investigation:** a persisted package/type name is not enough for Go to instantiate an arbitrary concrete type after process restart. Some consumer-supplied construction capability is unavoidable; there is no supported Go runtime API that discovers and instantiates arbitrary compiled types by name.
-- Candidate A — Channel factory: add `NewEvent(typeKey string) (Event, error)` to the consumer's `Channel` contract. `Read(ctx, channel)` stays simple and no separate/global registration API is added. The trade-off is that each Channel implementation must know every event type that can occur in that channel.
-- Candidate B — reader-scoped prototypes: `Read(ctx, channel, prototypes ...Event)` receives zero-value concrete event pointers. The library uses their types to create fresh instances and populate the selected primitive fields. This keeps Channel focused on identity/fields, but the consumer must supply the supported event types at each reader creation; it is registration-like, though not a global `Register[T]()` API.
-- Candidate C — factory/decoder method on every Event adds per-type boilerplate and is less attractive unless custom decoding is required.
-- Recommendation: prefer Candidate A if preserving the simple `Read(ctx, channel)` shape and avoiding a separate type catalogue are priorities; prefer Candidate B if Channel must remain a pure identity/fields value. Neither is approved yet.
+- **User's clarified reconstruction requirement:** the consumer supplies the concrete generic struct type to the read API; eventlog owns allocation, decoding, field assignment, and persisted-type verification. No separate registration API, reader-scoped prototypes, Channel factory, or consumer decoder is wanted. Proposed shape: `Read[T Event](ctx, channel) (*Reader[T], error)` with `Next() (T, error)`. Exact generic constraint, pointer/value convention, and mismatch behavior remain open.
 - Proposed unknown-type behavior: return an explicit typed unknown-event-type error; never silently skip an occurrence. Whether that error is terminal or recoverable remains open.
 - The requirements and architecture docs were reconciled to the approved channel-value/internal-cursor contract. No implementation, build, or Go tests have started.
 
@@ -34,7 +30,7 @@ The `Read` prototype argument is a proposal only. Exact signatures, nil/pointer 
 
 ## Remaining Define work
 
-1. Obtain the user's decision on reader-scoped Event prototypes versus another reconstruction mechanism.
+1. Finalize the generic read contract, pointer/value convention, and behavior when a channel contains a persisted event type different from T.
 2. Finalize Event/Channel/Fields contracts and public Append/Read/Next/Close signatures.
 3. Define stable errors, cancellation, reader termination, and resource lifecycle.
 4. Define benchmark scenarios and memory/performance acceptance criteria.
