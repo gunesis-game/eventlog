@@ -353,3 +353,10 @@ User approved the v1 duplicate-reconciliation rules and they were recorded in PL
 - User approved fully atomic `Append(channel, event)` behavior: validate channel and event before any write; if the channel is new, persist its record together with the event only when the entire append is valid. Any validation failure leaves the log unchanged and writes neither record.
 - Decision is persisted in PLAN. Cycle 1 remains in `define`; no implementation, build, or tests have started.
 - Continue with the next single unresolved design decision.
+
+## Latest decision checkpoint — 2026-11-23
+
+- User approved recoverable-atomic append on disk-write failure or crash: recovery must discard/rollback an incomplete append and never expose a partial logical append. A newly created channel and its event are committed as one logical unit.
+- The concrete transaction mechanism (e.g. transaction/commit marker or rollback protocol) remains a design question.
+- This is recorded in PLAN. Cycle 1 remains in `define`; no implementation, build, or tests have started.
+- Continue with the next single unresolved design decision.
