@@ -468,3 +468,8 @@ Approved by the user on 2026-11-23 (Option B): recovery ignores temporary compac
 ## Design checkpoint — nullable field constructor API approved — 2026-11-23
 
 User approved Option A: retain `FieldOf` for non-nullable primitive fields and introduce a separate `FieldOfNullable` constructor for nullable primitive fields. The nullable selector returns a pointer-to-pointer (e.g. `func(e *User) **string { return &e.Email }`); nil means explicit Null, distinct from empty string and zero values. Keep the API straightforward and strict; do not add a universal complicated generic constructor. No implementation, build, or Go tests have started.
+
+
+## Design checkpoint — selector field-name resolution approved — 2026-11-23
+
+User approved Option A: resolve the selected struct field name through reflection automatically. Selector resolution must identify exactly one field and return a clear error if it cannot be resolved uniquely. No manual field-name string is required. No implementation/build/tests have started.
