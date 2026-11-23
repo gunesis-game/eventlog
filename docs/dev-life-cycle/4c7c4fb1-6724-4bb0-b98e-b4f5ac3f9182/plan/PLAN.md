@@ -516,3 +516,10 @@ User approved Option A: every `Append(channel, event)` is persisted as an explic
 - Compute the checksum over the exact serialized transaction record bytes, excluding the commit marker itself. The checksum is persisted in the marker and validated during recovery.
 - This uses Go standard library `crypto/sha256`; no dependency added. Exact transaction record byte framing is still to be specified.
 - Cycle 1 remains in Define; no implementation, build, or Go tests have started.
+
+
+## Design checkpoint — sequential transaction IDs approved — 2026-11-23
+
+- User approved **Option A: sequential transaction IDs**. Each transaction uses a monotonically increasing transaction number, aligned with the log's global sequence ordering/single-writer model.
+- Transaction ID format details and precise relationship to record sequence numbers remain to be specified; IDs must not be reused.
+- Cycle 1 remains in Define; no implementation, build, or Go tests have started.
