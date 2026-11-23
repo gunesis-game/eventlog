@@ -327,3 +327,10 @@ User approved the v1 duplicate-reconciliation rules and they were recorded in PL
 - User approved reflection-based selector field-name resolution: infer the field name automatically and report a clear error if resolution cannot identify exactly one field.
 - This decision is recorded in PLAN. Cycle 1 remains in define; no implementation/build/tests have started.
 - Continue to the next single open design question.
+
+
+## Latest decision checkpoint — 2026-11-23
+
+- User approved Option A for selector field pointer validation: invoke the selector on a zero-valued instance and compare the returned pointer against candidate struct field addresses to resolve direct field selectors automatically.
+- Contract: selector must resolve to exactly one direct field pointer; otherwise return a clear error. Reflection cannot inspect the selector's source expression, so conditional selectors may not be detected if they return a valid field pointer on the probe instance. This limitation is documented rather than overstated.
+- Decision recorded in PLAN. Cycle 1 remains in `define`; no implementation/build/tests have started. Continue with the next single unresolved design decision.
