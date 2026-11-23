@@ -363,3 +363,19 @@ Approved by the user on 2026-11-23:
 - Recovery scans valid segment records, validates envelope/content, reconstructs channels, resolves event occurrences/associations, retains the latest occurrence per event ID as logical HEAD, sorts logical events by latest sequence descending, and rebuilds the index.
 - Unknown kind or unsupported version, duplicate/invalid sequence, missing channel references, or invalid fields are corruption/errors. Only an incomplete trailing NDJSON suffix may be truncated; malformed complete records fail recovery.
 - Persisted encoding must preserve float width and IEEE bit patterns, including signed zero, as previously approved.
+
+
+## Design checkpoint — canonical byte encoding structure (approved)
+
+Approved by the user on 2026-11-23:
+
+- Canonical identity encoding uses distinct domain prefixes for channel IDs and event IDs.
+- Type identity is package path plus struct type name, encoded as UTF-8.
+- Explicit field count; fields sorted bytewise by UTF-8 field name.
+- Each field encodes name length/name bytes, type tag, and value length/value bytes.
+- Integers use fixed-width big-endian encoding.
+- Floating point values encode raw IEEE-754 bits and preserve float32/float64 width and signed zero.
+- Nullable values have an explicit null type marker distinct from zero values.
+- Strings are raw UTF-8 bytes with length prefixes.
+- Canonical identity bytes begin with a fixed encoding-format version.
+- Exact type-tag table, namespace UUID, and byte-composition details remain undecided.
