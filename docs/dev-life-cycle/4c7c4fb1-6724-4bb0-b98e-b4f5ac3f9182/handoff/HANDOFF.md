@@ -47,4 +47,4 @@ The generic read shape is illustrative; whether `Read` is a package function or 
 
 ## Next action
 
-Finalize the generic typed-read API, concrete pointer/value convention, and persisted-type mismatch behavior; then complete the API/error contract and acceptance matrix. Do not begin implementation until Define is complete and the user explicitly approves the design.
+Finalize the generic typed-read API, concrete pointer/value convention, and whether Next returns T directly or an Occurrence wrapper; then complete the API/error contract and acceptance matrix. Heterogeneous channels and filtering of non-T occurrences are approved. Do not begin implementation until Define is complete and the user explicitly approves the design.
