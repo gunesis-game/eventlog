@@ -138,6 +138,47 @@ Reconcile the cycle artifacts first: keep one current specification and one curr
 - Current technical investigation: Go cannot reconstruct an arbitrary concrete struct from persisted type-name text alone. The leading no-global-registration proposal is a reader-scoped set of typed zero-value prototypes supplied to `Read`; this is a proposal only and awaits user approval.
 - No implementation, build, or Go tests have started.
 
+## Proposed acceptance matrix and benchmark scenarios (Define draft)
+
+The following scenarios translate approved guarantees into observable verification cases. They are a test-plan proposal, not evidence that tests exist or have run.
+
+### Acceptance matrix
+
+| Area | Scenario | Expected result |
+|---|---|---|
+| Field validation | Empty/duplicate names, nested selectors, unsupported kinds, non-finite floats, invalid nullable values | Append rejects before any bytes or channel record are persisted |
+| Primitive fidelity | Signed/unsigned bounds, named primitives, null, float32/float64 signed zero and exact bit patterns | Round-trip preserves declared primitive type and exact approved representation |
+| Identity | Reorder Fields output; vary event/channel type or values | Identity is stable under field order and changes only for the approved type/value inputs |
+| Append transactions | First append to a channel; later append to existing channel; repeated logical event | New channel and first event commit together; later appends omit channel record; each append is a distinct occurrence |
+| Concurrent append | Many goroutines append concurrently | No interleaved transactions; global record sequence is unique and continuous |
+| Validation atomicity | Invalid channel or event in a new/existing channel | No partial records, index changes, or channel creation |
+| Commit/recovery | Truncate at every byte boundary in trailing channel/event/commit records | Only complete committed transactions are exposed; incomplete trailing transaction rolls back to its start |
+| Corruption detection | Complete malformed NDJSON, wrong count, transaction ID, checksum, or sequence | Open reports corruption; it does not skip or silently repair complete invalid records |
+| Schema versioning | Valid v1 and unsupported future record versions | v1 validates; unsupported versions fail explicitly |
+| Sync/durability | Trigger 1-second and 1-MiB sync thresholds; Flush; Close | Sync occurs at either threshold; Flush/Close are durability boundaries |
+| Reader replay | Existing channel history | Only committed occurrences for the requested channel are delivered in order |
+| Replay/live handoff | Append during replay and exactly at the transition to waiting | Every matching occurrence is delivered once, with no gap or duplicate |
+| Reader cancellation | Cancel context while replaying and while waiting | Next returns the context error promptly and releases reader resources |
+| Reader lifecycle | Close reader during replay/tailing; close log with readers active | Behavior matches the approved close/wait policy; no leaked descriptors or goroutines |
+| Typed reconstruction | Every supported event type; unknown persisted type; malformed field/type mismatch | Concrete event structs are reconstructed; unknown/mismatched types produce explicit errors and are never silently skipped |
+| Index rebuild | Missing, stale, malformed, or inconsistent index | Index is rebuilt from authoritative committed segments and atomically replaced |
+| Manifest recovery | Missing/corrupt manifest with one versus multiple plausible complete generations | Recover only when unambiguous; otherwise fail rather than guess |
+| Segment rotation | Transaction crosses target size; one transaction exceeds target | Rotate only between transactions; oversized transaction occupies its own segment |
+| Compaction | Inject failure before/after each finalize/switch/delete step | Old authoritative generation remains recoverable until atomic manifest switch; temporary files are safely handled |
+| Reader-safe compaction | Existing reader pins old generation while compaction switches manifest | Existing reader continues on old files; new readers use new generation; old files are deleted only after last pin releases |
+| Portability | Run storage, lock, rename, sync, recovery, and compaction cases on Linux and Windows | Same core guarantees on both supported platforms |
+
+### Benchmark scenarios
+
+- Append throughput and latency with one/many goroutines, varying field count and event payload size.
+- Append behavior across channel cardinalities and repeated logical event identities.
+- Replay throughput and tailing latency for small/large histories and sparse/dense channel matches.
+- Peak memory during long replay and concurrent tailing; verify memory remains bounded by reader/buffer strategy rather than total log size.
+- Open/recovery time as segment count and total bytes grow, with valid index versus index rebuild.
+- Compaction throughput, temporary disk-space amplification, and peak memory across representative segment sizes.
+
+Record environment, Go version, OS/filesystem, dataset size, concurrency, and sync mode with every benchmark. Establish baselines before setting numeric performance thresholds; do not invent targets in advance.
+
 ## Completion review (not yet performed)
 
 - [ ] Acceptance criteria verified or exceptions explicitly accepted
