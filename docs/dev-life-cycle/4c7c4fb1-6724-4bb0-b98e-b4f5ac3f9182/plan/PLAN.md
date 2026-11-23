@@ -488,3 +488,7 @@ User approved validation at append time. Validate returned event/channel Fields 
 ## Design checkpoint — validation atomicity approved — 2026-11-23
 
 User approved Option A for append validation failures: all-or-nothing. Validate all returned event/channel fields before writing any record; if any field is invalid, return a clear error and leave the log unchanged, with no partial event/channel record. No implementation, build, or tests have started.
+
+## Design checkpoint — fully atomic channel/event append approved — 2026-11-23
+
+User approved fully atomic `Append(channel, event)` behavior: validate both channel and event first; when the channel is new, persist the channel and event together only if the full append is valid. Any validation failure leaves the log unchanged and writes neither a new channel nor an event record. No implementation, build, or tests have started.
