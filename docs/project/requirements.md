@@ -46,7 +46,7 @@ eventlog is a lightweight, embedded, disk-backed append-only event log for gener
 - Every reader is scoped to exactly one consumer-provided `Channel` value; there is no all-channel reader.
 - Global sequence, cursor, segment offset, and tailing coordination are internal; consumers neither provide nor receive storage cursors or sequence numbers.
 - Context cancellation and explicit errors are required.
-- Reads are typed by a consumer-supplied generic concrete Event struct type. eventlog owns allocation, decoding, and field reconstruction; the consumer does not register types, supply prototypes, implement factories, or provide decoders. A persisted event type must be checked against the requested generic type; mismatch behavior remains to be finalized.
+- Reads are typed by a consumer-supplied generic concrete Event struct type. eventlog owns allocation, decoding, and field reconstruction; the consumer does not register types, supply prototypes, implement factories, or provide decoders. A channel may contain multiple concrete Event struct types. `Read[T]` returns only occurrences whose persisted concrete type matches T, in channel order, while advancing past nonmatching event types; nonmatching types are not errors. Malformed records and failures decoding a matching T record are explicit errors.
 - Re-appended logical events are delivered as separate occurrences.
 
 ### Durability and maintenance
@@ -64,14 +64,14 @@ eventlog is a lightweight, embedded, disk-backed append-only event log for gener
 
 ## Open details (not approved yet)
 - Exact public signatures, reader interface shape, stable error categories, and detailed context/cancellation/close semantics.
-- Whether a public Occurrence wrapper is needed and the concrete Event reconstruction mechanism.
+- Whether a public Occurrence wrapper is needed; eventlog owns the concrete Event reconstruction mechanism.
 - Benchmark scenarios and measurable performance/memory acceptance targets.
 - Detailed acceptance test matrix.
 
 
 ## Current reader decision — channel value and internal cursor
 
-Every reader is scoped to exactly one consumer-provided `Channel` value; there is no all-channel reader. The consumer does not supply a channel UUID or global sequence cursor. The library resolves channel identity and manages sequence/cursor/offset state internally. The unified reader starts with committed history and transitions gap-free into live tailing. Consumer-facing reads return the original concrete Event type. Exact public signatures, reconstruction mechanism, occurrence shape, and detailed cancellation/error semantics remain open.
+Every reader is scoped to exactly one consumer-provided `Channel` value; there is no all-channel reader. The consumer does not supply a channel UUID or global sequence cursor. The library resolves channel identity and manages sequence/cursor/offset state internally. The unified reader starts with committed history and transitions gap-free into live tailing. A channel may contain multiple concrete Event types; `Read[T]` filters to T while scanning past nonmatching event types. eventlog allocates and reconstructs matching values internally. Exact public signatures, pointer/value convention, occurrence shape, and detailed cancellation/error semantics remain open.
 
 
 ## Define decision — storage layout, manifest, index, recovery, and compaction (approved)
