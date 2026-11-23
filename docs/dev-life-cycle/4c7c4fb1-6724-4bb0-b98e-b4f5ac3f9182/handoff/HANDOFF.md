@@ -320,3 +320,10 @@ User approved the v1 duplicate-reconciliation rules and they were recorded in PL
 - User approved Option A for nullable-field construction: separate `FieldOf` for required primitives and `FieldOfNullable` for nullable primitives (pointer-to-pointer selector; nil encodes Null).
 - This decision is persisted in PLAN. Cycle 1 remains in define; no implementation, build, or tests have begun.
 - Continue with the next single unresolved design decision.
+
+
+## Latest decision checkpoint — 2026-11-23
+
+- User approved reflection-based selector field-name resolution: infer the field name automatically and report a clear error if resolution cannot identify exactly one field.
+- This decision is recorded in PLAN. Cycle 1 remains in define; no implementation/build/tests have started.
+- Continue to the next single open design question.
