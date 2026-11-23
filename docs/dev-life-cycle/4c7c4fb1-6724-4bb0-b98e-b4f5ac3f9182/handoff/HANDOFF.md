@@ -340,3 +340,10 @@ User approved the v1 duplicate-reconciliation rules and they were recorded in PL
 
 - User approved validation at append time: validate Event/Channel Fields during append; invalid data must produce clear errors without silent omission or coercion.
 - This decision is recorded in PLAN. Cycle 1 remains in `define`; no implementation/build/tests have started. Continue with the next single unresolved design decision.
+
+
+## Latest decision checkpoint — 2026-11-23
+
+- User approved all-or-nothing append validation: validate all Event/Channel Fields before writing any records; any invalid field causes a clear error and leaves the log unchanged (no partial event or channel record).
+- This decision is persisted in PLAN. Cycle 1 remains in `define`; no implementation, build, or tests have started.
+- Continue with the next single unresolved design decision.
