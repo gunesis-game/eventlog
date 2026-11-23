@@ -46,7 +46,7 @@ eventlog is a lightweight, embedded, disk-backed append-only event log for gener
 - Every reader is scoped to exactly one consumer-provided `Channel` value; there is no all-channel reader.
 - Global sequence, cursor, segment offset, and tailing coordination are internal; consumers neither provide nor receive storage cursors or sequence numbers.
 - Context cancellation and explicit errors are required.
-- Reads are typed by a consumer-supplied generic concrete Event struct type. eventlog owns allocation, decoding, and field reconstruction; the consumer does not register types, supply prototypes, implement factories, or provide decoders. A channel may contain multiple concrete Event struct types. `Read[T]` returns only occurrences whose persisted concrete type matches T, in channel order, while advancing past nonmatching event types; nonmatching types are not errors. Malformed records and failures decoding a matching T record are explicit errors.
+- Reads are typed by the consumer-supplied generic Channel and Event struct types through `Read[TChannel,TEvent]()`. The public API direction is `log.Append[TChannel,TEvent](selector)`, `log.Read[TChannel,TEvent]()` and `reader.Next()`. eventlog owns allocation, decoding, and field reconstruction; the consumer does not register types, supply prototypes, implement factories, or provide decoders. A channel may contain multiple concrete Event struct types. `Read[T]` returns only occurrences whose persisted concrete type matches T, in channel order, while advancing past nonmatching event types; nonmatching types are not errors. Malformed records and failures decoding a matching T record are explicit errors.
 - Re-appended logical events are delivered as separate occurrences.
 
 ### Durability and maintenance
