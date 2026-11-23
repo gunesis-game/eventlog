@@ -4,58 +4,43 @@
 **Workflow:** Standard  
 **Phase:** Define  
 **Status:** Blocked pending user design approval  
-**Execution lock:** Claimed and verified in commit 51b1080b821d8d2e1deda541a5eed04f2fcfd914; release commit follows this checkpoint.
+**Execution lock:** Released. Verified current lock file at handoff checkpoint; no active owner.
 
-## Checkpoint
-- Resumed Cycle 1 from Define and verified lock was released.
-- Claimed execution lock and verified remote main claim commit.
-- Re-read current handoff and authoritative plan.
-- Reconciled the plan's stale reader API baseline: no consumer-supplied channel UUID or cursor; typed reconstruction is the current direction.
-- User explicitly decided: all sequence/cursor management stays internal to the log. Consumers do not pass sequence cursors or manage storage positions.
-- User explicitly selected **typed reconstruction**: consumers should receive their original concrete Go event structs when reading, rather than generic persisted fields.
-- This choice supersedes the earlier generic Occurrence proposal containing EventID, ChannelID, EventType, and Fields as consumer-facing values.
+## Latest checkpoint
+- User confirmed that **all global sequence/cursor management remains internal**. Consumers neither pass nor receive storage cursors/sequences.
+- User selected **typed reconstruction**: consumers receive their original concrete Go event structs, not generic persisted fields.
+- User rejected separate event registration: the consumer already supplies the concrete event value to `Append(channel, event)`; do not add a separate `Register[T]()` API.
+- Intended consumer-facing shape remains struct-oriented: append supplies channel and event values; read selects by a channel value; Next returns a reconstructed concrete event through the Event interface.
+- A possible Channel factory/constructor method was discussed as one way to reconstruct concrete event types after restart, but it is **not approved**. Do not assume it is the answer.
+- Important unresolved technical design: Go cannot instantiate an arbitrary concrete type from a persisted type name alone after restart. Determine how type reconstruction is made possible without separate registration, while honoring the user's requirement that Append is the point where type information is supplied. Investigate whether the Channel contract can provide construction/decoding, whether an event prototype is supplied as part of Read, or another design consistent with the existing Fields contracts. Present trade-offs before deciding.
+- Do not reintroduce public EventID/ChannelID fields or generic Fields as a substitute for typed reconstruction unless a concrete consumer need justifies them.
 - No source implementation, build or tests performed.
 
 ## Approved design baseline
 Preserve consolidated baseline in PLAN.md: append-only disk-backed Go log; single-process ownership; concurrent goroutines supported; Event/Channel Fields() contracts; primitive allowlist and nullable primitives; deterministic UUID v5 identity; typed versioned NDJSON records channel/event/commit; transaction commits and SHA-256 framing; recovery/rollback; periodic sync; channel-scoped replay-to-live reader; segment rotation; rebuildable index; manifest and reader-pinned compaction; stdlib-only Linux/Windows support.
 
-## Current API direction (not fully finalized)
+## Current API direction (not finalized)
 - `Open(path string) (*Log, error)`
 - `(*Log).Append(channel Channel, event Event) error`
-- Channel-based `Read(ctx, ...)` with no consumer-supplied sequence/cursor.
-- Reader replays matching channel history then tails live events.
-- Consumer-facing occurrences reconstruct the original concrete event struct (typed reconstruction), rather than exposing generic persisted fields as the primary event value.
+- Channel-based `Read(ctx, channel)` with no consumer-supplied UUID or cursor.
+- `(*Reader).Next() (Event, error)` returns the reconstructed concrete event.
+- Reader replays matching channel history then tails live events without gaps/duplicates.
 - Global sequence, transaction IDs, storage offsets and cursors remain internal.
 - Flush, Compact, Close and sentinel error model remain proposed.
 
-## Typed reconstruction: current proposal and decisions still required
-
-Recommended API direction for discussion:
-- `Open(path string, registrations ...Registration) (*Log, error)`
-- `Register[T Event]() Registration` explicitly registers a concrete event type for reconstruction.
-- `(*Log).Read(ctx context.Context, channel Channel) (*Reader, error)` selects a channel using the consumer's channel struct; no public ChannelID lookup is needed.
-- `(*Reader).Next() (Event, error)` returns the reconstructed concrete event value through the Event interface. Since the reader already targets one channel, a public Occurrence wrapper and Channel field may be unnecessary.
-- `(*Log).Append(channel Channel, event Event) error` remains the write operation.
-
-This is a proposal, not an approved API. Resolve:
-1. Whether explicit `Register[T Event]()` at Open is the chosen registration mechanism.
-2. Whether registration supports struct values only or also pointers to structs.
-3. What happens when Next encounters an unregistered persisted event type (typed error and reader behavior).
-4. How type renames/moves and schema/type evolution are handled; existing identity rules make Go package path/type name part of persisted type identity.
-5. Ensure reconstruction restores only explicitly selected Fields and preserves nullable primitive values and exact primitive types.
-
 ## Remaining Define work
-1. Finalize typed registration and reconstruction contract.
-2. Finalize Occurrence and Reader semantics, cancellation, and close behavior.
-3. Finalize API/error model.
-4. Define benchmark scenarios and memory/performance criteria.
-5. Create acceptance-test matrix for transaction failures, recovery, checksums/sequences, replay/live races, index rebuild, typed reconstruction failures, and compaction crash windows.
-6. Final consistency review and explicit approval to exit Define.
+1. Resolve typed reconstruction without separate registration, including restart behavior and unknown/unsupported type handling.
+2. Finalize Event/Channel contracts, Read/Next signatures, and whether Channel needs a factory/decoder capability.
+3. Finalize reader cancellation, close, and terminal-error semantics.
+4. Finalize API/error model.
+5. Define benchmark scenarios and memory/performance criteria.
+6. Create acceptance-test matrix for transaction failures, recovery, checksums/sequences, replay/live races, typed reconstruction failures, index rebuild, and compaction crash windows.
+7. Final consistency review and explicit approval to exit Define.
 
 ## Next action
-Ask the user to approve or revise the proposed registration and typed Read/Next API direction, then finalize unknown-type behavior. Do not implement before Define is complete and explicitly approved.
+Resume by investigating viable Go type-reconstruction designs that require no separate registration and preserve Append as the source of concrete event type information. Bring a concise recommendation and trade-offs to the user. Do not implement before Define is complete and explicitly approved.
 
 ## Verification
-- Lock claim was verified against remote main.
-- This checkpoint records the user's typed-reconstruction decision.
-- No project source changes; no build or tests run.
+- Execution lock was already in released state when the user requested unlocking; no release mutation was necessary.
+- This handoff checkpoint records the user's rejection of separate registration and the unresolved reconstruction constraint.
+- No source implementation; no build or tests run.
