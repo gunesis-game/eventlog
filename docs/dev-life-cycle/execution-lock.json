@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "status": "released",
-  "cycle_id": null,
-  "workflow": null,
-  "worker_id": null,
-  "claimed_at": null,
-  "released_at": "2026-11-23T22:18:30Z",
-  "release_evidence": "Reconciled PLAN.md with internal sequence/cursor ownership and typed reconstruction; checkpointed proposed explicit event registration and struct-based Read/Next API in HANDOFF.md commit 7b8314ec495367bf338a27daf7e2078ce8b337e6. Awaiting user decision on registration and unknown-type behavior."
+  "status": "claimed",
+  "cycle_id": "4c7c4fb1-6724-4bb0-b98e-b4f5ac3f9182",
+  "workflow": "standard",
+  "worker_id": "ChatGPT GPT-6 (gunesis-game-owner)",
+  "claimed_at": "2026-11-23T22:21:34.491Z",
+  "released_at": null,
+  "release_evidence": null
 }
