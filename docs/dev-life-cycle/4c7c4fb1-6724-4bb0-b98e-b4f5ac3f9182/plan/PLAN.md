@@ -437,3 +437,16 @@ Approved by the user on 2026-11-23:
 - The newest occurrence determines the event's logical HEAD and current channel.
 - Logical events are ordered by each event's latest occurrence sequence, descending.
 - Occurrence history is retained in segment records.
+
+
+## Design checkpoint — duplicate reconciliation for recovery and compaction (approved)
+
+Approved by the user on 2026-11-23:
+
+- The sequence number identifies a physical record occurrence; the event ID identifies the logical event. These identities must not be conflated.
+- A repeated record with the same sequence and identical content is treated as a physical duplicate copy and deduplicated during recovery.
+- Repeated occurrences of the same event ID at different sequence numbers are legitimate history and must be preserved. The highest sequence occurrence determines the logical HEAD, current channel, and ordering; older occurrences remain history.
+- Two records with the same sequence but different content are corruption and fail recovery; do not guess which wins.
+- Duplicate channel records with the same channel ID and identical channel data may be deduplicated; conflicting data for one channel ID is corruption.
+- Incomplete temporary compaction artifacts are ignored and cleaned up. Valid finalized replacement segments are recovered normally.
+- Compaction copies retain original sequence numbers. Reconciliation must not promote an older event due to duplicate copies.
