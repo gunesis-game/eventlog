@@ -29,7 +29,7 @@ Earlier plan sections contain stale proposed APIs, open-decision lists, and hist
 
 ## Next design question
 
-Define the v1 index and manifest design, including what metadata is authoritative, how the rebuildable index is represented, and the startup recovery/rebuild order. Recommend keeping segment files authoritative, a compact local index replaceable, and rebuilding it from validated committed segments when missing or inconsistent.
+Define v1 portability and performance assumptions: supported OS/filesystems, storage placement, and whether the initial release is standard-library-only. Recommend standard-library-only Go, local filesystem storage, and cross-platform support where practical; state performance expectations qualitatively until benchmarks are established.
 
 ## Session instructions
 
@@ -52,3 +52,8 @@ Define the v1 index and manifest design, including what metadata is authoritativ
 ## Latest checkpoint — segment rotation — 2026-11-23
 
 - Fixed target segment size approved; rotate only at transaction boundaries. Transactions are never split. An oversized transaction may occupy its own segment.
+
+
+## Latest checkpoint — rebuildable index — 2026-11-23
+
+- User approved a replaceable local index derived from authoritative segment files. Index tracks event IDs, channel associations, HEAD/latest occurrence, sequence positions, and offsets. `Open()` validates and rebuilds when missing or inconsistent; replacement is atomic.
