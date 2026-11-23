@@ -496,3 +496,7 @@ User approved fully atomic `Append(channel, event)` behavior: validate both chan
 ## Design checkpoint — recoverable atomic append on write failure approved — 2026-11-23
 
 User approved a recoverable-atomic append guarantee: if a write fails or a crash interrupts an append, recovery must not expose a partial logical append. Any incomplete append is rolled back/discarded during recovery; the log recovers to a valid state. This includes a new channel and its event being committed together. The concrete on-disk transaction/commit-marker or rollback mechanism remains to be designed. No implementation, build, or tests have started.
+
+## Design checkpoint — Append transaction commit markers approved — 2026-11-23
+
+User approved Option A: every `Append(channel, event)` is persisted as an explicit transaction, with a commit marker written only after all transaction records are complete. Recovery exposes only committed transactions and discards incomplete trailing transactions. A newly created channel record and its event record belong to the same transaction. The exact transaction record encoding, commit marker contents, and recovery/truncation behavior remain to be specified. No implementation/build/tests have started.
