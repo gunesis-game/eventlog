@@ -15,7 +15,7 @@ eventlog is an embedded Go library using local filesystem storage. A single proc
 - **Append transaction writer:** Coordinates concurrent appends, sequence assignment, transaction records and commit marker. A new channel is included in the same transaction as its first event. Writes are recoverable as all-or-nothing at transaction boundaries.
 - **Segment manager:** Writes authoritative segment files, rotates at transaction boundaries, and maintains ordered global record sequence. A transaction exceeding target segment size may be placed alone in an oversized segment.
 - **Recovery/index manager:** On Open, validates committed transactions and record sequences, rolls back incomplete trailing transactions, validates derived index, and rebuilds it from segment source data when missing or inconsistent. Index replacement is atomic.
-- **Reader/tailer:** Streams committed historical occurrences for exactly one consumer-provided Channel value, catches up with concurrent appends, and transitions to live tailing without gaps or duplicates. Global sequence/cursor/offset management is internal; consumers do not provide or receive storage cursors. Cancellation and errors are explicit. Reads are generic over the consumer's concrete Event struct type; eventlog allocates and reconstructs that type internally without a registration/factory/prototype API.
+- **Reader/tailer:** Streams committed historical occurrences for exactly one consumer-provided Channel value, catches up with concurrent appends, and transitions to live tailing without gaps or duplicates. Global sequence/cursor/offset management is internal; consumers do not provide or receive storage cursors. Cancellation and errors are explicit. Reads are generic over the consumer's concrete Event struct type; eventlog allocates and reconstructs that type internally without a registration/factory/prototype API. A channel may contain multiple concrete Event types; a `Reader[T]` returns matching occurrences in order and advances past other event types, which are filtered rather than treated as errors.
 - **Compactor:** Produces temporary replacement segments, validates/checksums and syncs them, renames to final segments, atomically replaces derived index, and removes old segments only after replacement is finalized and validated.
 
 ## Record model and identity
@@ -57,7 +57,7 @@ Canonical identity encoding is separate from JSON serialization: fields are sort
 
 ## Reader behavior
 
-The unified reader is mandatory channel-scoped: each reader targets exactly one consumer-provided `Channel` value. It starts with committed history, catches concurrent appends while replaying, then switches to waiting for new occurrences without a gap or duplicate. Delivery is ordered by the internal global sequence. Consumers neither provide nor receive storage cursors, sequence numbers, or offsets; those remain library-owned. Context cancellation and explicit errors are required. Re-appends are distinct occurrences. Reads reconstruct the original concrete consumer-defined Event type; the reconstruction mechanism and detailed interface/lifecycle semantics remain open.
+The unified reader is mandatory channel-scoped: each reader targets exactly one consumer-provided `Channel` value. It starts with committed history, catches concurrent appends while replaying, then switches to waiting for new occurrences without a gap or duplicate. Delivery is ordered by the internal global sequence. Consumers neither provide nor receive storage cursors, sequence numbers, or offsets; those remain library-owned. Context cancellation and explicit errors are required. Re-appends are distinct occurrences. A channel may contain multiple concrete Event types. `Read[T]` filters the channel stream, returning only T occurrences in order and advancing past nonmatching types; malformed records and failures decoding matching T values remain errors. eventlog allocates and reconstructs matching values internally.
 
 ## Durability, segment management and compaction
 
@@ -74,7 +74,7 @@ Use only Go standard library dependencies and local filesystem storage. Linux an
 ## Unresolved architectural details
 
 - Exact public API signatures and stable error taxonomy.
-- Concrete Event reconstruction mechanism and whether a public Occurrence wrapper is needed.
+- Whether a public Occurrence wrapper is needed; eventlog owns concrete Event reconstruction.
 - Reader cancellation, close, and resource-lifecycle semantics.
 - Benchmarks and memory/performance targets.
 
@@ -83,7 +83,7 @@ Use only Go standard library dependencies and local filesystem storage. Linux an
 
 Every reader targets exactly one consumer-provided `Channel` value; no all-channel reader is exposed. Consumers do not pass channel UUIDs or global sequence cursors. The library owns channel identity resolution, sequence/cursor tracking, and offsets.
 
-The intended flow is a generic typed read, e.g. `Read[MyEvent](ctx, channel)`, followed by ordered `Next()` calls returning `MyEvent` (or a documented occurrence wrapper containing it), with replay-to-live handoff handled internally. The consumer supplies only the concrete generic type; eventlog performs allocation, decoding, field assignment, and persisted-type verification. No registration, prototype, Channel factory, or custom decoder is exposed. Exact generic constraints, pointer/value convention, mismatched-type behavior, reader close behavior, and detailed cancellation/error semantics remain open.
+The intended flow is a generic typed read, e.g. `Read[MyEvent](ctx, channel)`, followed by ordered `Next()` calls returning matching `MyEvent` occurrences (or a documented occurrence wrapper containing one), with replay-to-live handoff handled internally. The consumer supplies only the concrete generic type; eventlog performs allocation, decoding, field assignment, and persisted-type verification. A channel can contain other concrete event types; those are filtered out as the reader advances. No registration, prototype, Channel factory, or custom decoder is exposed. Exact generic constraints, pointer/value convention, occurrence wrapper, reader close behavior, and detailed cancellation/error semantics remain open.
 
 
 ## Define decision — storage layout, manifest, index, recovery, and compaction (approved)
