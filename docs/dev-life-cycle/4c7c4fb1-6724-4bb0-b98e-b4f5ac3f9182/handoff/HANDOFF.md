@@ -11,7 +11,7 @@
 - The user explicitly instructed continuation of Cycle 1. The registry is `in-progress`; the current phase remains `define`.
 - The current approved baseline is consolidated in `plan/PLAN.md`: append-only local event log; one process owner; concurrent goroutine access; typed primitive `Fields()`; deterministic UUID v5 identities; versioned NDJSON records; commit/checksum/recovery rules; periodic sync; segmented storage, rebuildable index, manifest, and reader-pinned compaction; standard-library-only Linux/Windows support.
 - Every reader is scoped to exactly one consumer-provided `Channel` value. Consumers do not supply or receive channel UUIDs, global sequence numbers, cursors, or storage offsets. Those remain internal.
-- Reads must reconstruct the original concrete consumer-defined Event type. A separate/global `Register[T]()` API is rejected. `Append(channel, event)` remains the point where the concrete event type is first supplied.
+- Reads reconstruct the original concrete consumer-defined Event type internally. A separate/global `Register[T]()` API is rejected. User corrected the public API direction to `log.Append[TChannel,TEvent](selector)` and `log.Read[TChannel,TEvent]()` followed by `reader.Next()`. Append's selector callback is part of the public call and explicitly selects fields; do not reduce Append to `Append(channel,event)` or move selectors exclusively into `Fields()`.
 - **User's clarified reconstruction requirement:** the consumer supplies the concrete generic struct type to the read API; eventlog owns allocation, decoding, field assignment, and persisted-type verification. No separate registration API, prototype list, Channel factory, or consumer decoder is wanted. A channel may contain multiple concrete Event struct types. `Read[T]` is a typed filter over the selected channel: it returns matching T occurrences in order and advances past occurrences of other concrete types; those nonmatching types are not errors. Malformed records and failures decoding a record identified as T are explicit errors. Proposed shape: `Read[T Event](ctx, log, channel) (*Reader[T], error)` with `Next() (T, error)`. Exact generic constraint, pointer/value convention, and occurrence wrapper remain open.
 - Persisted records of a different concrete event type are skipped by a typed reader, not treated as unknown-type errors. Structural corruption and malformed fields for a matching event type remain explicit errors.
 - The requirements and architecture docs were reconciled to the approved channel-value/internal-cursor contract. No implementation, build, or Go tests have started.
@@ -20,11 +20,13 @@
 
 ```go
 func Open(path string) (*Log, error)
-func (l *Log) Append(channel Channel, event Event) error
-func Read[T Event](ctx context.Context, log *Log, channel Channel) (*Reader[T], error) // illustrative
-func (r *Reader[T]) Next() (T, error)
-func (r *Reader[T]) Close() error
+func (l *Log) Append[TChannel, TEvent](selector /* exact callback contract to transcribe */)
+func (l *Log) Read[TChannel, TEvent]() /* reader */
+func (r *Reader[...]) Next() /* reconstructed event */
+func (r *Reader[...]) Close() error
 ```
+
+The generic API direction above is the user's correction. Go does not permit methods to declare their own type parameters on a non-generic receiver, so the exact Go declaration may require a generic Log type or package-level generic functions; preserve the intended call shape in the API design discussion and resolve this language constraint deliberately. Do not substitute the former non-generic `Append(channel, event)` contract. The selector callback's exact type and body must be recovered from the agreed selector design rather than guessed.
 
 The generic read shape is illustrative; whether `Read` is a package function or a `Log` method depends on Go's generic-method constraints and the final API layout. The consumer supplies the concrete event type as T; eventlog creates and decodes values internally. Finalize whether T is the pointer type (likely, if `Fields()` has a pointer receiver), how the persisted type key is matched, and the occurrence wrapper. A channel may contain other event types; the reader skips those while scanning. Also finalize nil validation, context cancellation, terminal errors, close semantics, Flush/Compact, and the stable error taxonomy. Do not implement until Define is complete and approved.
 
