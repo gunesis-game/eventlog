@@ -78,3 +78,20 @@ Use only Go standard library dependencies and local filesystem storage. Linux an
 - Segment file naming, manifest necessity/format, index schema and exact Open recovery/rebuild ordering.
 - Compaction concurrency with readers/tailers and segment lifetime guarantees.
 - Benchmarks and memory/performance targets.
+
+
+## Approved public reader API direction — channel-scoped
+
+Every reader is mandatory channel-scoped; no all-channel reader is exposed. The channel filter uses a typed `UUID`, not a string. Empty/zero UUID is invalid, not a wildcard.
+
+
+Proposed signatures:
+
+```go
+func (l *Log) ChannelID(channel Channel) (UUID, error)
+func (l *Log) Read(ctx context.Context, after uint64, channelID UUID) (*Reader, error)
+func (r *Reader) Next() (Occurrence, error)
+func (r *Reader) Close() error
+```
+
+The `after` cursor is global and exclusive; `0` starts at the earliest occurrence in the specified channel. Replay and live tailing remain one gap-free stream, restricted to that channel. The exact `Occurrence` fields and cancellation/error details remain open.
