@@ -76,3 +76,13 @@ No implementation, build, or Go tests have started.
 ## Next action
 
 Complete the public API/error model and then settle the remaining storage/recovery/reader details. Do not repeat approved design decisions.
+
+
+## Approved reader decision (latest)
+
+- Reader API is channel-scoped only: every reader requires exactly one typed `UUID`; there is no all-channel/unfiltered read.
+- Empty/zero UUID is invalid, not a wildcard/sentinel.
+- Add `ChannelID(channel Channel) (UUID, error)` to resolve deterministic IDs.
+- API direction: `Read(ctx context.Context, after uint64, channelID UUID) (*Reader, error)`, `Next() (Occurrence, error)`, and `Close() error`.
+- Cursor is global and exclusive; `0` starts at the earliest occurrence for the selected channel. Replay/live transition remains gap-free and channel-filtered.
+- Exact occurrence fields and detailed cancellation/error semantics remain open. No implementation, build, or tests have started.
