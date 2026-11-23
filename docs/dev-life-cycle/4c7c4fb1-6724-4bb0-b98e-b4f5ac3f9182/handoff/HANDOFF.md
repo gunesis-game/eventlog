@@ -29,8 +29,7 @@ Earlier plan sections contain stale proposed APIs, open-decision lists, and hist
 
 ## Next design question
 
-Define the reader/replay/tailing contract, including cancellation, filtering, and the transition from replay to live tailing. This is the next unresolved design area; present clear options and a recommendation without revisiting approved decisions.
-
+Define segment rotation policy and size limits for v1: whether to rotate segments at a fixed target size, how to handle a single transaction that exceeds the target, and whether segment size is configurable. Recommend fixed target size with transaction-boundary rotation, allowing an oversized transaction to occupy a segment by itself.
 
 ## Session instructions
 
@@ -43,3 +42,8 @@ Define the reader/replay/tailing contract, including cancellation, filtering, an
 
 - User approved SHA-256 over exact serialized NDJSON transaction record bytes including terminating newline(s), excluding commit marker and its newline. Recovery uses the same byte scope.
 - The next unresolved design question is reader/replay/tailing semantics and the replay-to-live transition.
+
+
+## Latest checkpoint — unified reader — 2026-11-23
+
+- Unified replay/live stream approved. It starts from committed history, catches up concurrent appends, transitions gap-free and duplicate-free into live tailing, supports global sequence cursor, optional channel filtering, context cancellation, ordered delivery, and explicit errors. Re-appends are separate occurrences.
