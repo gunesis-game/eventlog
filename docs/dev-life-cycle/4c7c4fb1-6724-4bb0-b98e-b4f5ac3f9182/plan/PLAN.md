@@ -402,3 +402,16 @@ Approved by the user on 2026-11-23. Persisted v1 one-byte tags:
 - `0x31`: float64 (8 raw IEEE-754 bytes)
 
 Multi-byte numerics are big-endian. int/uint are fixed 64-bit for architecture-independent encoding. Named primitive types use underlying-type tags. Nullable values encode nil with Null and non-nil with the primitive tag. Unknown tags fail recovery. Reserved ranges are not allocated. Tags are permanent and cannot be reassigned.
+
+
+## Design checkpoint — UUID v5 namespace and domain prefixes (approved)
+
+Approved by the user on 2026-11-23:
+
+- Fixed UUID v5 namespace: `26612f1d-f648-483a-9cfe-59c18f113891`.
+- Event identity domain prefix: UTF-8 `eventlog\\x00event\\x00v1\\x00`.
+- Channel identity domain prefix: UTF-8 `eventlog\\x00channel\\x00v1\\x00`.
+- Identity uses package path, type name, and canonical fields; variable-length components must be framed length-prefixed to avoid ambiguity.
+- Channel IDs derive from channel type + canonical fields. Event IDs derive from event type + canonical fields, excluding channel association.
+- UUID v5 (SHA-1) yields standard UUID IDs; domain prefixes keep event/channel identity domains separate.
+- Exact framing details for variable components (including length-width choice) remain to be specified; the namespace and prefixes are fixed.
