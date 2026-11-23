@@ -579,3 +579,12 @@ Audit is informational; no implementation, build, or tests were started.
 - The transaction ID remains the global sequence number of the first transaction record. For a new channel transaction, channel record then event record then commit marker; for an existing channel, event then commit marker. The count includes channel/event records only, not the commit marker.
 - Recovery exposes transaction records only after validating the corresponding commit marker. An incomplete trailing transaction (including a partial commit marker) is truncated back to the transaction start. This decision specifies marker taxonomy/sequence accounting; precise JSON marker payload/framing remains to be finalized.
 - Cycle 1 remains in Define. No implementation, build, or Go tests have started.
+
+
+## Design checkpoint — JSON Schema adopted for persistence validation — 2026-11-23
+
+- User approved adopting JSON Schema as a core design tool for the persisted JSON record format.
+- Use versioned JSON Schemas (Draft 2020-12 unless subsequently revised) to define and validate the shared record envelope and the `channel`, `event`, and `commit` record structures, including required properties, types, nullability, and allowed-property constraints.
+- Schema validation replaces hand-written structural validation where schema can express the constraints; it does not replace log-engine responsibilities such as global sequencing, transaction atomicity/commit-marker validation, checksums, recovery, segment/index management, concurrency, or durability.
+- JSON Schema does not by itself preserve Go numeric primitive widths or exact IEEE-754 bit patterns (including signed zero). Existing approved requirements for deterministic identity and float fidelity are not silently revoked. Persisted primitive value encoding, including float representation, remains to be reconciled with the new schema approach before implementation.
+- Cycle 1 remains in Define. No implementation, build, or Go tests have started.
