@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "status": "active",
+  "status": "released",
   "cycle_id": "4c7c4fb1-6724-4bb0-b98e-b4f5ac3f9182",
   "workflow": "standard",
   "worker_id": "ChatGPT GPT-6",
   "claimed_at": "2026-11-23T21:36:11Z",
-  "released_at": null,
-  "release_evidence": null
+  "released_at": "2026-11-23T21:56:30Z",
+  "release_evidence": "Session handoff to the next ChatGPT session; workflow retention automation committed at 52ae5ffd9098bef62d7b4a349c1278d755fc1d2c."
 }
