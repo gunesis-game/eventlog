@@ -8,6 +8,39 @@
 
 ## Latest checkpoint
 
+## Session handoff — public generic Log contract (2026-11-24)
+
+The user has explicitly established the public API interface as the contract that all internal implementations must support:
+
+```go
+type Log[TChannel Channel, TEvent Event] interface {
+    // Public operations are to be finalized against this generic interface.
+}
+```
+
+The intended call shapes are:
+
+```go
+log.Append[TChannel, TEvent](selector)
+reader := log.Read[TChannel, TEvent]()
+reader.Next()
+```
+
+Important constraints from the user's latest clarification:
+
+- This is the public API contract, not an illustrative internal design. Internal storage, reconstruction, indexes, readers, and implementation choices must conform to it.
+- Consumer Event structs implement the library's generic Event interface in relation to their Channel type. Example: `OrderApproved[TOrderChannel]`.
+- The Log interface must enforce the Channel/Event type relationship; the user specifically proposed `Log[TChannel Channel, TEvent Event]`.
+- Append's selector callback is part of the public Append call. Do not replace it with `Append(channel, event)`, and do not relocate the selector contract solely into `Fields()`.
+- Channels may contain multiple concrete Event struct types.
+- Read is channel-scoped and typed by both TChannel and TEvent; the reader advances through the channel and yields the requested event type. The exact filtering/typing semantics should be walked through with examples in the next session rather than inferred further.
+- The exact declarations of `Channel`, `Event[TChannel]`, `Log[TChannel,TEvent]`, the selector callback, and the method signatures are not yet fully written down. Next session should start from concrete Go examples and derive the interfaces together.
+- Do not make further API substitutions or start implementation before that discussion and explicit Define approval.
+- Go language constraint to discuss carefully: ordinary methods on a non-generic receiver cannot introduce their own type parameters. The user has nevertheless stated the public interface shape above as the required contract; explore a valid Go encoding that preserves the intended consumer-facing API rather than changing the contract unilaterally.
+
+The previous handoff text suggesting `Read[T Event](ctx, log, channel)` or treating only TEvent as the read type is superseded by this latest user decision.
+
+
 - The user explicitly instructed continuation of Cycle 1. The registry is `in-progress`; the current phase remains `define`.
 - The current approved baseline is consolidated in `plan/PLAN.md`: append-only local event log; one process owner; concurrent goroutine access; typed primitive `Fields()`; deterministic UUID v5 identities; versioned NDJSON records; commit/checksum/recovery rules; periodic sync; segmented storage, rebuildable index, manifest, and reader-pinned compaction; standard-library-only Linux/Windows support.
 - Every reader is scoped to exactly one consumer-provided `Channel` value. Consumers do not supply or receive channel UUIDs, global sequence numbers, cursors, or storage offsets. Those remain internal.
