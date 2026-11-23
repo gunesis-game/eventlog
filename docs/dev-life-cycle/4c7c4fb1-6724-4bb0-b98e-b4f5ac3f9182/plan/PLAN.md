@@ -616,3 +616,11 @@ Audit is informational; no implementation, build, or tests were started.
 - Standalone schema files are the canonical source; the embedded copies are derived from those same files using Go `//go:embed`, avoiding duplicate schema definitions and drift.
 - Schema layout is versioned (v1), with record/value schemas organized under a dedicated schemas directory. Tooling can inspect and validate persisted records without compiling the Go library; runtime/package code can access the same schema bytes through embedding.
 - Cycle 1 remains in Define. No implementation, build, or Go tests have started.
+
+
+## Design checkpoint — integer range validation approved — 2026-11-23
+
+- User approved Option A for integer validation: JSON Schema validates the decimal-string representation; Go validates exact signed/unsigned bounds for each declared primitive integer type before persistence.
+- This avoids complex regex-based range schemas while preserving JSON parser interoperability and preventing out-of-range values from being persisted.
+- JSON Schema checks typed integer tag, decimal string shape, required fields, and no extra properties; Go validation checks the type-specific range (including unsigned vs signed and width).
+- Cycle 1 remains in Define. No implementation, build, or Go tests have started.
