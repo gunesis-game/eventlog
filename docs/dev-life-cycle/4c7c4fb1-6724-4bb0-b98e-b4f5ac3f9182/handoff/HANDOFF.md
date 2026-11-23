@@ -404,3 +404,13 @@ User approved the v1 duplicate-reconciliation rules and they were recorded in PL
 
 - If a commit marker is partially written, recovery treats it as an incomplete trailing transaction and truncates the log back to that transaction's start, discarding all records in the transaction (including any channel record), preserving atomicity.
 - Cycle 1 remains in Define; no implementation/build/tests have started.
+
+
+## Session handoff — 2026-11-23 23:05 SAST
+
+- **Latest approved decision:** `Open()` automatically creates and initializes a new empty log when no log exists; existing logs are recovered. No separate initialization command.
+- **Cycle:** Cycle 1 — Define (`4c7c4fb1-6724-4bb0-b98e-b4f5ac3f9182`). No implementation, build, or Go tests have started.
+- **Approved Append design:** `Append(channel, event) error`; append is a transaction; transaction records ordered channel record if new, event record, then commit marker. For existing channels, event then commit marker. Transaction ID is the global sequence number of its first record. Commit marker contains transaction ID, record count, SHA-256 of exact transaction record bytes (excluding marker). Recovery accepts only validated committed transactions. If commit marker is partial, truncate to transaction start and discard all transaction records including newly created channel. SHA-256 via Go standard library; no external dependency.
+- **Workflow:** `.github/workflows/initialize.yml` removed from `main` (commit `450c2bca54dfbddb782c69c01205ae0513a5d3c9`), deletion verified. Other workflows untouched.
+- **Next design question:** After `Open()` missing-log behavior, decide how log initialization/storage structure is represented (e.g. whether empty log requires a header/metadata record or starts as zero-byte file). Do not start implementation until Define is complete.
+- **Lock:** release execution lock to allow new session; release metadata should be updated and verified.
