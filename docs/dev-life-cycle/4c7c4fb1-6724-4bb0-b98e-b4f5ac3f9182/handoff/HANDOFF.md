@@ -4,7 +4,7 @@
 **Workflow:** Standard  
 **Phase:** Define  
 **Status:** In progress  
-**Execution lock:** Active — ChatGPT GPT-6. Claim commit: 23ccba45fd17e96b039a54d032c0fd25a6ab8621; timestamp correction commit: 41cecfbf49d0a0a62b6ce08670f4a063a3cf01a6.
+**Execution lock:** Active — ChatGPT GPT-6. Claim commit: 23ccba45fd17e96b039a54d032c0fd25a6ab8621; claim-time correction commit: 41cecfbf49d0a0a62b6ce08670f4a063a3cf01a6.
 
 ## Current checkpoint
 
