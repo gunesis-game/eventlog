@@ -415,3 +415,13 @@ Approved by the user on 2026-11-23:
 - Channel IDs derive from channel type + canonical fields. Event IDs derive from event type + canonical fields, excluding channel association.
 - UUID v5 (SHA-1) yields standard UUID IDs; domain prefixes keep event/channel identity domains separate.
 - Exact framing details for variable components (including length-width choice) remain to be specified; the namespace and prefixes are fixed.
+
+
+## Design checkpoint — uint32 big-endian framing approved
+
+Approved by the user on 2026-11-23:
+
+- Every variable-length byte component length and count uses unsigned 32-bit big-endian (`uint32 BE`).
+- This applies to package path, type name, field count, field name, field payload, and string lengths.
+- Canonical identity layout: domain prefix; length-prefixed package path; length-prefixed type name; uint32 BE field count; canonical sorted field entries. Each field uses length-prefixed name, one-byte type tag, and length-prefixed value payload.
+- Deterministic framing across architectures; values/components exceeding uint32 limits are rejected before encoding.
