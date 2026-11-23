@@ -675,3 +675,13 @@ Remaining work is substantive Define completion, not a reason to repeat already-
 - Plan sections that described early APIs, two record kinds, explicit channel creation, unsynced durability as atomicity, and stale open questions were replaced or explicitly demoted to historical context.
 - Current phase remains Define. No implementation, build or tests have started.
 - Requirements and architecture docs updated in commits `3c87844abb9a60fc7c4b9386a498d6de208e493c` and `21db0b1b77ab2d8578e65afe7629622471d3a5a7`. Plan/handoff reconciliation is complete; validator checks passed. Next is the remaining Define design work.
+
+
+## Define decision — typed, channel-scoped reader API (approved)
+
+- Reader filtering is mandatory: every reader targets exactly one channel. There is no all-channels or unfiltered reader.
+- The channel filter is a typed `UUID`, never a string. Empty/zero UUID is not a wildcard and must be rejected as an invalid channel ID.
+- Proposed API approved as direction: `Read(ctx context.Context, after uint64, channelID UUID) (*Reader, error)`; `Reader.Next() (Occurrence, error)`; `Reader.Close() error`.
+- `after` is a global sequence cursor and means strictly after that sequence. Zero starts at the earliest occurrence in the specified channel.
+- Add `ChannelID(channel Channel) (UUID, error)` to resolve the deterministic ID without consumers duplicating identity logic.
+- Reader provides channel-scoped committed replay and gap-free transition to live tailing; context cancellation stops waiting. Exact occurrence fields and cancellation/error details remain to be finalized.
