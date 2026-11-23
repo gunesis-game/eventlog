@@ -647,3 +647,12 @@ Audit is informational; no implementation, build, or tests were started.
 - For a new-channel transaction, checksum input is the channel record bytes + newline, followed by event record bytes + newline. For an existing-channel transaction, it is the event record bytes + newline.
 - Recovery recomputes the checksum over the original transaction bytes using the same framing rule.
 - Cycle 1 remains in Define; no implementation, build, or Go tests have started.
+
+
+## Design checkpoint — unified replay/live reader approved — 2026-11-23
+
+- User approved Option A: one unified reader stream handles historical replay and live tailing.
+- The reader starts with committed history, catches up with appends during replay, then transitions into live waiting without gaps or duplicates. It uses a global sequence cursor, supports optional channel filtering, context cancellation, and explicit error reporting.
+- Each appended occurrence is delivered as a distinct stream occurrence, including re-appends of a logical event. Reader delivery is ordered.
+- Replay-to-live race handling is library-owned; consumers do not coordinate separate replay and subscribe APIs.
+- Cycle 1 remains in Define; no implementation, build, or Go tests have started.
