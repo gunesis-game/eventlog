@@ -238,3 +238,8 @@ Cycle 1 is active in the define phase. The execution lock is claimed and verifie
 ## Latest checkpoint — record taxonomy/envelope approved
 
 User approved the proposed record model. Persisted kinds are `channel` and `event`; event promotion is a later append occurrence, not a separate record. Shared envelope is `version`, `seq`, `kind`, `data`; payloads: channel `id/type/fields`, event `id/channel_id/type/fields`. Recovery validation includes envelope/content, channel references, sequences, and fields; only incomplete trailing suffix is truncated, malformed complete records fail. Latest event occurrence per event ID is logical HEAD and ordering is by descending latest sequence. Float width and signed-zero encoding remains required. See PLAN for the complete approved checkpoint.
+
+
+## Latest checkpoint — canonical encoding structure approved
+
+User approved canonical encoding structure: separate domain prefixes for channel/event IDs; UTF-8 package path + type name; explicit field count; bytewise UTF-8 sorted fields; length-prefixed names and values with type tags; fixed-width big-endian integers; raw IEEE float bits preserving width and signed zero; explicit nullable marker; length-prefixed UTF-8 strings; and leading format version. Exact tags, UUID namespace, and byte-composition details are still open. Refer to PLAN for full checkpoint.
