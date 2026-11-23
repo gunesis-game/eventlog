@@ -6,7 +6,7 @@
 - **Objective:** Define eventlog's initial product requirements and core design decisions before implementation.
 - **Registry status:** in-progress
 - **Persisted phase:** define
-- **Last updated:** 2026-11-22T16:25:00Z
+- **Last updated:** 2026-11-23T16:00:00+02:00
 
 ## Current repository state
 
@@ -305,3 +305,11 @@ User approved the v1 duplicate-reconciliation rules and they were recorded in PL
 - **Next unresolved design question:** handling leftover temporary compaction files. Proposed policy: ignore temporary files and clean them up only after validating finalized source segments (option B); user has not yet approved this.
 - Next session: read the execution lock first; after it is released, follow the lifecycle resume protocol, validate registry, claim the lock, and continue Define with the temp-file cleanup decision.
 - No implementation changes or tests exist; repository updates were made remotely via GitHub content operations.
+
+
+## Latest resume checkpoint — 2026-11-23T16:00:00+02:00
+
+- User approved Option B for interrupted compaction artifacts: ignore temp files during recovery and clean them up only after finalized source segments have been validated. This is persisted in the plan.
+- Lock claim was published and confirmed from shared `main`: `e1c8c087c682c50685b176c236b05311510d1288`. Registry resumed to `in-progress` in commit `a8074ce9353ac207acee39ea3067de1ac53d4410`. Plan checkpoint updated in `43e2020ab6e50f84fb5cb473ac45643e8ffe3b3c`.
+- Current phase remains `define`. No implementation, build, or Go tests have started; no local checkout/working tree is available.
+- **Next:** continue resolving the remaining API/selector/error semantics, index/manifest/recovery structure, replay and tailing behavior, segment sizing/rotation, portability/performance assumptions, and measurable acceptance criteria. Do not implement until the remaining critical design decisions are actionable and the requirements/architecture documentation has been reconciled.
