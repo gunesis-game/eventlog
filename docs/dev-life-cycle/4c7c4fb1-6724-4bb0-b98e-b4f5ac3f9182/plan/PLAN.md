@@ -530,3 +530,10 @@ User approved Option A: every `Append(channel, event)` is persisted as an explic
 - User approved **Option A**: a transaction ID equals the global sequence number of the transaction's first record.
 - This avoids a separate counter, provides unique ordered transaction IDs, and allows recovery to derive transaction identity from existing sequence numbers. Example: channel record seq 41, event record seq 42, commit marker seq 43 => transaction ID 41.
 - Exact transaction marker framing/schema remains open. Cycle 1 remains in Define; no implementation/build/tests have started.
+
+
+## Design checkpoint — transaction record order approved — 2026-11-23
+
+- User approved transaction record order: **channel record (if new), event record, commit marker**. Commit marker is written last. For transactions where channel already exists, only event record then commit marker are written.
+- This order ensures any event's channel reference is available in transaction context before event and recovery can validate before accepting commit.
+- Cycle 1 remains in Define; no implementation/build/tests have started.
