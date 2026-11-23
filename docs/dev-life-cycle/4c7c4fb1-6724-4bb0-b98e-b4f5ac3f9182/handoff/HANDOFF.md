@@ -243,3 +243,8 @@ User approved the proposed record model. Persisted kinds are `channel` and `even
 ## Latest checkpoint — canonical encoding structure approved
 
 User approved canonical encoding structure: separate domain prefixes for channel/event IDs; UTF-8 package path + type name; explicit field count; bytewise UTF-8 sorted fields; length-prefixed names and values with type tags; fixed-width big-endian integers; raw IEEE float bits preserving width and signed zero; explicit nullable marker; length-prefixed UTF-8 strings; and leading format version. Exact tags, UUID namespace, and byte-composition details are still open. Refer to PLAN for full checkpoint.
+
+
+## Latest checkpoint — primitive type tags approved
+
+Permanent v1 one-byte type-tag table approved: Null 00, String 01, Bool 02; signed int family 10–14 (int is 8-byte, then int8/int16/int32/int64 widths); unsigned uint family 20–24 (uint 8-byte, then uint8/16/32/64); float32 30; float64 31. Numeric payloads are big-endian except floats are raw IEEE bits in big-endian byte order. Named types use underlying tags, nullable nil is Null, unknown tags fail recovery, reserved ranges remain unallocated. See PLAN for exact table and rules.
