@@ -473,3 +473,8 @@ User approved Option A: retain `FieldOf` for non-nullable primitive fields and i
 ## Design checkpoint — selector field-name resolution approved — 2026-11-23
 
 User approved Option A: resolve the selected struct field name through reflection automatically. Selector resolution must identify exactly one field and return a clear error if it cannot be resolved uniquely. No manual field-name string is required. No implementation/build/tests have started.
+
+
+## Design checkpoint — selector field pointer validation approved — 2026-11-23
+
+User approved Option A: resolve the field by invoking the selector on a zero-valued instance and comparing its returned pointer with candidate struct-field addresses. This supports direct field selectors without requiring a field-name string. The runtime contract is that the selector must resolve to exactly one field pointer; selectors that do not yield a uniquely matched direct field pointer fail with a clear error. This method does not inspect selector source code and cannot guarantee detection of every conditional selector if it happens to return a field pointer on the probe instance. No implementation, build, or tests have started.
