@@ -347,3 +347,9 @@ User approved the v1 duplicate-reconciliation rules and they were recorded in PL
 - User approved all-or-nothing append validation: validate all Event/Channel Fields before writing any records; any invalid field causes a clear error and leaves the log unchanged (no partial event or channel record).
 - This decision is persisted in PLAN. Cycle 1 remains in `define`; no implementation, build, or tests have started.
 - Continue with the next single unresolved design decision.
+
+## Latest decision checkpoint — 2026-11-23
+
+- User approved fully atomic `Append(channel, event)` behavior: validate channel and event before any write; if the channel is new, persist its record together with the event only when the entire append is valid. Any validation failure leaves the log unchanged and writes neither record.
+- Decision is persisted in PLAN. Cycle 1 remains in `define`; no implementation, build, or tests have started.
+- Continue with the next single unresolved design decision.
