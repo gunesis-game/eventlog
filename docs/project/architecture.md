@@ -73,9 +73,9 @@ Use only Go standard library dependencies and local filesystem storage. Linux an
 
 ## Unresolved architectural details
 
-- Public API signatures and error taxonomy.
-- Reader interface details and close/resource semantics.
-- Exact public API/error details, Occurrence fields and cancellation/close semantics.
+- Exact public API signatures and stable error taxonomy.
+- Concrete Event reconstruction mechanism and whether a public Occurrence wrapper is needed.
+- Reader cancellation, close, and resource-lifecycle semantics.
 - Benchmarks and memory/performance targets.
 
 
