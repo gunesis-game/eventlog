@@ -248,3 +248,8 @@ User approved canonical encoding structure: separate domain prefixes for channel
 ## Latest checkpoint — primitive type tags approved
 
 Permanent v1 one-byte type-tag table approved: Null 00, String 01, Bool 02; signed int family 10–14 (int is 8-byte, then int8/int16/int32/int64 widths); unsigned uint family 20–24 (uint 8-byte, then uint8/16/32/64); float32 30; float64 31. Numeric payloads are big-endian except floats are raw IEEE bits in big-endian byte order. Named types use underlying tags, nullable nil is Null, unknown tags fail recovery, reserved ranges remain unallocated. See PLAN for exact table and rules.
+
+
+## Latest checkpoint — UUID namespace/prefixes approved
+
+User approved fixed UUID v5 namespace `26612f1d-f648-483a-9cfe-59c18f113891`, event domain prefix `eventlog\\x00event\\x00v1\\x00`, and channel prefix `eventlog\\x00channel\\x00v1\\x00`. IDs use package/type identity plus canonical fields; variable-length components are length-framed. Event ID excludes channel association; channel IDs use channel identity. UUID v5/SHA-1 produces standard UUIDs. Exact length framing widths remain open. PLAN has the full checkpoint.
