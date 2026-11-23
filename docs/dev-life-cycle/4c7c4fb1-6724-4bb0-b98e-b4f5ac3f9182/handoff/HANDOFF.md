@@ -258,3 +258,13 @@ User approved fixed UUID v5 namespace `26612f1d-f648-483a-9cfe-59c18f113891`, ev
 ## Latest checkpoint — uint32 BE framing approved
 
 User approved uint32 big-endian for every variable-length component length and count: package path, type name, field count, field name, field payload, and string. Identity byte layout is domain prefix, length-prefixed package path/type name, uint32 field count, then sorted field entries (length-prefixed name, one-byte tag, length-prefixed payload). Reject values/components beyond uint32 capacity. Full details are in PLAN.
+
+
+## Session handoff / pause checkpoint — 2026-11-23T02:32:00+02:00
+
+- User requested to move to a new session and unlock the project.
+- Cycle 1 remains in Define; no implementation, build, or tests have started.
+- Confirmed design decisions recorded in PLAN: buffered sync policy (1 s or 1 MiB); crash-safe compaction sequence; channel/event record taxonomy and envelope; canonical encoding structure; permanent primitive type tags; fixed UUID v5 namespace and domain prefixes; uint32 BE length/count framing.
+- Pending decision (NOT approved): event-to-channel association semantics proposed in the prior conversation: global event identity, multiple retained channel associations, latest append occurrence promotes HEAD, latest channel is channel of latest occurrence, logical order by latest sequence descending, history retained in occurrence records.
+- Next session should resume by asking/confirming that association proposal, then checkpoint it, and continue Define-phase decisions. Verify current Git state and docs before any edits; prior tool output was sometimes unavailable/redacted, so treat actual GitHub fetches as authoritative.
+- Release project execution lock so the next session can claim it.
