@@ -4,12 +4,13 @@
 **Workflow:** Standard  
 **Phase:** Define  
 **Status:** Blocked pending user design approval  
-**Execution lock:** Claimed and verified in commit 0ea33ca9124b986a172835e94bd35a0f53529fac; release commit follows this checkpoint.
+**Execution lock:** Claimed and verified in commit 51b1080b821d8d2e1deda541a5eed04f2fcfd914; release commit follows this checkpoint.
 
 ## Checkpoint
 - Resumed Cycle 1 from Define and verified lock was released.
 - Claimed execution lock and verified remote main claim commit.
-- Re-read current handoff.
+- Re-read current handoff and authoritative plan.
+- Reconciled the plan's stale reader API baseline: no consumer-supplied channel UUID or cursor; typed reconstruction is the current direction.
 - User explicitly decided: all sequence/cursor management stays internal to the log. Consumers do not pass sequence cursors or manage storage positions.
 - User explicitly selected **typed reconstruction**: consumers should receive their original concrete Go event structs when reading, rather than generic persisted fields.
 - This choice supersedes the earlier generic Occurrence proposal containing EventID, ChannelID, EventType, and Fields as consumer-facing values.
@@ -27,14 +28,21 @@ Preserve consolidated baseline in PLAN.md: append-only disk-backed Go log; singl
 - Global sequence, transaction IDs, storage offsets and cursors remain internal.
 - Flush, Compact, Close and sentinel error model remain proposed.
 
-## Typed reconstruction: decisions still required
-1. Decide how concrete event and channel types are registered or otherwise made available when opening an existing log.
-2. Define how a reader selects the concrete Go type from persisted type identity, including unknown/unregistered types.
-3. Define whether Occurrence exposes the reconstructed Event only, or also a reconstructed Channel value; avoid exposing internal UUIDs unless a consumer use case requires them.
-4. Define behavior for renamed/moved Go types and schema/type evolution across application versions.
-5. Ensure reconstruction restores only the explicitly selected Fields and preserves nullable primitive values and exact primitive types.
+## Typed reconstruction: current proposal and decisions still required
 
-A possible shape for discussion is `Occurrence{Event Event, Channel Channel}`, where both values are concrete consumer-defined implementations. This is illustrative, not approved API.
+Recommended API direction for discussion:
+- `Open(path string, registrations ...Registration) (*Log, error)`
+- `Register[T Event]() Registration` explicitly registers a concrete event type for reconstruction.
+- `(*Log).Read(ctx context.Context, channel Channel) (*Reader, error)` selects a channel using the consumer's channel struct; no public ChannelID lookup is needed.
+- `(*Reader).Next() (Event, error)` returns the reconstructed concrete event value through the Event interface. Since the reader already targets one channel, a public Occurrence wrapper and Channel field may be unnecessary.
+- `(*Log).Append(channel Channel, event Event) error` remains the write operation.
+
+This is a proposal, not an approved API. Resolve:
+1. Whether explicit `Register[T Event]()` at Open is the chosen registration mechanism.
+2. Whether registration supports struct values only or also pointers to structs.
+3. What happens when Next encounters an unregistered persisted event type (typed error and reader behavior).
+4. How type renames/moves and schema/type evolution are handled; existing identity rules make Go package path/type name part of persisted type identity.
+5. Ensure reconstruction restores only explicitly selected Fields and preserves nullable primitive values and exact primitive types.
 
 ## Remaining Define work
 1. Finalize typed registration and reconstruction contract.
@@ -45,7 +53,7 @@ A possible shape for discussion is `Occurrence{Event Event, Channel Channel}`, w
 6. Final consistency review and explicit approval to exit Define.
 
 ## Next action
-Continue Define by resolving the type-registration/reconstruction contract. Do not implement before Define is complete and explicitly approved.
+Ask the user to approve or revise the proposed registration and typed Read/Next API direction, then finalize unknown-type behavior. Do not implement before Define is complete and explicitly approved.
 
 ## Verification
 - Lock claim was verified against remote main.
