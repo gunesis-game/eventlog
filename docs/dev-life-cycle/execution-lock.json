@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "status": "claimed",
-  "cycle_id": "4c7c4fb1-6724-4bb0-b98e-b4f5ac3f9182",
-  "workflow": "standard",
-  "worker_id": "ChatGPT",
-  "claimed_at": "2026-11-23T22:08:29Z",
-  "released_at": null,
-  "release_evidence": null
+  "status": "released",
+  "cycle_id": null,
+  "workflow": null,
+  "worker_id": null,
+  "claimed_at": null,
+  "released_at": "2026-11-23T22:10:00Z",
+  "release_evidence": "Checkpointed user decision that global sequence/cursor management is internal to the log in Cycle 1 HANDOFF.md commit 8eca815d43318385b8988bd268b8a5f422838084; waiting for further Define decisions."
 }
