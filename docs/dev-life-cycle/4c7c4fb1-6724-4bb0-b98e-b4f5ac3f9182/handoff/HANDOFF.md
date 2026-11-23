@@ -313,3 +313,10 @@ User approved the v1 duplicate-reconciliation rules and they were recorded in PL
 - Lock claim was published and confirmed from shared `main`: `e1c8c087c682c50685b176c236b05311510d1288`. Registry resumed to `in-progress` in commit `a8074ce9353ac207acee39ea3067de1ac53d4410`. Plan checkpoint updated in `43e2020ab6e50f84fb5cb473ac45643e8ffe3b3c`.
 - Current phase remains `define`. No implementation, build, or Go tests have started; no local checkout/working tree is available.
 - **Next:** continue resolving the remaining API/selector/error semantics, index/manifest/recovery structure, replay and tailing behavior, segment sizing/rotation, portability/performance assumptions, and measurable acceptance criteria. Do not implement until the remaining critical design decisions are actionable and the requirements/architecture documentation has been reconciled.
+
+
+## Latest decision checkpoint — 2026-11-23
+
+- User approved Option A for nullable-field construction: separate `FieldOf` for required primitives and `FieldOfNullable` for nullable primitives (pointer-to-pointer selector; nil encodes Null).
+- This decision is persisted in PLAN. Cycle 1 remains in define; no implementation, build, or tests have begun.
+- Continue with the next single unresolved design decision.
