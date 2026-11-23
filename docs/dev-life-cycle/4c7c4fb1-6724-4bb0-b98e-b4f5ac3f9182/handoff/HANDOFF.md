@@ -392,3 +392,9 @@ User approved the v1 duplicate-reconciliation rules and they were recorded in PL
 
 - Approved: transaction ID equals the global sequence number of its first record, avoiding a separate counter. Example: transaction records 41 and 42, commit marker at 43, transaction ID 41.
 - Marker framing/schema details remain open. Cycle 1 remains in Define; no implementation/build/tests have started.
+
+
+## Session checkpoint — transaction record order — 2026-11-23
+
+- Approved transaction write order: channel record (only if new), then event record, then commit marker last. For existing channels: event record then commit marker. Recovery validates channel references before accepting committed transaction.
+- Cycle 1 remains in Define; no implementation/build/tests have started.
