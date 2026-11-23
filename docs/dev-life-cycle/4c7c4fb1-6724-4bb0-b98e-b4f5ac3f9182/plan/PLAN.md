@@ -639,3 +639,11 @@ Audit is informational; no implementation, build, or tests were started.
 - `Append(channel, event)` may create a new channel implicitly as part of its transaction, or append to an already known channel. Validation of both channel and event occurs before any write. A failed append leaves no partial channel/event transaction.
 - This supersedes the earlier explicit channel-creation API/lifecycle wording and resolves that conflict for the current design.
 - No implementation, build, or Go tests have started.
+
+
+## Design checkpoint — transaction checksum newline framing approved — 2026-11-23
+
+- User approved Option A: the SHA-256 checksum covers the exact serialized NDJSON bytes of all transaction records, including each record's terminating newline. The commit marker and its newline are excluded from the checksum.
+- For a new-channel transaction, checksum input is the channel record bytes + newline, followed by event record bytes + newline. For an existing-channel transaction, it is the event record bytes + newline.
+- Recovery recomputes the checksum over the original transaction bytes using the same framing rule.
+- Cycle 1 remains in Define; no implementation, build, or Go tests have started.
