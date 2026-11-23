@@ -18,39 +18,28 @@ Define eventlog's initial product requirements and core design decisions before 
 
 The repository describes eventlog as a lightweight disk-backed append-only Go log intended for event-oriented applications. The scaffold proposes persistence, ordered replay, and transition into live tailing. Requirements, architecture, commands, and README content remain placeholders. No implementation or tests were found during initial assessment.
 
-## Confirmed product direction
+## Current approved product and design baseline (authoritative)
 
-- **Primary scope:** General-purpose embedded event storage; independent of domain semantics and event-sourcing frameworks.
-- **Ownership:** One process owns a log at a time. Multiple goroutines may concurrently use the library; writes are coordinated internally.
-- **Public event API:** Consumers implement a library-owned Event interface returning eventlog.Fields.
-- **Persistence allowlist:** Consumer event structs remain unrestricted. Only the explicitly returned Fields are persisted; eventlog does not inspect, serialize, or redact the full event struct.
-- **Fields:** Heterogeneous primitive values.
-- **Field construction:** Generic FieldOf selector constrains selected values to supported primitive types and derives the field name from a typed selector rather than a manually supplied string.
-- **Named primitive types:** Supported when their underlying type is in the primitive allowlist (e.g. type UserID string, type AccountBalance int64, type IsActive bool). Exact allowlist remains to be finalized.
-- **API direction:**
-  ```go
-  type Event interface {
-      Fields() Fields
-  }
-
-  type Fields []Field
-
-  func FieldOf[T any, V Primitive](
-      selector func(*T) *V,
-      event *T,
-  ) Field
-  ```
-  This is the agreed API direction; implementation details, including selector name resolution, remain to be validated.
-- **Serialization:** Built-in JSON persistence for v1; no custom codecs.
-- **Record framing:** Newline-delimited JSON (NDJSON), one JSON event record per line, terminated by a newline.
-- **Incomplete final append recovery:** If the file ends with bytes after the last newline, treat that unterminated suffix as an incomplete final record and truncate it to the last complete newline before continuing.
-- **Complete-record corruption:** If a newline-terminated record contains invalid JSON or an invalid record structure, stop with a corruption error. Do not silently skip it or continue with later records.
-- **Redaction:** The earlier redaction feature is superseded by the explicit Event/Fields allowlist contract. Consumers decide which fields to expose; eventlog persists only those fields.
-
-- **Channel model:** A channel is a first-class persisted entity, represented by a consumer-defined struct and a library-owned `Channel` interface analogous to `Event`. The interface exposes `Fields() Fields`; channel fields use the same primitive-only Fields mechanism as event fields. A channel record has its own generated ID, consumer type identity, and explicitly exposed fields.
-- **Channel lifecycle (current decision):** No standalone channel-creation API. `Append(channel, event)` automatically persists a new channel together with its first event, atomically, when that channel is new. A channel without an event is not created. This supersedes the earlier explicit-creation wording.
-- **Mandatory event association:** Each physical event occurrence is associated with one channel. A logical event may accumulate associations across repeated appends; its newest occurrence determines its current channel/HEAD. Channel-less events are not allowed.
-- **Record direction (conceptual, not finalized schema):** Channel records contain `id`, `type`, and `fields`. Event records contain their own `id`, a `channel.id` reference, `type`, and `fields`. Exact JSON envelope and versioning remain open.
+- **Purpose:** General-purpose embedded, append-only event storage; no domain semantics or event-sourcing-framework assumptions.
+- **Ownership/concurrency:** Single process owns the log; multiple goroutines may use the API, with internally coordinated writes. Multi-process/distributed writers are out of scope.
+- **Consumer contracts:** Consumer-defined Event and Channel types implement library-owned interfaces exposing `Fields() Fields`. Consumers explicitly whitelist persisted fields; the package does not inspect or persist the full struct.
+- **Append/channel lifecycle:** `Append(channel, event) error` validates both objects before writing. A new channel is created and persisted atomically with its first event. No standalone channel-creation API or channel-only records exist.
+- **Event identity/history:** Event identity is global and derived from event type plus exposed fields, excluding channel. Repeated appends are separate occurrences. One occurrence belongs to one channel; the same logical event may retain associations across appends. Latest occurrence defines HEAD/current channel and ordering.
+- **Fields/API direction:** `Fields` is heterogeneous and primitive-only. `FieldOf` handles non-nullable fields; `FieldOfNullable` handles nullable primitives. Selector reflection resolves direct field pointers on a zero-valued probe and requires a unique match. Validation is at Append and atomic. Duplicate/empty names are rejected; names are case-sensitive and not trimmed; canonical order is bytewise UTF-8. The exact consolidated public signatures and error contract remain open.
+- **Primitive allowlist:** string, bool, signed/unsigned integer types (including byte/rune aliases), float32/float64, named types over supported primitives; excludes uintptr and complex. Nullable primitive pointers are supported. Non-finite floats are rejected. Integer bounds are checked by Go exactly.
+- **Identity:** UUID v5 with fixed namespace and separate event/channel domain prefixes. Canonical encoding is order-independent: fields sorted bytewise UTF-8, explicit type tags, uint32 big-endian framing, exact primitive widths/bits, and package path plus Go type name. Channel identity includes channel type and all channel fields; event identity includes event type and fields only.
+- **Persistence/framing:** Built-in JSON, NDJSON, zero-byte initial log, no header. Each channel/event/commit record has `schema_version: 1`; schema is selected per record. Versioned JSON Schema Draft 2020-12 files are canonical and embedded via `go:embed`.
+- **Typed field JSON:** Strings/bools native JSON values; integers decimal strings; floats raw IEEE bit-pattern hex (float32 8 lowercase hex digits, float64 16) preserving width and signed zero; null is type-only. Strict typed variants, no extra properties. JSON Schema checks representation; Go checks integer bounds and rejects non-finite floats.
+- **Transactions/sequence:** Global sequence applies to every persisted record, including commit markers. Transaction ID equals the sequence of the first transaction record. Records are ordered channel (if new), event, commit. Count includes channel/event records only; commit marker is excluded from count and checksum, but consumes its own sequence. Commit is a first-class envelope kind alongside channel and event.
+- **Checksum:** SHA-256 covers exact serialized transaction-record bytes including each record's terminating newline. Commit record and its newline are excluded. Recovery applies the same framing.
+- **Atomicity vs durability:** Recovery exposes only committed transactions. Interrupted trailing transaction (including partial commit) is discarded by truncating from transaction start. This recoverable atomicity is distinct from crash durability: Append is not durable until sync. Complete newline-terminated malformed records are corruption and must not be silently skipped.
+- **Recovery/open:** `Open()` creates missing storage as a zero-byte log and recovers existing files. Unsupported schema versions are rejected. Incomplete trailing transaction data is rolled back; only validated committed transactions are exposed.
+- **Sync:** Automatic sync every 1 second or 1 MiB, whichever comes first. `Flush()` is a durability boundary; `Close()` flushes and syncs. Append does not promise power-loss durability before sync.
+- **Reader:** One replay/live stream starts with committed history, catches concurrent appends and transitions gap-free/duplicate-free to live tailing. Uses global sequence cursor, optional channel filter, context cancellation, ordered occurrence delivery, and explicit errors.
+- **Segments/index:** Segment files are authoritative; index is rebuildable. Index stores event IDs, channel associations, latest occurrence/HEAD, sequence positions, and offsets. Open validates and rebuilds absent/inconsistent index; index replacement is atomic. Fixed target segment size; rotate only at transaction boundaries, with oversized transaction allowed in its own segment.
+- **Compaction:** Write temporary replacement segments, validate/checksum, sync, rename to final, atomically replace index, then remove old segments. Temporary artifacts are ignored during recovery and only cleaned after finalized source segments validate.
+- **Platforms/dependencies:** Standard library only, local filesystem, Linux and Windows equal-priority supported; macOS excluded. Core behavior must have parity across both. Performance targets remain qualitative until benchmarks.
+- **Initial implementation scope:** Do not begin implementation/build/tests until Define is complete and explicitly approved.
 
 ## Scope
 
@@ -73,52 +62,52 @@ The repository describes eventlog as a lightweight disk-backed append-only Go lo
 - **Dependencies:** User confirmation of critical design trade-offs.
 - **Risks:** Overdesign; unclear durability promises; unsafe recovery; concurrency/tailing contract ambiguity; portability and performance targets.
 
-## Open decisions
+## Remaining open decisions (current only)
 
-- Exact implementation of the generic selector and field-name discovery (Go has no built-in nameof; likely reflection-based selector resolution).
-- Exact primitive allowlist and handling of nullable values.
-- Public API error behaviour and validation of Fields.
-- Exact record envelope/schema metadata and format versioning, including channel record representation.
-- Sequence numbering and ordering guarantees across channel and event records.
-- Durability/sync defaults and guarantees.
-- Reader/tailer interface, cancellation, and replay-to-live transition semantics.
-- Log rotation/segmentation and size limits (whether required initially).
-- Portability expectations and performance goals.
+1. **Public API and errors:** Consolidated exact signatures and stable error categories (validation, corruption/recovery, unsupported schema, I/O, closed state), including reader API shape, cursor, channel filtering, context and close semantics.
+2. **Segment/index/manifest details:** File naming and layout, manifest structure (if required), index schema, exact Open recovery/rebuild ordering, and segment lifecycle.
+3. **Concurrency safety:** Compaction interaction with active readers/tailers and precise reader resource/close behavior.
+4. **Performance/memory expectations:** Define measurable benchmark scenarios and acceptable qualitative limits without prematurely fixing numeric targets.
+5. **Acceptance/verification matrix:** Convert all approved guarantees into test cases, including interrupted writes, checksum failures, sequence accounting, reader handoff races, index rebuild and compaction crash windows.
 
-## Proposed baseline (not yet approved)
+Items already approved (primitive allowlist, channel creation, transaction markers/checksum, versioned schema, sync policy, reader replay/live behavior, segment rotation, rebuildable index, portability) are not open decisions.
 
-- Library-owned Event contract returning Fields; FieldOf uses generic primitive constraints and selector-derived names. JSON is built-in; no custom codec in initial scope.
-- NDJSON framing, one complete JSON record per newline-terminated line.
-- Strict sequence ordering.
-- Sequential replay and a tail mode.
-- Configurable durability/sync policy with documented guarantees.
-- Standard-library-only dependencies.
-- Cross-platform Go where practical.
+## Approved baseline (supersedes the historical proposal)
 
-## Design and implementation approach
+The approved design baseline is consolidated above. Earlier proposals and decision checkpoints below are retained as history, not as current instructions. If a historical statement conflicts with this baseline or a later approved checkpoint, the newer approval and this consolidated section prevail.
 
-Confirm product requirements and trade-offs in discussion before documenting them as approved. Keep initial implementation scope minimal. Do not begin implementation until critical choices are resolved and recorded.
+## Design and reconciliation approach
+
+Reconcile the cycle artifacts first: keep one current specification and one current handoff; label dated decision checkpoints as historical evidence. Then complete the remaining Define questions, promote durable decisions into project requirements/architecture docs, and verify consistency. Implementation, build, and tests remain prohibited until Define is complete and explicitly approved.
 
 ## Ordered tasks
 
-- [x] Establish primary workload direction and ownership model.
-- [x] Select typed generic events as public API direction.
-- [x] Define Event interface and Fields/FieldOf API direction.
-- [x] Replace redaction design with explicit allowlist Event contract.
-- [x] Select built-in JSON serialization and NDJSON record framing.
-- [x] Define incomplete-final-record and complete-record-corruption recovery policy.
-- [ ] Finalize primitive allowlist and API edge cases.
-- [ ] Finalize record envelope/versioning, durability, concurrency and tailing behaviour.
-- [ ] Update requirements and architecture docs with confirmed decisions.
-- [ ] Review consistency; close this cycle and prepare implementation-ready scope.
+- [x] Establish product workload, ownership, and scope.
+- [x] Define Event/Fields and persistence allowlist direction.
+- [x] Approve primitive allowlist, nullable fields, validation and selector resolution.
+- [x] Approve deterministic UUID v5 identity and canonical field encoding.
+- [x] Approve versioned record envelope, three record kinds, typed value encoding and JSON Schema.
+- [x] Approve Append transaction/commit markers, transaction IDs, checksums and recovery.
+- [x] Approve sync/durability policy and zero-byte initialization.
+- [x] Approve unified replay/live reader contract.
+- [x] Approve segmentation, rebuildable index, compaction protocol, and supported platforms.
+- [ ] Reconcile stale plan/handoff descriptions and lifecycle status (in progress).
+- [ ] Resolve public API signatures/error model and reader details.
+- [ ] Resolve segment/index/manifest layout, recovery order and reader-safe compaction.
+- [ ] Define performance/benchmark scenarios and test matrix.
+- [ ] Update requirements/architecture docs with approved decisions.
+- [ ] Complete Define acceptance review; obtain explicit approval before implementation.
 
 ## Acceptance criteria
 
-- [ ] Confirmed requirements are separated from proposals and open questions.
-- [ ] Core design decisions are explicit, justified, and captured in architecture documentation.
-- [ ] Initial API and operational guarantees are understandable and testable.
-- [ ] No implementation begins while critical design choices remain unresolved.
-- [ ] Focused documentation review completed; cycle checkpoint and lifecycle state reconciled.
+- [ ] Current approved baseline is consolidated and free of contradicting active statements.
+- [ ] Historical decisions are retained but clearly subordinate to the current baseline.
+- [ ] Remaining open decisions are accurate and actionable.
+- [ ] Atomic recovery guarantees are distinct from unsynced durability guarantees.
+- [ ] Public API, operational guarantees and test matrix are implementation-ready.
+- [ ] Requirements and architecture docs capture durable approved decisions.
+- [ ] Lifecycle lock, registry, plan and handoff are mutually consistent.
+- [ ] No implementation/build/test begins before explicit Define approval.
 
 ## Verification strategy
 
@@ -126,36 +115,35 @@ Confirm product requirements and trade-offs in discussion before documenting the
 - **CI/integration checks:** Existing lifecycle validator workflow is available; no Go implementation/test CI established yet.
 - **Manual review:** Check requirements, architecture, coding standards, README and commands docs for consistency and avoid stating proposals as facts.
 
-## Persisted phase checkpoint
+## Persisted phase checkpoint — reconciliation in progress
 
 - **Current phase:** define
-- **Assess exit evidence:** Repository scaffold and governance were inspected; purpose, current state, risks, unknowns, and decision areas identified sufficiently to define. User confirmed general-purpose embedded storage, single-process ownership, and an explicit Event/Fields persistence allowlist contract.
-- **Next concrete action:** Resolve the remaining primitive, record envelope, durability, and reader/tailer decisions before promoting the approved design to project documentation.
-- **Last updated:** 2026-11-23T16:00:00+02:00
+- **Assess exit evidence:** Repo structure, steering/lifecycle rules, plan, handoff and relevant placeholder documentation inspected. Cycle is the sole in-progress standard cycle.
+- **Reconciliation work:** Lock claimed and remotely confirmed. Plan contradictions identified and consolidated; current open questions narrowed.
+- **Next action:** Update the plan and handoff on main, verify lock/registry coherence and run the lifecycle validator. Then proceed with the remaining Define questions without revisiting approved decisions.
+- **Last updated:** 2026-11-23 (SAST).
 
-## Progress and decisions
+## Current progress
 
-- Cycle 1 resumed; execution lock claim confirmed on shared main.
-- Confirmed general-purpose embedded event storage and single-process ownership, with concurrent goroutine access coordinated internally.
-- Confirmed consumer-defined Event structs expose an explicit Fields allowlist; only those fields are persisted.
-- Confirmed generic FieldOf selector API direction, primitive-only selected values, and named primitive types when their underlying type is allowed.
-- Confirmed built-in JSON serialization and NDJSON framing (one JSON record per newline-terminated line).
-- Confirmed recovery: truncate only an unterminated final suffix; fail on invalid complete records; never skip corruption.
-- The earlier redaction design is superseded; no full-struct inspection or automatic redaction is required.
-- No implementation, build, or Go tests have started.
-- User requested a new session; cycle paused and lock to be released after checkpoint.
+- Cycle 1 is active in Define under the repository execution lock.
+- The prior handoff's “released” checkpoint was correct for the prior session but is now superseded by the current claim.
+- Approved architecture decisions are consolidated in the current baseline above.
+- Reconciliation is focused on stale wording and lifecycle consistency; no implementation, build or Go tests have begun.
 
-## Completion review
+## Completion review (not yet performed)
 
 - [ ] Acceptance criteria verified or exceptions explicitly accepted
 - [ ] Final diff reviewed
 - [ ] Required verification results recorded
-- [ ] Documentation reconciled
-- [ ] Handoff updated
-- [ ] Registry status, phase, and completion timestamp updated consistently
+- [ ] Requirements and architecture documentation reconciled
+- [ ] Current handoff updated
+- [ ] Registry status, phase and lock updated consistently
 
+## Historical session notes (superseded checkpoints)
 
-## Session handoff
+The following dated notes are retained for decision history. They do not override the current approved baseline, remaining-open-decisions list, persisted phase checkpoint, or current handoff.
+
+### Previous session handoff
 
 - **Paused at:** 2026-11-22T15:36:55.080Z
 - **Reason:** User is moving development to a new session and requested the project be unlocked.
@@ -554,23 +542,22 @@ User approved Option A: every `Append(channel, event)` is persisted as an explic
 
 - User approved Option A: a newly created log starts as a zero-byte file. No metadata/header record is written; the first transaction supplies versioned records. This avoids a special header record and header-specific recovery logic.
 
-## Plan consistency audit — 2026-11-23
+## Reconciliation audit — 2026-11-23 (current status)
 
-The plan contains stale wording and design conflicts that must be reconciled before Define is considered complete:
+The earlier audit identified ten documentation inconsistencies. Current resolution:
 
-1. **Channel creation API/lifecycle conflict:** early text says channel creation is explicit and events may only append to an existing channel, with no implicit creation. Later approved atomic Append design says `Append(channel, event)` creates/persists a new channel record together with the event if the channel is new. Treat the later atomic Append decision as current direction, but explicitly settle whether a standalone channel-create API still exists and what it returns.
-2. **Record taxonomy vs transaction commit markers:** approved envelope says exactly two kinds (`channel`, `event`), while transaction design requires a commit marker record written last and every persisted record has a sequence. The marker's persisted representation, kind/type, envelope participation, and sequence accounting are not specified. Resolve this before implementation.
-3. **JSON vs canonical float encoding:** persistence is NDJSON/JSON, but canonical IDs must preserve float width and signed zero (and Field tags preserve primitive type). Specify the JSON representation for float32/float64 and negative zero so round-trip decoding retains exact type/width/bits; ordinary JSON numbers alone may be insufficient.
-4. **Stale open-decision/task lists:** the early “Open decisions” list and “Proposed baseline (not yet approved)” still list items later approved (primitive allowlist, UUID v5, record envelope, sync, etc.). They are misleading and should be replaced with a current unresolved-only list and approved baseline.
-5. **Stale checkpoint/handoff snapshots:** early progress and handoff text says prior questions remain unresolved (including sync policy/channel API) even though later checkpoints approve them. Preserve these as historical entries, but label them historical and ensure a single current checkpoint points to the latest state.
-6. **Atomic append durability wording:** recoverable atomicity is approved for interrupted writes, while sync is periodic and Append is not crash-durable until sync. Clarify atomicity/recovery guarantee separately from durability guarantee, including what a process/power failure can expose before sync.
-7. **Channel association phrasing:** early statement “every event belongs to exactly one channel” conflicts with later approved global event identity retaining multiple channel associations across repeated appends. Current rule should distinguish one channel per occurrence from multiple channels per logical event over its history/current associations.
-8. **Sequence/transaction framing:** global sequence applies to persisted records; transaction ID is the first record's sequence and commit marker also consumes a sequence in the example. Define record sequence vs transaction record count precisely (whether count excludes the commit marker), including channel/event-only transactions.
-9. **Temporary compaction artifacts:** the duplicate-reconciliation checkpoint says temporary files are “ignored and cleaned up,” while later approved rule says clean only after finalized source segments validate. Use the later cleanup ordering consistently.
-10. **API documentation drift:** early FieldOf signature shows no error return and only FieldOf; later decisions add FieldOfNullable and error-reporting selector resolution. Replace early illustrative API with a current consolidated signature/behavior summary once implementation details are finalized.
+1. Channel API/lifecycle — **resolved**: no standalone creation; first append atomically creates channel+event.
+2. Record taxonomy — **resolved**: versioned shared envelope kinds are `channel`, `event`, `commit`.
+3. Float representation — **resolved**: typed value objects; float32/float64 IEEE hex preserve width and signed zero.
+4. Stale open decisions/proposals — **reconciled** in the current baseline and remaining decisions list.
+5. Stale checkpoints/handoff — **partially reconciled**: old checkpoints retained as historical; current handoff rewritten as the single current state.
+6. Atomicity vs durability — **reconciled**: commit/recovery atomicity is separate from the periodic sync durability window.
+7. Channel association — **resolved**: one channel per occurrence; global logical event identity can retain associations, and latest occurrence sets HEAD/current channel.
+8. Sequence/count framing — **resolved**: every record has a global sequence; transaction ID is first transaction-record sequence; commit marker consumes sequence but is excluded from record count/checksum.
+9. Compaction temporary cleanup — **resolved**: cleanup only after finalized source segments validate.
+10. API drift — **partially reconciled**: constructors/validation behavior is current; exact public signatures/error model remain open.
 
-Audit is informational; no implementation, build, or tests were started.
-
+Remaining work is substantive Define completion, not a reason to repeat already-approved decisions. No implementation/build/tests were started during this audit.
 
 ## Design checkpoint — commit markers are first-class records approved — 2026-11-23
 
@@ -679,3 +666,12 @@ Audit is informational; no implementation, build, or tests were started.
 - Linux and Windows are equal-priority supported targets at all times. Any platform-specific capability or filesystem behavior that is unsupported, unreliable, or materially different on either must use an alternative strategy that works on both. Do not accept a Linux-only or Windows-only implementation for core functionality.
 - Performance targets remain qualitative until benchmarks are established. Prioritize correctness, crash recovery, predictable memory use, and cross-platform parity.
 - Cycle 1 remains in Define; no implementation, build, or Go tests have started.
+
+
+## Current reconciliation checkpoint — 2026-11-23
+
+- Execution lock claim commit: `23ccba45fd17e96b039a54d032c0fd25a6ab8621`; claim timestamp corrected to commit time in follow-up commit `41cecfbf49d0a0a62b6ce08670f4a063a3cf01a6`.
+- Lock is active for Cycle 1 / standard workflow / ChatGPT GPT-6, and remote state was verified.
+- Plan sections that described early APIs, two record kinds, explicit channel creation, unsynced durability as atomicity, and stale open questions were replaced or explicitly demoted to historical context.
+- Current phase remains Define. No implementation, build or tests have started.
+- Next: update the handoff with the reconciled baseline and remaining open decisions; validate lifecycle files.
