@@ -41,7 +41,7 @@ Define segment rotation policy and size limits for v1: whether to rotate segment
 ## Latest checkpoint — checksum newline framing — 2026-11-23
 
 - User approved SHA-256 over exact serialized NDJSON transaction record bytes including terminating newline(s), excluding commit marker and its newline. Recovery uses the same byte scope.
-- The next unresolved design question is reader/replay/tailing semantics and the replay-to-live transition.
+- The next unresolved design question is segment rotation and size limits (fixed target size, transaction-boundary rotation, and handling oversized transactions).
 
 
 ## Latest checkpoint — unified reader — 2026-11-23
