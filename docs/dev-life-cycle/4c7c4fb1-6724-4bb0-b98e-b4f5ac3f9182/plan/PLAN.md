@@ -478,3 +478,8 @@ User approved Option A: resolve the selected struct field name through reflectio
 ## Design checkpoint — selector field pointer validation approved — 2026-11-23
 
 User approved Option A: resolve the field by invoking the selector on a zero-valued instance and comparing its returned pointer with candidate struct-field addresses. This supports direct field selectors without requiring a field-name string. The runtime contract is that the selector must resolve to exactly one field pointer; selectors that do not yield a uniquely matched direct field pointer fail with a clear error. This method does not inspect selector source code and cannot guarantee detection of every conditional selector if it happens to return a field pointer on the probe instance. No implementation, build, or tests have started.
+
+
+## Design checkpoint — Field validation timing approved — 2026-11-23
+
+User approved validation at append time. Validate returned event/channel Fields when the append operation is performed; invalid data must return a clear error and must not be silently omitted or coerced. No implementation/build/tests have started.
