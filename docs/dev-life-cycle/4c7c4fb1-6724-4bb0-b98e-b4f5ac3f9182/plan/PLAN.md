@@ -350,3 +350,16 @@ Confirm product requirements and trade-offs in discussion before documenting the
 - Interrupted compaction may leave temporary files or duplicate physical segment copies. Recovery should tolerate and reconcile these safely; temp-file cleanup policy remains to be defined.
 - This protocol is now a confirmed design decision. Exact index/manifest contents, duplicate reconciliation details, and cleanup rules remain open.
 - No implementation, build, or tests have started; cycle remains in define.
+
+
+## Design checkpoint — record taxonomy and persisted envelope (approved)
+
+Approved by the user on 2026-11-23:
+
+- Persist exactly two record kinds: `channel` (channel creation) and `event` (event append occurrence). Promotion is represented by a later event occurrence with a larger sequence; no separate promotion record.
+- Shared envelope: `version` (starting at 1), `seq` (global monotonic sequence), `kind` (`channel` or `event`), and `data` (type-specific payload).
+- Channel payload: `id`, `type`, `fields`. Event payload: `id`, `channel_id`, `type`, `fields`.
+- Channel creation is logically idempotent for deterministic channel identity.
+- Recovery scans valid segment records, validates envelope/content, reconstructs channels, resolves event occurrences/associations, retains the latest occurrence per event ID as logical HEAD, sorts logical events by latest sequence descending, and rebuilds the index.
+- Unknown kind or unsupported version, duplicate/invalid sequence, missing channel references, or invalid fields are corruption/errors. Only an incomplete trailing NDJSON suffix may be truncated; malformed complete records fail recovery.
+- Persisted encoding must preserve float width and IEEE bit patterns, including signed zero, as previously approved.
