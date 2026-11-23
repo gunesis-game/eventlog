@@ -463,3 +463,8 @@ Approved by the user on 2026-11-23 (Option B): recovery ignores temporary compac
 - Cycle 1 was resumed from paused to in-progress in `define`. The execution lock was claimed in lock-only commit `e1c8c087c682c50685b176c236b05311510d1288` and fetched back from shared `main` to confirm the active claim. Registry resume commit: `a8074ce9353ac207acee39ea3067de1ac53d4410`.
 - No implementation, build, or Go tests have started. No local checkout is available; updates are remote via GitHub contents API.
 - Continue defining the remaining implementation-ready details: API/error behavior and selector resolution, index/manifest shape and recovery ordering, reader/replay/tailing semantics, segment rotation/size limits, portability/performance assumptions, and testable acceptance criteria.
+
+
+## Design checkpoint — nullable field constructor API approved — 2026-11-23
+
+User approved Option A: retain `FieldOf` for non-nullable primitive fields and introduce a separate `FieldOfNullable` constructor for nullable primitive fields. The nullable selector returns a pointer-to-pointer (e.g. `func(e *User) **string { return &e.Email }`); nil means explicit Null, distinct from empty string and zero values. Keep the API straightforward and strict; do not add a universal complicated generic constructor. No implementation, build, or Go tests have started.
