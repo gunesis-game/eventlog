@@ -588,3 +588,13 @@ Audit is informational; no implementation, build, or tests were started.
 - Schema validation replaces hand-written structural validation where schema can express the constraints; it does not replace log-engine responsibilities such as global sequencing, transaction atomicity/commit-marker validation, checksums, recovery, segment/index management, concurrency, or durability.
 - JSON Schema does not by itself preserve Go numeric primitive widths or exact IEEE-754 bit patterns (including signed zero). Existing approved requirements for deterministic identity and float fidelity are not silently revoked. Persisted primitive value encoding, including float representation, remains to be reconciled with the new schema approach before implementation.
 - Cycle 1 remains in Define. No implementation, build, or Go tests have started.
+
+
+## Design checkpoint — float persistence uses schema-validated IEEE hex strings — 2026-11-23
+
+- Research confirmed that JSON Schema's standard numeric types are only `number` and `integer`; it cannot directly validate or guarantee Go float width or exact IEEE-754 bit preservation, including negative zero.
+- User selected exact bit preservation (Option A). Persist float32 as an 8-character lowercase hexadecimal string of its raw 4 IEEE-754 bytes, and float64 as a 16-character lowercase hexadecimal string of its raw 8 IEEE-754 bytes. The byte order for this display encoding is the canonical big-endian byte order already approved for numeric encoding.
+- JSON Schema validates the representation structurally: tagged float type and string value constrained to the appropriate hex pattern/length. Decoding restores exact width and bits. Hex is chosen over Base64 for inspectability.
+- Example float32 negative zero: `{"type":"float32","value":"80000000"}`; float64 negative zero: `{"type":"float64","value":"8000000000000000"}`.
+- This keeps JSON Schema as validation while using a lossless encoded-string representation where JSON numeric semantics are insufficient. Reject non-finite float values as already approved.
+- Cycle 1 remains in Define. No implementation, build, or Go tests have started.
