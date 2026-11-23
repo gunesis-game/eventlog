@@ -450,3 +450,8 @@ Approved by the user on 2026-11-23:
 - Duplicate channel records with the same channel ID and identical channel data may be deduplicated; conflicting data for one channel ID is corruption.
 - Incomplete temporary compaction artifacts are ignored and cleaned up. Valid finalized replacement segments are recovered normally.
 - Compaction copies retain original sequence numbers. Reconciliation must not promote an older event due to duplicate copies.
+
+
+## Design checkpoint — interrupted compaction temporary files (approved)
+
+Approved by the user on 2026-11-23 (Option B): recovery ignores temporary compaction files. Temporary files are cleaned up only after finalized source segments have been validated. Temporary artifacts must not be treated as authoritative log input. This keeps recovery anchored on validated finalized segments and prevents incomplete temporary compaction output from affecting logical event history.
