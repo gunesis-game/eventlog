@@ -64,7 +64,7 @@ The repository describes eventlog as a lightweight disk-backed append-only Go lo
 
 ## Remaining open decisions (current only)
 
-1. **Typed reconstruction and registration:** Define how concrete Event types are registered, reconstructed, and handled when unknown/unregistered; decide whether a public Occurrence wrapper is needed or Reader.Next returns Event directly.
+1. **Typed reconstruction and occurrence API:** Select a reconstruction mechanism that does not add a separate/global Register API; decide how unknown persisted event types are surfaced and whether Reader.Next returns Event directly or an Occurrence wrapper. Reader-scoped prototypes and a Channel factory are candidates, not approved decisions.
 2. **Public API and errors:** Consolidate exact signatures and stable error categories (validation, corruption/recovery, unsupported schema, I/O, closed state), including channel selection, context and close semantics.
 3. **Benchmark scenarios and acceptance matrix:** Define measurable scenarios and qualitative limits; convert approved guarantees into verification cases.
 4. **Performance/memory expectations:** Define measurable benchmark scenarios and acceptable qualitative limits without prematurely fixing numeric targets.
