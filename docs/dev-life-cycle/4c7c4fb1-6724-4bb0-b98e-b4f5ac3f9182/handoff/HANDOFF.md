@@ -386,3 +386,9 @@ User approved the v1 duplicate-reconciliation rules and they were recorded in PL
 
 - Sequential monotonically increasing transaction IDs are approved (Option A), aligned with global log sequence ordering and single-writer ownership. Exact numbering/framing and the relationship to record sequence values remain open; IDs must not be reused.
 - No implementation/build/tests have started; Cycle 1 remains in Define.
+
+
+## Session checkpoint — transaction ID is first record sequence — 2026-11-23
+
+- Approved: transaction ID equals the global sequence number of its first record, avoiding a separate counter. Example: transaction records 41 and 42, commit marker at 43, transaction ID 41.
+- Marker framing/schema details remain open. Cycle 1 remains in Define; no implementation/build/tests have started.
