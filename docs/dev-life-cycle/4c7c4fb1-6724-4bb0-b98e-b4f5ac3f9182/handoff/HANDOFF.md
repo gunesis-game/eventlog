@@ -277,3 +277,8 @@ User approved uint32 big-endian for every variable-length component length and c
 - Registry status was updated to `in-progress` in commit `eb36688555dc692fd9934807d9ac611b80581265`; Cycle 1 remains in `define`, with execution order, timestamps, ID and phase preserved.
 - No implementation or tests have started. No local checkout is available; all remote writes are through GitHub API.
 - Continue from the latest handoff checkpoint: event/channel association proposal is still pending user approval. Next ask to confirm or adjust: event ID remains global and channel-independent; repeated append creates a new occurrence; the event retains all channel associations; its latest occurrence determines HEAD channel and latest-sequence ordering; occurrence history stays in segments. Do not treat this proposal as approved until the user confirms.
+
+
+## Design checkpoint — event/channel associations approved — 2026-11-23
+
+User approved the pending association/promotion model. Event IDs remain global and channel-independent; re-appending creates a physical occurrence; events retain associations with multiple channels; latest occurrence determines logical HEAD and current channel; logical ordering uses latest sequence descending; occurrence history remains in segment records. This decision has been added to PLAN. Cycle 1 remains in define; no implementation/build/tests have begun.
