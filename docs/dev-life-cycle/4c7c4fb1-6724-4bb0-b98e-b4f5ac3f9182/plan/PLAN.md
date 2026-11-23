@@ -663,3 +663,11 @@ Audit is informational; no implementation, build, or tests were started.
 - User approved Option A: segment files have a fixed target size, with rotation only at transaction boundaries. Transactions are never split across segments.
 - If a single transaction exceeds the target segment size, it is permitted to occupy its own oversized segment rather than being split.
 - Cycle 1 remains in Define; no implementation, build, or Go tests have started.
+
+
+## Design checkpoint — rebuildable index approved — 2026-11-23
+
+- User approved Option A: segment files are the authoritative source of truth; the local index is replaceable/rebuildable and stores derived lookup metadata (event IDs, channel associations, latest occurrence/HEAD, sequence positions, segment offsets).
+- `Open()` validates the index and automatically rebuilds it from validated committed segment transactions if missing or inconsistent. Index replacement is atomic; index corruption does not imply event loss.
+- This complements the approved segment-first write and atomic index replacement ordering. Index/manifest exact file layout and recovery order still need definition.
+- Cycle 1 remains in Define; no implementation, build, or Go tests have started.
