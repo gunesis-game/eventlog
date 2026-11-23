@@ -282,3 +282,15 @@ User approved uint32 big-endian for every variable-length component length and c
 ## Design checkpoint — event/channel associations approved — 2026-11-23
 
 User approved the pending association/promotion model. Event IDs remain global and channel-independent; re-appending creates a physical occurrence; events retain associations with multiple channels; latest occurrence determines logical HEAD and current channel; logical ordering uses latest sequence descending; occurrence history remains in segment records. This decision has been added to PLAN. Cycle 1 remains in define; no implementation/build/tests have begun.
+
+
+## Design checkpoint — duplicate reconciliation approved — 2026-11-23
+
+User approved the v1 duplicate-reconciliation rules and they were recorded in PLAN (commit `8c3989fcafe36f3b8eab25a8aed955149dc37fd2`):
+- Sequence identifies physical record occurrence; event ID identifies logical event.
+- Same sequence + identical record content is a physical duplicate copy; deduplicate it.
+- Same event ID + different sequences is legitimate repeated occurrence history; preserve it. Highest sequence determines HEAD/current channel/order.
+- Same sequence + conflicting content is corruption; fail recovery.
+- Duplicate channel ID + identical channel payload may deduplicate; conflicting channel payload is corruption.
+- Incomplete temp compaction artifacts are ignored/cleaned; finalized valid replacement segments recover normally. Compaction preserves original sequences and duplicate copies must never cause unintended promotion.
+- Cycle 1 is still in Define. No implementation/build/tests have started. Continue with the next unresolved design issue after verifying repository state and active lock.
