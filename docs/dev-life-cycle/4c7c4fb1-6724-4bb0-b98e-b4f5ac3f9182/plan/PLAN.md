@@ -537,3 +537,9 @@ User approved Option A: every `Append(channel, event)` is persisted as an explic
 - User approved transaction record order: **channel record (if new), event record, commit marker**. Commit marker is written last. For transactions where channel already exists, only event record then commit marker are written.
 - This order ensures any event's channel reference is available in transaction context before event and recovery can validate before accepting commit.
 - Cycle 1 remains in Define; no implementation/build/tests have started.
+
+
+## Design checkpoint — partial commit marker recovery approved — 2026-11-23
+
+- If a commit marker is partially written, recovery treats it as an incomplete trailing transaction and truncates the log back to that transaction's start, discarding all records in the transaction (including any channel record), preserving atomicity.
+- Cycle 1 remains in Define; no implementation/build/tests have started.
