@@ -398,3 +398,9 @@ User approved the v1 duplicate-reconciliation rules and they were recorded in PL
 
 - Approved transaction write order: channel record (only if new), then event record, then commit marker last. For existing channels: event record then commit marker. Recovery validates channel references before accepting committed transaction.
 - Cycle 1 remains in Define; no implementation/build/tests have started.
+
+
+## Design checkpoint — partial commit marker recovery approved — 2026-11-23
+
+- If a commit marker is partially written, recovery treats it as an incomplete trailing transaction and truncates the log back to that transaction's start, discarding all records in the transaction (including any channel record), preserving atomicity.
+- Cycle 1 remains in Define; no implementation/build/tests have started.
