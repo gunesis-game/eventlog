@@ -35,7 +35,7 @@ The repository describes eventlog as a lightweight disk-backed append-only Go lo
 - **Atomicity vs durability:** Recovery exposes only committed transactions. Interrupted trailing transaction (including partial commit) is discarded by truncating from transaction start. This recoverable atomicity is distinct from crash durability: Append is not durable until sync. Complete newline-terminated malformed records are corruption and must not be silently skipped.
 - **Recovery/open:** `Open()` creates missing storage as a zero-byte log and recovers existing files. Unsupported schema versions are rejected. Incomplete trailing transaction data is rolled back; only validated committed transactions are exposed.
 - **Sync:** Automatic sync every 1 second or 1 MiB, whichever comes first. `Flush()` is a durability boundary; `Close()` flushes and syncs. Append does not promise power-loss durability before sync.
-- **Reader:** One replay/live stream is mandatory channel-scoped, starts with committed history, catches concurrent appends and transitions gap-free/duplicate-free to live tailing. Global sequence/cursor/offset management is internal; consumers do not supply or receive storage cursors. Context cancellation, ordered delivery, and explicit errors are required. Consumer-facing reads use typed reconstruction of registered concrete event structs; exact registration and unknown-type behavior remain open.
+- **Reader:** One replay/live stream is mandatory channel-scoped, starts with committed history, catches concurrent appends and transitions gap-free/duplicate-free to live tailing. Global sequence/cursor/offset management is internal; consumers do not supply or receive storage cursors. Context cancellation, ordered delivery, and explicit errors are required. Consumer-facing reads reconstruct concrete consumer-defined Event structs. A separate/global Register API is rejected. Proposed but not approved: Read receives a reader-scoped list of zero-valued Event prototypes to supply concrete types needed after restart; an unknown persisted type produces an explicit typed error. The exact signature and error semantics remain open.
 - **Segments/index:** Segment files are authoritative; index is rebuildable. Index stores event IDs, channel associations, latest occurrence/HEAD, sequence positions, and offsets. Open validates and rebuilds absent/inconsistent index; index replacement is atomic. Fixed target segment size; rotate only at transaction boundaries, with oversized transaction allowed in its own segment.
 - **Compaction:** Write temporary replacement segments, validate/checksum, sync, rename to final, atomically replace index, then remove old segments. Temporary artifacts are ignored during recovery and only cleaned after finalized source segments validate.
 - **Platforms/dependencies:** Standard library only, local filesystem, Linux and Windows equal-priority supported; macOS excluded. Core behavior must have parity across both. Performance targets remain qualitative until benchmarks.
@@ -129,6 +129,14 @@ Reconcile the cycle artifacts first: keep one current specification and one curr
 - The prior handoff's “released” checkpoint was correct for the prior session but is now superseded by the current claim.
 - Approved architecture decisions are consolidated in the current baseline above.
 - Reconciliation is focused on stale wording and lifecycle consistency; no implementation, build or Go tests have begun.
+
+## Latest resume checkpoint — 2026-11-24
+
+- User instructed continuation of Cycle 1; the cycle remains in Define and is now `in-progress`.
+- Execution lock is active on `main` for this cycle and was fetched back from the remote after commit `d3e71eed9ac9597f3b26d7141fbe26e468f69b3f`.
+- Registry status was resumed to `in-progress` in commit `e9449bc585fce20dde21188ac5dc21165dded1b9`; phase remains `define`.
+- Current technical investigation: Go cannot reconstruct an arbitrary concrete struct from persisted type-name text alone. The leading no-global-registration proposal is a reader-scoped set of typed zero-value prototypes supplied to `Read`; this is a proposal only and awaits user approval.
+- No implementation, build, or Go tests have started.
 
 ## Completion review (not yet performed)
 
