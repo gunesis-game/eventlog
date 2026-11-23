@@ -41,7 +41,7 @@ Define the v1 public API surface and error model: exact type signatures, reader 
 ## Latest checkpoint — checksum newline framing — 2026-11-23
 
 - User approved SHA-256 over exact serialized NDJSON transaction record bytes including terminating newline(s), excluding commit marker and its newline. Recovery uses the same byte scope.
-- The next unresolved design question is segment rotation and size limits (fixed target size, transaction-boundary rotation, and handling oversized transactions).
+- The next unresolved design question is the v1 public API surface and error model: exact type signatures, unified reader interface, context handling, and stable error categories.
 
 
 ## Latest checkpoint — unified reader — 2026-11-23
@@ -63,3 +63,11 @@ Define the v1 public API surface and error model: exact type signatures, reader 
 
 - Standard-library-only Go, local filesystem storage, Linux and Windows only (macOS excluded). Linux and Windows are equal-priority supported targets. Any platform-specific unsupported or unreliable behavior must use an alternative strategy that works on both; core features must not become platform-exclusive.
 - Performance targets qualitative until benchmarks. Prioritize correctness, recovery, predictable memory use, and cross-platform parity.
+
+
+## Session handoff — 2026-11-23 23:32 SAST
+
+- User requested release to move to a new session. Execution lock is being released cleanly.
+- Resume by reading PLAN and this HANDOFF first, verifying lock is released, then claim before continuing.
+- Do not repeat settled decisions. Continue with public API signatures and error model.
+- Define only; implementation/build/tests remain prohibited until Define is complete and explicitly approved.
