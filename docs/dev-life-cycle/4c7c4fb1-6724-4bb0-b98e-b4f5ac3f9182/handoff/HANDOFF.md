@@ -3,38 +3,36 @@
 **Cycle ID:** 4c7c4fb1-6724-4bb0-b98e-b4f5ac3f9182  
 **Phase:** Define  
 **Status:** In progress  
-**Execution lock:** Released for next session  
-**Last updated:** 2026-11-23 23:19 SAST
+**Execution lock:** Active — claimed by ChatGPT GPT-6 on 2026-11-23 23:21:56 SAST
 
-## Latest approved decisions
+## Latest approved decisions (current)
 
-- `Open()` creates an empty log if missing; existing logs recover automatically.
-- New logs start as **zero-byte files** (no header/meta record).
-- `Append(channel, event) error` is transactional. New-channel transaction writes channel, event, then commit; existing channel writes event then commit.
-- Transaction ID is the first record's global sequence number. Commit marker is a first-class `kind: commit` record, gets its own sequence, count/checksum exclude marker, and SHA-256 covers exact transaction-record bytes.
-- Partial commit marker recovery truncates to transaction start, discarding transaction contents.
-- JSON Schema Draft 2020-12 is adopted for persisted record validation. Standalone versioned schemas are canonical and embedded into Go via `go:embed`.
-- Field values use a uniform explicit typed JSON object. Strings and booleans use native JSON values; integers use decimal strings; float32/float64 use raw IEEE hex bit strings (8/16 hex chars) preserving exact width, negative zero and bits; null has type only.
-- JSON Schema validates decimal-string form; Go validates exact bounds per integer type. Reject non-finite floats. Schema constraints are strict (`oneOf`, `const` tags, required properties, `additionalProperties: false`).
-- Canonical binary identity encoding remains unchanged and separate from JSON persisted value encoding.
+- `Open()` creates a missing log as a zero-byte file and automatically recovers existing logs.
+- `Append(channel, event) error` is the API direction. It validates both objects before writing; new channel + event are persisted atomically in one transaction. No standalone channel creation API; no channel-only entities.
+- Every persisted record, including `channel`, `event`, and `commit`, has `schema_version: 1`. Schema selection is per record. Unsupported future versions are rejected. No header is added.
+- Transactions write channel (if new), event occurrence, then commit marker. Commit marker is first-class, consumes a global sequence, and includes transaction ID (first transaction record sequence), transaction-record count (excluding marker), and SHA-256 checksum of exact serialized transaction-record bytes (excluding marker).
+- Partial/incomplete trailing transaction recovery truncates back to transaction start; only committed transactions are exposed.
+- JSON Schema Draft 2020-12; standalone versioned schema files are canonical and embedded with `go:embed`.
+- Persisted fields use strict typed JSON objects. Strings/bools use native values; integer values use decimal strings (schema validates shape, Go validates exact per-type bounds); floats are raw IEEE hex strings preserving width and signed zero; null is type-only. Non-finite floats rejected.
+- Deterministic IDs use UUID v5 with fixed namespace and distinct event/channel domain prefixes. Canonical identity encoding is field-order independent, sorted bytewise UTF-8, explicit type tags, uint32 big-endian framing, exact primitive widths/bits, package path + struct type name.
+- Channel identity uses channel type + all channel fields. Event identity uses event type + fields, excluding channel. Logical event IDs are global; repeated append creates a new occurrence, latest occurrence defines HEAD/current channel and order, while associations/history are retained.
+- Global sequence numbers are persisted in segment records. Segment files are source of truth; index is rebuildable. Segment-first writes, atomic index replacement.
+- Compaction order approved: temporary replacement segments, validate/checksum, sync, rename to final, atomically replace index, then remove old segments. Recovery ignores temp compaction artifacts and cleans only after finalized sources validate.
+- Sync policy: automatic sync every 1 second or 1 MiB (whichever first); explicit `Flush()` is a durability boundary; `Close()` flushes and syncs; Append isn't crash-durable before sync.
+- Field constructors: `FieldOf` for non-nullable and `FieldOfNullable` for nullable; reflection resolves direct selected field pointer on zero-valued probe and requires unique match. Validation occurs at append, all-or-nothing.
+- Primitive allowlist: string, bool, all signed/unsigned integers (including byte/rune aliases), float32/float64, named types; excludes uintptr/complex. Nullable primitive pointers supported. Reject non-finite floats, duplicate/empty names; names case-sensitive/untrimmed. Canonical field order bytewise UTF-8.
+- Integer range validation decision: JSON Schema validates decimal-string structure; Go enforces exact per-type bounds.
 
-## Plan audit findings (not yet reconciled in main body)
+## Current plan audit / reconciliation
 
-- Channel creation API/lifecycle conflict: explicit channel creation vs implicit channel creation by Append; settle API.
-- Commit marker taxonomy and transaction count/sequence semantics were reconciled by later checkpoint; ensure old envelope section updated.
-- JSON float semantics were reconciled with exact tagged hex representation; remove stale competing numeric proposal.
-- Stale unresolved-decision lists/proposed baseline need refresh, while historical checkpoints remain labeled.
-- Atomicity vs durability (periodic sync) guarantee needs exact clarification.
-- Event/channel relationship wording (single channel per occurrence vs multiple associations over event history) needs reconciliation.
-- Temporary file cleanup ordering: clean only after finalized source segments validate.
-- FieldOf/FieldOfNullable API examples are stale; consolidate current signatures and selector-error behavior.
+Earlier plan sections contain stale proposed APIs, open-decision lists, and historical checkpoints. Newer approved checkpoints take precedence; reconcile stale wording as Define documentation cleanup. Known unresolved areas include: exact transaction byte framing/checksum newline scope; public reader/replay/tailing contract and replay-to-live transition; segment rotation/size limits; index/manifest format and rebuild/recovery order; performance/portability assumptions; consolidated API signatures/error semantics; acceptance criteria and test plan. Durability vs atomicity wording must distinguish recoverability from unsynced crash loss.
 
-## Next open design question
+## Next design question
 
-Where should the JSON Schema version be recorded/selected by persisted record envelope? (Schema versioning is approved; exact linkage/version marker is open.)
+Define the checksum byte scope precisely: should SHA-256 include the exact serialized NDJSON transaction-record bytes **including each record's terminating newline**, while excluding the commit marker and its newline? Recommended: yes, checksum the exact bytes as written for the channel/event records, including newline delimiters, so framing is covered.
 
 ## Session instructions
 
-- Resume from this handoff and the current PLAN; don't repeat approved decisions.
-- Continue Define only. Do not implement/build/test until Define is complete and phase is explicitly approved.
-- Claim execution lock before work; release it when handing off.
+- Resume from this handoff and the current PLAN; do not repeat approved decisions.
+- Define phase only. No implementation, build, or test until Define is complete and explicitly approved.
+- Execution lock is active; do not start another worker. Release it only when handing off.
