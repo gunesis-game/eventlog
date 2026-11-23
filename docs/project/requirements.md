@@ -65,3 +65,8 @@ eventlog is a lightweight, embedded, disk-backed append-only event log for gener
 - Reader-safe compaction and concurrent-reader resource lifecycle.
 - Benchmark scenarios and measurable performance/memory acceptance targets.
 - Detailed acceptance test matrix.
+
+
+## Approved reader constraint — mandatory channel UUID
+
+Consumers must provide a typed `UUID` identifying exactly one channel for every reader. There is no unfiltered/all-channel reader, wildcard, or empty-UUID sentinel. A zero/empty UUID is invalid. `ChannelID(channel Channel) (UUID, error)` resolves the deterministic channel identity; the proposed reader signature is `Read(ctx context.Context, after uint64, channelID UUID) (*Reader, error)`. The cursor is global and exclusive; zero starts from the channel's earliest occurrence. Exact public signatures and detailed error/cancellation behavior remain subject to final API review.
