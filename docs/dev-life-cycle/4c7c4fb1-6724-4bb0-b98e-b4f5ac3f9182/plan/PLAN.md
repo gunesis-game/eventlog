@@ -492,3 +492,7 @@ User approved Option A for append validation failures: all-or-nothing. Validate 
 ## Design checkpoint — fully atomic channel/event append approved — 2026-11-23
 
 User approved fully atomic `Append(channel, event)` behavior: validate both channel and event first; when the channel is new, persist the channel and event together only if the full append is valid. Any validation failure leaves the log unchanged and writes neither a new channel nor an event record. No implementation, build, or tests have started.
+
+## Design checkpoint — recoverable atomic append on write failure approved — 2026-11-23
+
+User approved a recoverable-atomic append guarantee: if a write fails or a crash interrupts an append, recovery must not expose a partial logical append. Any incomplete append is rolled back/discarded during recovery; the log recovers to a valid state. This includes a new channel and its event being committed together. The concrete on-disk transaction/commit-marker or rollback mechanism remains to be designed. No implementation, build, or tests have started.
