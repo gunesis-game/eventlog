@@ -216,3 +216,12 @@ Cycle 1 is active in the define phase. The execution lock is claimed and verifie
 - The compaction sequence is still only a proposal and **not approved**: write compacted temp segments, sync, rename, atomically update index, delete obsolete segments last.
 - Outstanding define decisions: exact canonical byte layout and fixed namespace UUID, durable promotion/channel-association semantics and index format, crash-safe compaction/recovery protocol, sync cadence/flush/close guarantees, primitive allowlist, envelope/versioning, replay/tailing and acceptance criteria.
 - Next session should read execution-lock first; lock will be released and Cycle 1 marked paused. Resume Cycle 1 in define through the required claim protocol.
+
+
+## Resume checkpoint — sync policy accepted — 2026-11-23T02:16:10+02:00
+
+- Execution lock claimed and cycle 1 resumed from paused to in-progress; commits were fetched back through GitHub API.
+- User accepted buffered/periodic synchronization: sync every 1 second or when buffered data reaches 1 MiB, whichever occurs first.
+- `Flush()` explicitly flushes and forces sync; `Close()` attempts final flush/sync; `Append()` is not crash-durable until sync completes, so recent data may be lost after a crash.
+- No implementation, build, or Go tests started.
+- Continue define phase: next settle record envelope/taxonomy and promotion/channel-association semantics. Existing plan/handoff latest checkpoints remain authoritative; old handoff entries are historical snapshots.
