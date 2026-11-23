@@ -15,7 +15,7 @@ eventlog is an embedded Go library using local filesystem storage. A single proc
 - **Append transaction writer:** Coordinates concurrent appends, sequence assignment, transaction records and commit marker. A new channel is included in the same transaction as its first event. Writes are recoverable as all-or-nothing at transaction boundaries.
 - **Segment manager:** Writes authoritative segment files, rotates at transaction boundaries, and maintains ordered global record sequence. A transaction exceeding target segment size may be placed alone in an oversized segment.
 - **Recovery/index manager:** On Open, validates committed transactions and record sequences, rolls back incomplete trailing transactions, validates derived index, and rebuilds it from segment source data when missing or inconsistent. Index replacement is atomic.
-- **Reader/tailer:** Streams committed historical occurrences then catches up with concurrent appends and transitions to live tailing without gaps or duplicates. Global cursor and mandatory single-channel filtering are supported; cancellation and errors are explicit.
+- **Reader/tailer:** Streams committed historical occurrences for exactly one consumer-provided Channel value, catches up with concurrent appends, and transitions to live tailing without gaps or duplicates. Global sequence/cursor/offset management is internal; consumers do not provide or receive storage cursors. Cancellation and errors are explicit. Reads reconstruct concrete consumer-defined Event types; the reconstruction mechanism remains open.
 - **Compactor:** Produces temporary replacement segments, validates/checksums and syncs them, renames to final segments, atomically replaces derived index, and removes old segments only after replacement is finalized and validated.
 
 ## Record model and identity
@@ -57,7 +57,7 @@ Canonical identity encoding is separate from JSON serialization: fields are sort
 
 ## Reader behavior
 
-The unified reader starts with committed history. It catches concurrent appends while replaying, then switches to waiting for new occurrences without a gap or duplicate. It is ordered by global sequence, offers a cursor and optional channel filter, respects context cancellation, and reports errors explicitly. Re-appends are distinct occurrences. Detailed interface signatures, lifecycle and interaction with compaction are open.
+The unified reader is mandatory channel-scoped: each reader targets exactly one consumer-provided `Channel` value. It starts with committed history, catches concurrent appends while replaying, then switches to waiting for new occurrences without a gap or duplicate. Delivery is ordered by the internal global sequence. Consumers neither provide nor receive storage cursors, sequence numbers, or offsets; those remain library-owned. Context cancellation and explicit errors are required. Re-appends are distinct occurrences. Reads reconstruct the original concrete consumer-defined Event type; the reconstruction mechanism and detailed interface/lifecycle semantics remain open.
 
 ## Durability, segment management and compaction
 
@@ -79,21 +79,11 @@ Use only Go standard library dependencies and local filesystem storage. Linux an
 - Benchmarks and memory/performance targets.
 
 
-## Approved public reader API direction — channel-scoped
+## Current public reader API direction — channel-scoped
 
-Every reader is mandatory channel-scoped; no all-channel reader is exposed. The channel filter uses a typed `UUID`, not a string. Empty/zero UUID is invalid, not a wildcard.
+Every reader targets exactly one consumer-provided `Channel` value; no all-channel reader is exposed. Consumers do not pass channel UUIDs or global sequence cursors. The library owns channel identity resolution, sequence/cursor tracking, and offsets.
 
-
-Proposed signatures:
-
-```go
-func (l *Log) ChannelID(channel Channel) (UUID, error)
-func (l *Log) Read(ctx context.Context, after uint64, channelID UUID) (*Reader, error)
-func (r *Reader) Next() (Occurrence, error)
-func (r *Reader) Close() error
-```
-
-The `after` cursor is global and exclusive; `0` starts at the earliest occurrence in the specified channel. Replay and live tailing remain one gap-free stream, restricted to that channel. The exact `Occurrence` fields and cancellation/error details remain open.
+The intended flow is `Read(ctx, channel)` followed by ordered `Next()` calls that return the original concrete consumer-defined Event type, with replay-to-live handoff handled internally. These are API directions, not finalized signatures. The type-reconstruction mechanism, whether an occurrence wrapper is needed, reader close behavior, and detailed cancellation/error semantics remain open.
 
 
 ## Define decision — storage layout, manifest, index, recovery, and compaction (approved)
