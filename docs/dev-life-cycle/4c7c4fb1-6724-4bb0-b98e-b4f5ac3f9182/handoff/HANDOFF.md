@@ -294,3 +294,14 @@ User approved the v1 duplicate-reconciliation rules and they were recorded in PL
 - Duplicate channel ID + identical channel payload may deduplicate; conflicting channel payload is corruption.
 - Incomplete temp compaction artifacts are ignored/cleaned; finalized valid replacement segments recover normally. Compaction preserves original sequences and duplicate copies must never cause unintended promotion.
 - Cycle 1 is still in Define. No implementation/build/tests have started. Continue with the next unresolved design issue after verifying repository state and active lock.
+
+
+## Session handoff — pause and unlock — 2026-11-23T00:42:40.351Z
+
+- User requested a new session and asked to unlock the project.
+- Cycle 1 is paused in the `define` phase. No implementation, builds, or tests have started.
+- The execution lock was active for ChatGPT and this cycle when this checkpoint was prepared.
+- Latest approved design decisions are captured in PLAN, including event/channel association and duplicate reconciliation.
+- **Next unresolved design question:** handling leftover temporary compaction files. Proposed policy: ignore temporary files and clean them up only after validating finalized source segments (option B); user has not yet approved this.
+- Next session: read the execution lock first; after it is released, follow the lifecycle resume protocol, validate registry, claim the lock, and continue Define with the temp-file cleanup decision.
+- No implementation changes or tests exist; repository updates were made remotely via GitHub content operations.
