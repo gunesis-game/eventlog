@@ -225,3 +225,11 @@ Cycle 1 is active in the define phase. The execution lock is claimed and verifie
 - `Flush()` explicitly flushes and forces sync; `Close()` attempts final flush/sync; `Append()` is not crash-durable until sync completes, so recent data may be lost after a crash.
 - No implementation, build, or Go tests started.
 - Continue define phase: next settle record envelope/taxonomy and promotion/channel-association semantics. Existing plan/handoff latest checkpoints remain authoritative; old handoff entries are historical snapshots.
+
+
+## Current session checkpoint — compaction protocol accepted — 2026-11-23
+
+- User approved crash-safe compaction order: write temp replacement segments, validate, sync, rename to final names, atomically replace the index, then delete obsolete segments.
+- Recovery: before index replacement, old segments stay authoritative; after index replacement and before cleanup, old/new may coexist and must be reconciled as duplicate occurrences; post-cleanup, the new segments must fully reconstruct the logical log. Interrupted temp files and duplicates should be tolerated.
+- The plan contains this approval. Details still open: manifest/index shape, duplicate reconciliation, temp cleanup, and remaining define-phase topics.
+- No implementation/build/tests have begun. Cycle 1 remains in define; proceed with design discussion, not implementation.
