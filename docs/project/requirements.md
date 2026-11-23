@@ -63,8 +63,8 @@ eventlog is a lightweight, embedded, disk-backed append-only event log for gener
 - Correctness, recovery, predictable memory use, and cross-platform parity are prioritized. Numeric performance targets await benchmarks.
 
 ## Open details (not approved yet)
-- Exact public signatures, reader interface shape, cursor/filter/context/close behavior, and stable error categories.
-- Reader Occurrence fields and detailed cancellation/error/close semantics.
+- Exact public signatures, reader interface shape, stable error categories, and detailed context/cancellation/close semantics.
+- Whether a public Occurrence wrapper is needed and the concrete Event reconstruction mechanism.
 - Benchmark scenarios and measurable performance/memory acceptance targets.
 - Detailed acceptance test matrix.
 
