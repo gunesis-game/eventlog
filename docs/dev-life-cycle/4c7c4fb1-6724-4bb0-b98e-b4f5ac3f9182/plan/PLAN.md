@@ -91,11 +91,11 @@ Reconcile the cycle artifacts first: keep one current specification and one curr
 - [x] Approve sync/durability policy and zero-byte initialization.
 - [x] Approve unified replay/live reader contract.
 - [x] Approve segmentation, rebuildable index, compaction protocol, and supported platforms.
-- [ ] Reconcile stale plan/handoff descriptions and lifecycle status (in progress).
+- [x] Reconcile stale plan/handoff descriptions and lifecycle status.
 - [ ] Resolve public API signatures/error model and reader details.
 - [ ] Resolve segment/index/manifest layout, recovery order and reader-safe compaction.
 - [ ] Define performance/benchmark scenarios and test matrix.
-- [ ] Update requirements/architecture docs with approved decisions.
+- [x] Update requirements/architecture docs with approved decisions.
 - [ ] Complete Define acceptance review; obtain explicit approval before implementation.
 
 ## Acceptance criteria
@@ -115,12 +115,12 @@ Reconcile the cycle artifacts first: keep one current specification and one curr
 - **CI/integration checks:** Existing lifecycle validator workflow is available; no Go implementation/test CI established yet.
 - **Manual review:** Check requirements, architecture, coding standards, README and commands docs for consistency and avoid stating proposals as facts.
 
-## Persisted phase checkpoint — reconciliation in progress
+## Persisted phase checkpoint — reconciliation complete
 
 - **Current phase:** define
 - **Assess exit evidence:** Repo structure, steering/lifecycle rules, plan, handoff and relevant placeholder documentation inspected. Cycle is the sole in-progress standard cycle.
-- **Reconciliation work:** Lock claimed and remotely confirmed. Plan contradictions identified and consolidated; current open questions narrowed.
-- **Next action:** Update the plan and handoff on main, verify lock/registry coherence and run the lifecycle validator. Then proceed with the remaining Define questions without revisiting approved decisions.
+- **Reconciliation work:** Lock claimed and remotely confirmed. Plan contradictions consolidated, current handoff rewritten, durable requirements/architecture docs updated, and registry/lock coherence verified.
+- **Next action:** Continue Define by resolving the public API/error contract and reader interface, then storage/recovery details. Reconciliation validator runs passed for the plan and handoff revisions.
 - **Last updated:** 2026-11-23 (SAST).
 
 ## Current progress
@@ -668,10 +668,10 @@ Remaining work is substantive Define completion, not a reason to repeat already-
 - Cycle 1 remains in Define; no implementation, build, or Go tests have started.
 
 
-## Current reconciliation checkpoint — 2026-11-23
+## Current reconciliation checkpoint — 2026-11-23 (completed)
 
 - Execution lock claim commit: `23ccba45fd17e96b039a54d032c0fd25a6ab8621`; claim timestamp corrected to commit time in follow-up commit `41cecfbf49d0a0a62b6ce08670f4a063a3cf01a6`.
 - Lock is active for Cycle 1 / standard workflow / ChatGPT GPT-6, and remote state was verified.
 - Plan sections that described early APIs, two record kinds, explicit channel creation, unsynced durability as atomicity, and stale open questions were replaced or explicitly demoted to historical context.
 - Current phase remains Define. No implementation, build or tests have started.
-- Next: update the handoff with the reconciled baseline and remaining open decisions; validate lifecycle files.
+- Requirements and architecture docs updated in commits `3c87844abb9a60fc7c4b9386a498d6de208e493c` and `21db0b1b77ab2d8578e65afe7629622471d3a5a7`. Plan/handoff reconciliation is complete; validator checks passed. Next is the remaining Define design work.
