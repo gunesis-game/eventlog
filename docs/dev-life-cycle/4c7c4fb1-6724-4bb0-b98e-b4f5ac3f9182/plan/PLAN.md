@@ -523,3 +523,10 @@ User approved Option A: every `Append(channel, event)` is persisted as an explic
 - User approved **Option A: sequential transaction IDs**. Each transaction uses a monotonically increasing transaction number, aligned with the log's global sequence ordering/single-writer model.
 - Transaction ID format details and precise relationship to record sequence numbers remain to be specified; IDs must not be reused.
 - Cycle 1 remains in Define; no implementation, build, or Go tests have started.
+
+
+## Design checkpoint — transaction IDs derived from first record sequence — 2026-11-23
+
+- User approved **Option A**: a transaction ID equals the global sequence number of the transaction's first record.
+- This avoids a separate counter, provides unique ordered transaction IDs, and allows recovery to derive transaction identity from existing sequence numbers. Example: channel record seq 41, event record seq 42, commit marker seq 43 => transaction ID 41.
+- Exact transaction marker framing/schema remains open. Cycle 1 remains in Define; no implementation/build/tests have started.
