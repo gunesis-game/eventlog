@@ -29,10 +29,17 @@ Earlier plan sections contain stale proposed APIs, open-decision lists, and hist
 
 ## Next design question
 
-Define the checksum byte scope precisely: should SHA-256 include the exact serialized NDJSON transaction-record bytes **including each record's terminating newline**, while excluding the commit marker and its newline? Recommended: yes, checksum the exact bytes as written for the channel/event records, including newline delimiters, so framing is covered.
+Define the reader/replay/tailing contract, including cancellation, filtering, and the transition from replay to live tailing. This is the next unresolved design area; present clear options and a recommendation without revisiting approved decisions.
+
 
 ## Session instructions
 
 - Resume from this handoff and the current PLAN; do not repeat approved decisions.
 - Define phase only. No implementation, build, or test until Define is complete and explicitly approved.
 - Execution lock is active; do not start another worker. Release it only when handing off.
+
+
+## Latest checkpoint — checksum newline framing — 2026-11-23
+
+- User approved SHA-256 over exact serialized NDJSON transaction record bytes including terminating newline(s), excluding commit marker and its newline. Recovery uses the same byte scope.
+- The next unresolved design question is reader/replay/tailing semantics and the replay-to-live transition.
