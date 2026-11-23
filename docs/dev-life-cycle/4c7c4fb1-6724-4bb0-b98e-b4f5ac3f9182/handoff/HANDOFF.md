@@ -21,12 +21,12 @@
 ```go
 func Open(path string) (*Log, error)
 func (l *Log) Append(channel Channel, event Event) error
-func (l *Log) Read(ctx context.Context, channel Channel, prototypes ...Event) (*Reader, error)
-func (r *Reader) Next() (Event, error)
-func (r *Reader) Close() error
+func Read[T Event](ctx context.Context, log *Log, channel Channel) (*Reader[T], error) // illustrative
+func (r *Reader[T]) Next() (T, error)
+func (r *Reader[T]) Close() error
 ```
 
-The `Read` prototype argument is a proposal only. Exact signatures, nil/pointer validation, unknown-type behavior, context cancellation, terminal errors, close semantics, Flush/Compact, and the stable error taxonomy remain to be finalized. Do not implement these signatures until the user approves the design.
+The generic read shape is illustrative; whether `Read` is a package function or a `Log` method depends on Go's generic-method constraints and the final API layout. The consumer supplies the concrete event type as T; eventlog creates and decodes values internally. Finalize whether T is the pointer type (likely, if `Fields()` has a pointer receiver), how the persisted type key is matched, and what happens when a channel contains another event type. Also finalize nil validation, context cancellation, terminal errors, close semantics, Flush/Compact, and the stable error taxonomy. Do not implement until Define is complete and approved.
 
 ## Remaining Define work
 
@@ -47,4 +47,4 @@ The `Read` prototype argument is a proposal only. Exact signatures, nil/pointer 
 
 ## Next action
 
-Present the reader-scoped prototype proposal for user approval, then continue finalizing the API/error contract and acceptance matrix. Do not begin implementation until Define is complete and the user explicitly approves the design.
+Finalize the generic typed-read API, concrete pointer/value convention, and persisted-type mismatch behavior; then complete the API/error contract and acceptance matrix. Do not begin implementation until Define is complete and the user explicitly approves the design.
