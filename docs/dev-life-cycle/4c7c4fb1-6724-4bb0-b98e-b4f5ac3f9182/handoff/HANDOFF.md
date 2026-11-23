@@ -253,3 +253,8 @@ Permanent v1 one-byte type-tag table approved: Null 00, String 01, Bool 02; sign
 ## Latest checkpoint — UUID namespace/prefixes approved
 
 User approved fixed UUID v5 namespace `26612f1d-f648-483a-9cfe-59c18f113891`, event domain prefix `eventlog\\x00event\\x00v1\\x00`, and channel prefix `eventlog\\x00channel\\x00v1\\x00`. IDs use package/type identity plus canonical fields; variable-length components are length-framed. Event ID excludes channel association; channel IDs use channel identity. UUID v5/SHA-1 produces standard UUIDs. Exact length framing widths remain open. PLAN has the full checkpoint.
+
+
+## Latest checkpoint — uint32 BE framing approved
+
+User approved uint32 big-endian for every variable-length component length and count: package path, type name, field count, field name, field payload, and string. Identity byte layout is domain prefix, length-prefixed package path/type name, uint32 field count, then sorted field entries (length-prefixed name, one-byte tag, length-prefixed payload). Reject values/components beyond uint32 capacity. Full details are in PLAN.
