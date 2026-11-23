@@ -508,3 +508,11 @@ User approved Option A: every `Append(channel, event)` is persisted as an explic
 - User approved commit-marker verification contents: each transaction's commit marker includes a transaction ID, record count, and checksum of the transaction records. Recovery validates these before exposing a transaction; invalid or incomplete trailing transactions are discarded according to the atomic recovery contract. Details of checksum algorithm, transaction-ID format, and precise marker framing remain open.
 - Workflow housekeeping: `.github/workflows/initialize.yml` was deleted from `main` in commit `450c2bca54dfbddb782c69c01205ae0513a5d3c9`; deletion was verified (contents endpoint returned 404). Other workflows were untouched.
 - Cycle 1 remains in Define. No implementation, build, or Go tests have started.
+
+
+## Design checkpoint — transaction checksum algorithm approved — 2026-11-23
+
+- User approved **SHA-256** for transaction commit-marker verification.
+- Compute the checksum over the exact serialized transaction record bytes, excluding the commit marker itself. The checksum is persisted in the marker and validated during recovery.
+- This uses Go standard library `crypto/sha256`; no dependency added. Exact transaction record byte framing is still to be specified.
+- Cycle 1 remains in Define; no implementation, build, or Go tests have started.
