@@ -267,3 +267,8 @@ Notification delivery is bounded and non-blocking. When the buffer is full, the 
 ## Define decision — guaranteed occurrence notification delivery approved (2026-11-24)
 
 Every successfully persisted occurrence must eventually become visible to the consumer. Buffer capacity must not result in notification loss; this supersedes the earlier drop-on-full policy. Eventlog owns buffering, backlog management, and recovery/replay, and the consumer-facing contract must not expose sequence numbers, counters, gap detection, or recovery mechanics. Persistence and the internal scheduler must not block on a slow/unread consumer; an internal backlog/replay mechanism is expected to reconcile finite buffering with guaranteed delivery. Exact internal mechanism, backlog persistence/retention, lifecycle/shutdown behavior, and failure semantics remain open Define decisions. No implementation/build/tests have started; implementation still requires Define completion and explicit approval.
+
+
+## Define decision — notification shutdown drain approved (2026-11-24)
+
+On orderly shutdown, pending notifications are drained rather than discarded. The consumer notification channel remains open until the pending persisted occurrences have been delivered, then closes. If a crash or process termination interrupts delivery, persisted occurrences are recovered on the next initialization. Exact lifecycle triggers, drain failure semantics, and startup replay ordering remain open Define decisions. No implementation/build/tests have started; implementation still requires Define completion and explicit approval.
