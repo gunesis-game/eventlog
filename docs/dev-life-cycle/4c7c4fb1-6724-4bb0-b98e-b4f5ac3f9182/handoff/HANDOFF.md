@@ -393,3 +393,12 @@ Historical checkpoint statements below that describe `TEvent` as the common inte
 - The factory may be invoked even when its candidate is discarded. This is an internal sequence; the consumer-facing API remains unchanged.
 - **Canonical artifacts updated and fetched back:** architecture commit `7bd42a01d58a795b59a57fad06b523de330c6a1f`; requirements commit `42a543f2baac707437a6f5b0bec4c3292ecf52fc`; Cycle 1 plan commit `0eff97488b28cd02a1d694cbd587d6536d20b79a`.
 - **Next:** continue Define with the next unresolved preparation/identity detail. No implementation, lifecycle validator, Go build, or Go tests were run.
+
+| D-012 | Channel factory is constructor-only: initializes candidate without starting goroutines, opening external resources, or other external side effects; runtime starts only after candidate adoption; discarded candidates are safe | Recorded | docs/project/architecture.md, requirements.md and Cycle 1 plan | architecture `f75de6313f4d4cc2015d11accfdbce413cfc8c72`; requirements `c934a1978dd01d5bf0459904371b88dbcf9d77cc`; plan `5e184e1685b2a5623900dfe422810cc347c1786f` |
+
+## D-012 recorded checkpoint
+
+- **Approved decision:** the Channel factory is constructor-only. It creates and initializes the candidate but does not start goroutines, open external resources, or perform other external side effects. The candidate may be discarded on a runtime-registry hit and must be safe to abandon. The library starts the runtime only after adopting a candidate for a new logical Channel.
+- This is an internal lifecycle contract; the consumer-facing API remains unchanged.
+- **Canonical artifacts updated and fetched back:** architecture commit `f75de6313f4d4cc2015d11accfdbce413cfc8c72`; requirements commit `c934a1978dd01d5bf0459904371b88dbcf9d77cc`; Cycle 1 plan commit `5e184e1685b2a5623900dfe422810cc347c1786f`.
+- **Next:** continue Define with the next unresolved preparation/lifecycle detail. No implementation, lifecycle validator, Go build, or Go tests were run.
