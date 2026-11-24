@@ -48,4 +48,4 @@ Both generic arguments are concrete pointer types constrained by their respectiv
 
 ## Next action
 
-Next, define backlog retention semantics, then complete the acceptance matrix, benchmarks/performance/memory targets, and final consistency review. D-031 settles bounded shutdown drain using a fixed internal grace period; timeout aborts delivery, reports failure best-effort through Errors(), preserves committed pending history, and waits for senders before closing streams. D-025 through D-032 are recorded. Do not begin implementation until Define is complete and the user explicitly approves exit.
+Bounded notification backlog with Reader backpressure is now approved and recorded as D-033: the in-memory pending buffer is finite, a full buffer holds the Reader until capacity returns, persistence continues, committed pending history remains authoritative in the append log, and no second durable queue is introduced. Next, complete the acceptance matrix, benchmark/performance/memory targets, and final consistency review. D-025 through D-033 are recorded. Do not begin implementation until Define is complete and the user explicitly approves exit.
