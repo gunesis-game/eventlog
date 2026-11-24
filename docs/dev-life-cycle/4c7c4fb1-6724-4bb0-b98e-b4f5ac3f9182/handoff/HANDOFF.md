@@ -166,3 +166,15 @@ part of the API. The remaining issue is internal writable-channel ownership and 
 - **Design inconsistency found:** The previous `func(chan TEvent) TChannel` factory example is incompatible if `TEvent` means one concrete Event type. It only works as a heterogeneous stream factory if `TEvent` is the common Event interface. This must be reconciled with event-specific `PrepareLog` calls and Channel-scoped runtime resolution; no signature change is assumed or implemented.
 - **Completed in this checkpoint:** Governance policy propagated; requirements/architecture/plan corrected to record the heterogeneous notification contract and the factory mismatch; current handoff status corrected to match the registry and lock.
 - **Next action:** Read back all changed files, reconcile the exact `PrepareLog` generic relationship and shared Channel construction, then continue remaining Define topics. Implementation remains prohibited until explicit Define exit approval.
+
+## Progress checkpoint — 2026-11-24T17:09:29Z (design catch-up)
+
+- **Last progress checkpoint:** 2026-11-24T17:09:29Z
+- **Recovery order:** existing event log/system of record must be loaded and validated before resolving or creating a runtime Channel.
+- **Channel convergence:** Channel identity is resolved at Channel scope. Event-specific preparation for the same Channel converges on one runtime Channel and one notification stream.
+- **Notification API:** `Notifications() <-chan Event` is defined on the Channel interface. `Event` is the common interface implemented by concrete Event types; one Channel stream can carry multiple concrete Event types.
+- **Reader:** one unified Reader progression per runtime Channel serves both historical replay and live tailing. Do not synthesize notifications by combining independent typed Readers.
+- **Ordering/delivery:** successful Commit is authoritative; notification delivery follows the unified Reader in committed order and begins only after commit. Slow consumers may delay delivery but not persistence, reorder or skip events. Delivery failure does not undo committed events; exactly-once consumer processing is not guaranteed without consumer acknowledgement.
+- **Ownership/shutdown:** eventlog owns the send side, Reader, delivery worker and lifecycle. Consumers do not gain public lifecycle methods. Shutdown ordering is recorded in the Cycle 1 plan.
+- **Decoding:** reconstruct concrete Event types through the existing internal registration/codec mechanisms; unknown persisted Event types fail rather than being silently skipped.
+- **Next:** finish precise PrepareLog registration/convergence semantics, lifecycle/error boundaries, identity mutation behavior, acceptance matrix and benchmark plan. Then reconcile all docs and seek explicit approval to exit Define. No implementation/build/Go tests started.
