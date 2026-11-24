@@ -364,3 +364,15 @@ These superseded statements remain in the plan only as historical discussion/pro
 - Event-specific preparations resolving to the same logical Channel reuse its existing Channel pointer, runtime and single Reader progression, including across different concrete Event types. Each concrete Event type retains its own prepared Event instance.
 - The exact internal registry key, typed conflict taxonomy, and handling of distinct logical Channels of the same concrete Channel type remain open. No consumer-facing API is added or changed.
 - Canonical requirements and architecture updates were published and fetched back before this plan update. No implementation, build or Go tests were started.
+
+
+## Approved D-010 — separate type registration from logical instances
+
+- Keep three internal concerns distinct: Event type/schema registration, Event live-instance reuse, and Channel runtime reuse.
+- Event type registration is keyed by concrete Event type plus exposed field-name schema.
+- Event live instances are keyed by canonical Event identity.
+- Channel runtimes are keyed by canonical Channel identity, not just concrete Channel Go type.
+- Different concrete Event types may share one logical Channel runtime; distinct logical Channels may use the same concrete Channel type without being merged.
+- Type/schema conflicts are separate from logical identity conflicts.
+- No consumer-facing API or Channel interface changes.
+- Still open: the exact preparation ordering and mechanism for obtaining/validating candidate Channel identity fields before Channel runtime lookup.
