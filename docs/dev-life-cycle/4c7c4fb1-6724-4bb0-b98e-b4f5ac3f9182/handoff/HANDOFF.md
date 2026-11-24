@@ -311,3 +311,10 @@ Generic arguments select consumer Event and Channel types only. `context.Context
 - PrepareLog creates a missing directory during initialization; an existing non-directory target or directory-creation failure returns an error.
 - The resolved, cleaned absolute path is frozen in immutable runtime configuration.
 - Execution lock remains active for Cycle 1. No source implementation, build, or Go tests have started.
+
+
+## Latest session checkpoint — exported error contract approved
+
+- User approved `ErrConfigNotInitialized` and `ErrConfigAlreadySet` sentinel errors, with the semantics and error-wrapping contract recorded in the requirements and architecture.
+- The error taxonomy is no longer an open Define decision. Invalid options remain descriptive validation errors; filesystem and context errors must preserve discoverable causes.
+- The lock remains active for Cycle 1. Continue the Define review with the remaining lifecycle/API, cancellation/resource, benchmark, acceptance-matrix, and documentation consistency decisions. No implementation, build, or Go tests have started.
