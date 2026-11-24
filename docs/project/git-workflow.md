@@ -30,7 +30,7 @@ This document is the project-specific implementation of the [Git Workflow Standa
   - [Steering state validation](../../.github/workflows/steering-validation.yml) validates governance state.
   - [Workflow history cleanup](../../.github/workflows/cleanup-workflow-history.yml) cleans its own history and the completed validation workflow's history.
 - No project Go test, build, lint, or benchmark workflow is currently configured.
-- No initialization workflow is retained: repository initialization is already complete, and the template's bootstrap workflow is one-time setup rather than an ongoing project workflow.
+- The one-time initialization workflow is not retained in this repository because initialization is complete. Its historical Actions runs are still subject to the same four-run retention rule; use the cleanup workflow's manual historical-target inputs when cleaning a retired workflow.
 - No scheduled workflow runs are permitted. Use event-driven triggers and manual dispatch only where justified.
 - Associate verification with the exact commit SHA. Inspect the workflow run, status, jobs, steps, logs, and artifacts as available.
 
