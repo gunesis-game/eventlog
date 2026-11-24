@@ -6,7 +6,7 @@ on:
       - main
     paths:
       - 'steering.md'
-      - 'docs/dev-life-cycle/README.md'
+      - 'docs/dev-life-cycle/**'
       - 'docs/standards/**'
       - 'docs/project/**'
       - 'scripts/**'
