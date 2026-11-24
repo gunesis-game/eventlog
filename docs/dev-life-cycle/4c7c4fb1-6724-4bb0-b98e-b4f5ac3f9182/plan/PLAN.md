@@ -28,14 +28,14 @@ Authoritative durable decisions are consolidated in `docs/project/requirements.m
 - **Durability:** sync every 1 second or 1 MiB pending writes. Flush and Close are durability boundaries; Append before sync is not power-loss durable.
 - **Reader:** internal channel-scoped replay/live tail with gap-free, duplicate-free handoff, internal cursors, concrete reconstruction and type filtering.
 - **Change manager:** one internal scheduler at 100 ms; no goroutine per field. Consumer synchronizes its own field writes.
-- **Notifications:** channel accessor (signature TBD); post-persistence immutable Event snapshots; guaranteed eventual delivery without blocking persistence/scheduler; recovered backlog first, orderly shutdown drains, crash recovery restores pending deliveries; persistent failures become typed errors. Retry/termination and delivery error details remain open.
+- **Notifications:** settled Channel accessor `Notifications() <-chan Event` using the common Event interface; post-persistence immutable concrete Event snapshots; delivery ordering follows the unified Channel Reader; slow consumers do not block persistence; recovered backlog precedes newer deliveries; orderly shutdown drains; crash recovery restores pending deliveries. Retry/termination and delivery error details remain open.
 - **Platforms:** standard library and local filesystem; Linux/Windows parity; macOS excluded.
 
 ## Open Define decisions
 1. Final Go-valid API signatures, constraints, selectors, pointer/value convention and occurrence result shape while preserving the approved PrepareLog call.
 2. Prepared-value association, internal lifecycle, cancellation, reader/resource cleanup and terminal errors.
 3. Identity-field mutation response and precise Channel change semantics.
-4. Notification accessor/message/error shape, backlog durability/replay boundary, retry termination, delivery/error ordering and shutdown failure.
+4. Preparation-barrier completion, backlog durability/replay boundary, retry termination, delivery/error ordering and shutdown failure.
 5. Snapshot consistency and consumer synchronization requirements.
 6. Benchmark scenarios, memory/performance targets and complete acceptance matrix.
 
@@ -164,7 +164,7 @@ Ack, delivery token, or callback/sink method is part of the API. Delivery bookke
 
 ## Follow-on Define proposal — API, identity faults, notification source (not approved)
 
-This proposal resolves remaining design questions with minimal public surface while retaining the approved `PrepareLog[TEvent,TChannel](ctx)` call shape and the approved Event-only notification payload.
+This proposal explores remaining design questions while retaining the approved `PrepareLog[TEvent,TChannel](ctx, newChannel)` call shape and the common-Event notification stream.
 
 ### Type and preparation contract
 - Require pointer type arguments (`PrepareLog[*MyEvent,*MyChannel]`). Pointer receiver `Fields()` is supported; value type arguments are rejected at preparation with a typed contract error.
