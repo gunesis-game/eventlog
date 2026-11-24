@@ -72,7 +72,7 @@ are historical and are not current public API requirements.
 
 ## Remaining open decisions (current only)
 
-1. **Generic API and selector contract:** Record the exact `Channel` and `Event[TChannel]` interface declarations, the Go-valid encoding of the requested generic Log API, the Append selector callback and how actual channel/event values enter the call, `Read` signature, and `Reader.Next()` result. Go methods cannot declare their own type parameters, so the literal `log.Append[TChannel,TEvent](selector)` syntax is not valid Go; a generic Log handle can carry the type arguments and expose `log.Append(selector)` / `log.Read()`, or package-level generic functions can carry them. Heterogeneous channels are approved: a typed reader returns matching event types and advances past other types.
+1. **Internal lifecycle and consumer value association:** Specify how the returned event/channel values from `PrepareLog` are associated with the internally owned Log, including how updates are detected and how append/read operations are triggered without exposing a Log handle or additional public lifecycle APIs.
 2. **Public API and errors:** Consolidate exact signatures and stable error categories (validation, corruption/recovery, unsupported schema, I/O, closed state), including channel selection, context and close semantics.
 3. **Benchmark scenarios and acceptance matrix:** Define measurable scenarios and qualitative limits; convert approved guarantees into verification cases.
 4. **Performance/memory expectations:** Define measurable benchmark scenarios and acceptable qualitative limits without prematurely fixing numeric targets.
@@ -824,4 +824,17 @@ The returned event and channel values are consumer-owned data values whose expos
 - The released execution lock was claimed in lock-only commit `7e2d3eebfd0c706ca19dd37e565ebec3bfe5693b` and fetched from shared `main`; owner is `ChatGPT-GPT-6`.
 - Cycle 1 is resumed as `in-progress` in Define. No implementation, build, or Go tests have started.
 - The latest approved public API and internal Log ownership are unchanged.
-- Next Define decision: determine how the sole `PrepareLog(ctx)` entry point selects/identifies its storage location and how the context participates in initialization and recovery, without adding another public API.
+- User confirmed that generic type arguments identify consumer types only; runtime configuration may use a separate `eventlog.Config(...)`-style facility. Environment variables are not required. Context remains for cancellation/deadlines rather than hidden configuration.
+- The exact Config call shape, configuration scope, storage directory option/default, and missing-configuration behavior remain to be designed with a concrete Go example.
+
+
+## Define decision — separate runtime configuration from generic type selection (2026-11-24)
+
+The generic arguments in `PrepareLog[TEvent, TChannel](ctx)` identify the consumer-defined event and channel types. They do not supply runtime configuration such as the storage directory. Configuration must be provided separately through a package configuration facility (a public `eventlog.Config(...)`-style API is acceptable); do not infer a storage path from the generic types and do not require environment variables as the configuration mechanism. Keep the approved `PrepareLog[TEvent, TChannel](ctx)` call shape unchanged. The context remains for cancellation/deadlines and operation lifetime, not as an implicit configuration store. The exact Config signature, whether it produces a context-bound configuration or another explicit configuration value, storage-directory option name/default, and behavior when configuration is absent remain open for a concrete API example and confirmation.
+
+
+## Latest resume checkpoint — 2026-11-24 — configuration direction
+
+- User clarified that `PrepareLog[TEvent, TChannel](ctx)` already receives the consumer types through its generic arguments, and accepted a separate `eventlog.Config(...)`-style configuration facility for runtime settings.
+- Do not use generic type information as a source of storage-path configuration; environment variables are not required. Context is for cancellation/deadlines, not implicit configuration.
+- Exact Config signature and configuration scope/defaults remain open. No implementation, build, or Go tests have started.
