@@ -163,7 +163,7 @@ The exact canonical identity payload layout after the existing domain prefix is 
 
 The already-approved namespace, Event/Channel domain prefixes, primitive field tags, big-endian framing, UUID v5 derivation, and non-identity value exclusion remain unchanged. Identity payload is UUID-only; the UUID tag remains unresolved. The accepted Go representation and byte extraction order are specified in the UUID identity contract. Format byte is intentionally redundant with the domain prefix's v1 marker.
 
-**D-024 — UUID identity representation (approved 2026-11-24):** A UUID identity field MUST have Go underlying type `[16]byte`. The unnamed `[16]byte` type and named types whose underlying type is `[16]byte` are accepted. Type aliases are accepted insofar as their Go underlying type is `[16]byte`. The canonical UUID payload is the 16 array elements in index order (`value[0]` through `value[15]`); no string parsing, textual normalization, integer endianness conversion, or external UUID dependency is involved. Nullable UUID identity fields and all other underlying types are rejected. This applies equally to Event and Channel identity fields.
+The UUID identity representation is specified in the UUID identity section below.
 
 Still open: the dedicated UUID identity marker/tag assignment; metadata UTF-8 policy; canonical naming of aliases/generic instantiated types; and maximum framing sizes. The UUID Go representation and byte extraction order are settled.
 
