@@ -109,11 +109,13 @@ from replay into live tailing. It is not tied to an event-sourcing framework or 
 - The Channel interface defines `Notifications() <-chan Event`, where `Event` is the common interface implemented by concrete Event types. `TEvent` in `PrepareLog` is instead a concrete Event type constrained by `Event`; the required factory accepts `func(chan Event) TChannel` so one Channel can receive heterogeneous concrete Event values. Notifications carry concrete Event values as immutable snapshots after successful persistence. There is no `Notify` callback/sink method.
 - Notifications are channel-scoped, ordered, and lossless across buffer pressure or recovery. Slow
   consumers must not stall persistence. Pending deliveries are recovered and delivered before newer ones.
-- Shutdown stops new preparation/appends and coordinates outstanding commits. It then stops Reader
-  advancement and attempts a bounded notification drain; delivery is cancelled on grace-period expiry.
-  Senders must exit before notification/error streams close, after which storage resources are released. Lifecycle
-  failure is reported and recoverable pending state is retained. Without consumer acknowledgment or
-  transactional integration, exactly-once consumer processing is not guaranteed and duplicates may occur.
+- The runtime is process-lifetime scoped. Shared workers are owned by the process and are not cancelled by
+  any caller's `PrepareLog` Context. eventlog does not initiate graceful shutdown, drain notifications,
+  close notification/error streams, or perform a final sync at process exit. Process termination may
+  interrupt an append or notification delivery. Incomplete trailing transactions are discarded during
+  recovery; committed occurrences still present in the authoritative append log, including undelivered
+  notifications, are replayed before newer occurrences on the next start. Duplicates may occur around a
+  crash because consumers do not acknowledge delivery; exactly-once processing is not guaranteed.
 
 ## Quality expectations and constraints
 - Correctness, recovery safety, predictable memory use, and Linux/Windows parity are prioritized ahead
@@ -137,9 +139,10 @@ from replay into live tailing. It is not tied to an event-sourcing framework or 
 
 Remaining design questions are maintained in [architecture.md](architecture.md), with decision provenance
 in [decisions.md](decisions.md). They include the UUID identity marker/tag, metadata UTF-8 policy,
-canonical naming of aliases and instantiated generic types, maximum framing sizes, exact internal
-registry-key details, and the internal runtime-shutdown trigger. Channel snapshot ordering/consistency,
-delivery retry behavior, bounded notification backlog, and shutdown-drain policy are approved and
-recorded in D-027 and D-030–D-033. The acceptance scenarios are recorded in [acceptance.md](acceptance.md).
+canonical naming of aliases and instantiated generic types, maximum framing sizes, and exact internal
+registry-key details. Process-lifetime runtime ownership with no library-managed shutdown or graceful
+process-exit drain is settled by D-034; Channel snapshot ordering/consistency, delivery retry behavior,
+and bounded notification backlog are recorded in D-027 and D-032–D-034. The acceptance scenarios are
+recorded in [acceptance.md](acceptance.md).
 Benchmark workloads are approved and recorded in [benchmarks.md](benchmarks.md); measurable performance
 and memory targets and their measurement/acceptance criteria remain open. 
