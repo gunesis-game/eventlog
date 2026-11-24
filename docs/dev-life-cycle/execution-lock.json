@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "status": "released",
-  "cycle_id": null,
-  "workflow": null,
-  "worker_id": null,
-  "claimed_at": null,
-  "released_at": "2026-11-24T01:13:00Z",
-  "release_evidence": "User requested session handoff after approving polling-based internal change detection. Cycle 1 remains in-progress in Define; see docs/dev-life-cycle/4c7c4fb1-6724-4bb0-b98e-b4f5ac3f9182/handoff/HANDOFF.md."
+  "status": "active",
+  "cycle_id": "4c7c4fb1-6724-4bb0-b98e-b4f5ac3f9182",
+  "workflow": "standard",
+  "worker_id": "ChatGPT-GPT-6",
+  "claimed_at": "2026-11-24T01:14:00Z",
+  "released_at": null,
+  "release_evidence": null
 }
