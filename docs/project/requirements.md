@@ -82,6 +82,11 @@ from replay into live tailing. It is not tied to an event-sourcing framework or 
   order, without gaps or duplicates when transitioning from replay to tailing. The same progression
   advances through replay and live tailing; separate typed Readers must not be combined to synthesize
   the heterogeneous notification stream.
+- All concrete Event types and their decoders for a logical Channel must be prepared/registered before
+  heterogeneous historical notification replay begins. Unknown persisted Event types must never be
+  silently discarded. Sequential event-specific `PrepareLog` calls alone do not establish that all
+  registrations are complete; the completion boundary is an internal Define item and must not be exposed
+  through new consumer-facing `Activate`, `Start`, `RegisterEventType`, or `Close` methods.
 - Each reader is scoped to exactly one consumer-provided Channel. No all-channel reader is provided.
 - Storage sequences, offsets, cursors, and tailing coordination remain internal.
 - Context cancellation and explicit errors are required. Re-appended logical Events are separate
