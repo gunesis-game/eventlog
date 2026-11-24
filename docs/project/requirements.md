@@ -13,25 +13,25 @@ from replay into live tailing. It is not tied to an event-sourcing framework or 
 ## Functional requirements
 
 ### Ownership and concurrency
--  A single process owns a log at a time; multi-process and distributed writer coordination are out of
+- A single process owns a log at a time; multi-process and distributed writer coordination are out of
   scope.
--  Multiple goroutines may concurrently use the API. The library coordinates writes and preserves
+- Multiple goroutines may concurrently use the API. The library coordinates writes and preserves
   ordering/transaction integrity.
 
 ### Event and channel model
--  Consumers provide event and channel types implementing library-owned interfaces that expose `Fields()
+- Consumers provide event and channel types implementing library-owned interfaces that expose `Fields()
   Fields`.
--  Only explicitly returned fields are persisted. The library must not inspect or persist the consumer's
+- Only explicitly returned fields are persisted. The library must not inspect or persist the consumer's
   full struct, and no automatic redaction layer is required.
--  Every event occurrence is associated with exactly one channel.
--  Channel logical identity is derived canonically from concrete Channel type, exposed field-name schema,
+- Every event occurrence is associated with exactly one channel.
+- Channel logical identity is derived canonically from concrete Channel type, exposed field-name schema,
   and consumer-designated identity field name/value using deterministic UUID v5. Channels are created
   implicitly and atomically with the first successful append that uses them. A channel without an event
   must not be persisted; no standalone channel-creation API is provided. Non-identity Channel changes
   update its snapshot without changing identity; Channel-only changes do not create Event occurrences.
   New Event occurrences use the latest Channel snapshot, and earlier occurrences keep their original
   association.
--  Logical Event identity is global and independent of channel. Derive it from the concrete Go Event type
+- Logical Event identity is global and independent of channel. Derive it from the concrete Go Event type
   name, all field names explicitly exposed through `Fields()`, and the consumer-designated identity field
   name/value. Canonically encode these identity inputs and derive a deterministic UUID v5. Changes to
   non-identity fields do not change the logical Event ID, but each detected data change is a new
@@ -54,15 +54,15 @@ initialization attempt and each waiter honors its Context; failure permits retry
 Context is for cancellation/deadline only; no configuration is inferred from it or environment variables.
 
 ### Fields and validation
--  Fields are heterogeneous, typed primitive values.
--  Supported primitive kinds: string, bool, all signed and unsigned integer widths (including byte/rune
+- Fields are heterogeneous, typed primitive values.
+- Supported primitive kinds: string, bool, all signed and unsigned integer widths (including byte/rune
   aliases), float32, float64, and named types over supported primitives. uintptr and complex types are
   excluded.
--  Nullable primitive pointers are supported. Non-finite floats are rejected. Integer values must fit the
+- Nullable primitive pointers are supported. Non-finite floats are rejected. Integer values must fit the
   declared Go primitive type exactly.
--  Empty and duplicate field names are invalid. Names are case-sensitive and are not trimmed. Canonical
+- Empty and duplicate field names are invalid. Names are case-sensitive and are not trimmed. Canonical
   field ordering is bytewise UTF-8.
--  Field construction uses typed selectors (`FieldOf` for non-nullable and `FieldOfNullable` for
+- Field construction uses typed selectors (`FieldOf` for non-nullable and `FieldOfNullable` for
   nullable). Nullable selector returns pointer-to-pointer (nil means explicit Null, not zero/empty).
   Field names are inferred automatically. Selector resolution invokes the selector on a zero-value probe
   and compares the returned pointer with candidate direct-field addresses; exactly one direct field
@@ -92,51 +92,51 @@ permanent and reserved ranges remain unused.
 
 UUID v5 namespace is `26612f1d-f648-483a-9cfe-59c18f113891`; Event prefix is UTF-8
 `eventlog\\x00event\\x00v1\\x00`, Channel prefix `eventlog\\x00channel\\x00v1\\x00`. Logical identity is
-type + exposed field-name/type schema + designated identity field name/value, and remains stable across
+type + exposed field-name schema + designated identity field name/value, and remains stable across
 non-identity changes. Canonical physical-record deduplication is separate from logical identity.
 
 ### Append and transaction guarantees
--  The only approved public API is `eventlog.PrepareLog[TEvent, TChannel](ctx) (TEvent, TChannel,
+- The only approved public API is `eventlog.PrepareLog[TEvent, TChannel](ctx) (TEvent, TChannel,
   error)`. The internal Log owns append and read operations; consumers receive only event and channel
   values. No consumer-facing Append, Read, Next, or Log handle is exposed at this stage.
--  An append validates channel and event before writing. If the channel is new, channel and event records
+- An append validates channel and event before writing. If the channel is new, channel and event records
   are one transaction; otherwise the transaction contains the event occurrence. A commit marker is
   written last.
--  Transaction records are not exposed until their commit marker is validated. Recovery discards
+- Transaction records are not exposed until their commit marker is validated. Recovery discards
   incomplete trailing transactions by truncating back to their start.
--  Every persisted record has a global sequence, including commit markers. Transaction ID is the sequence
+- Every persisted record has a global sequence, including commit markers. Transaction ID is the sequence
   of its first transaction record. Transaction record count excludes the commit marker.
--  Commit checksum is SHA-256 over exact serialized transaction record bytes, including each record's
+- Commit checksum is SHA-256 over exact serialized transaction record bytes, including each record's
   terminating newline; commit marker bytes and its newline are excluded.
--  Recoverable transaction atomicity is not the same as durability against power loss: Append may be
+- Recoverable transaction atomicity is not the same as durability against power loss: Append may be
   buffered until the sync policy runs.
 
 ### Persistence and recovery
--  v1 persistence uses built-in JSON in newline-delimited JSON (NDJSON). New logs start as zero-byte
+- v1 persistence uses built-in JSON in newline-delimited JSON (NDJSON). New logs start as zero-byte
   files; no header record is written.
--  Every channel, event, and commit record carries `schema_version: 1`. Unsupported schema versions are
+- Every channel, event, and commit record carries `schema_version: 1`. Unsupported schema versions are
   rejected.
--  Versioned JSON Schema Draft 2020-12 documents the record/value format. Schema files are standalone and
+- Versioned JSON Schema Draft 2020-12 documents the record/value format. Schema files are standalone and
   canonical and embedded at build time via `go:embed`.
--  Persisted field values use explicit typed JSON representations: strings and bools are native JSON
+- Persisted field values use explicit typed JSON representations: strings and bools are native JSON
   values, integers are decimal strings, float32/float64 values are raw IEEE bit-pattern hex strings, and
   null is type-only. Float hex preserves width and signed zero; non-finite values are rejected.
--  A complete newline-terminated invalid record is corruption; the log must not silently skip it.
+- A complete newline-terminated invalid record is corruption; the log must not silently skip it.
   Incomplete trailing transaction data is rolled back to transaction start. `Open()` creates a missing
   zero-byte log and recovers existing storage.
 
 ### Reading
--  One unified reader supports replay and live tailing. It delivers committed history in order, catches
+- One unified reader supports replay and live tailing. It delivers committed history in order, catches
   concurrent appends during replay, and transitions to live tailing without gaps or duplicates.
--  Every reader is scoped to exactly one consumer-provided `Channel` value; there is no all-channel
+- Every reader is scoped to exactly one consumer-provided `Channel` value; there is no all-channel
   reader.
--  Global sequence, cursor, segment offset, and tailing coordination are internal; consumers neither
+- Global sequence, cursor, segment offset, and tailing coordination are internal; consumers neither
   provide nor receive storage cursors or sequence numbers.
--  Context cancellation and explicit errors are required.
--  Read/replay and live tailing are internal responsibilities of the Log instance. Consumers do not
+- Context cancellation and explicit errors are required.
+- Read/replay and live tailing are internal responsibilities of the Log instance. Consumers do not
   obtain readers or call Next. The internal reader remains channel-scoped, reconstructs typed consumer
   events, and handles nonmatching event types internally.
--  Re-appended logical events are delivered as separate occurrences.
+- Re-appended logical events are delivered as separate occurrences.
 
 ### Change detection and notifications
 
@@ -185,35 +185,35 @@ data; validate and sync; finalize; atomically switch manifest/index; new readers
 while existing readers continue on pinned generation; delete old files only after last pin releases.
 
 ### Durability and maintenance
--  Automatic synchronization occurs every 1 second or 1 MiB of pending writes, whichever threshold is
+- Automatic synchronization occurs every 1 second or 1 MiB of pending writes, whichever threshold is
   reached first.
--  Internal flush is a durability boundary; internal lifecycle shutdown flushes and syncs. No consumer-facing Flush/Close API is approved.
--  Segment files are the source of truth; index metadata is derived and rebuildable.
--  Segment rotation occurs only at transaction boundaries against a fixed target size. An oversized
+- Internal flush is a durability boundary; internal lifecycle shutdown flushes and syncs. No consumer-facing Flush/Close API is approved.
+- Segment files are the source of truth; index metadata is derived and rebuildable.
+- Segment rotation occurs only at transaction boundaries against a fixed target size. An oversized
   transaction may occupy its own segment.
--  Compaction creates and validates replacement segments, syncs them, finalizes them, atomically replaces
+- Compaction creates and validates replacement segments, syncs them, finalizes them, atomically replaces
   the index, and only then removes old segments. Recovery may clean temporary compaction files only after
   finalized source segments validate.
 
 ## Constraints and non-goals
--  Standard-library-only Go; local filesystem storage.
--  Supported platforms: Linux and Windows at equal priority. macOS is excluded. Core features must not be
+- Standard-library-only Go; local filesystem storage.
+- Supported platforms: Linux and Windows at equal priority. macOS is excluded. Core features must not be
   platform-exclusive.
--  No distributed coordination, multi-process writers, broker/database functionality, custom codecs, or
+- No distributed coordination, multi-process writers, broker/database functionality, custom codecs, or
   domain-specific behavior.
--  Correctness, recovery, predictable memory use, and cross-platform parity are prioritized. Numeric
+- Correctness, recovery, predictable memory use, and cross-platform parity are prioritized. Numeric
   performance targets await benchmarks.
 
 ## Define details still open
 
--  Final Go-valid public interface/selector signatures, generic constraints, pointer/value conventions,
+- Final Go-valid public interface/selector signatures, generic constraints, pointer/value conventions,
   reconstruction behavior, and occurrence representation.
--  Exact canonical byte composition of schema metadata and designated identity value (framing/tag/version
+- Exact canonical byte composition of schema metadata and designated identity value (framing/tag/version
   rules are approved, final byte layout remains to be specified).
--  Internal prepared-value association, lifecycle, cancellation, reader/resource close, and
+- Internal prepared-value association, lifecycle, cancellation, reader/resource close, and
   terminal-error semantics.
--  Identity-field mutation transition details, snapshot consistency, and persistence/index effects.
--  Notification accessor/message/error API, backlog durability/retention/replay boundary, retry
+- Identity-field mutation transition details, snapshot consistency, and persistence/index effects.
+- Notification accessor/message/error API, backlog durability/retention/replay boundary, retry
   termination, ordering, and drain-failure behavior.
--  Consumer synchronization and snapshot consistency details.
--  Benchmarks, performance/memory acceptance targets, and detailed acceptance test matrix.
+- Consumer synchronization and snapshot consistency details.
+- Benchmarks, performance/memory acceptance targets, and detailed acceptance test matrix.

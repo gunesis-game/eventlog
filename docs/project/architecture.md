@@ -30,39 +30,39 @@ configuration is not inferred from Context or environment.
 
 ## Logical components
 
--  **Public API:** The only approved public entry point is package-level generic `PrepareLog[TEvent,
+- **Public API:** The only approved public entry point is package-level generic `PrepareLog[TEvent,
   TChannel](ctx)`, returning `(TEvent, TChannel, error)`. Consumers receive event and channel values, not
   a Log handle. The package owns the internal `Log` instance and all append/read/next/lifecycle
   operations; none of those operations are exposed to consumers at this stage. Consumer event and channel
   types implement `Fields() Fields`; consumers set or change their own field values. A single process
   owns a log at a time, with concurrent goroutine use coordinated internally.
--  **Field builder and validator:** Selector callback supplies typed field selectors for direct fields.
+- **Field builder and validator:** Selector callback supplies typed field selectors for direct fields.
   `FieldOf` selects non-nullable primitives; `FieldOfNullable` selects nullable primitive pointers and
   returns pointer-to-pointer (nil is explicit Null). Field names are inferred. Resolve a selector by
   invoking it on a zero-value probe and comparing its returned pointer with candidate direct-field
   addresses; exactly one match must be found. This does not inspect source and may miss conditional
   selectors that resolve on the probe. Validate names, uniqueness, type, nilability, integer range and
   finite floats before writing; invalid input is not omitted or coerced.
--  **Identity encoder:** Canonically encodes type identity, exposed field-name schema, and designated
+- **Identity encoder:** Canonically encodes type identity, exposed field-name schema, and designated
   identity field name/value; non-identity field values are excluded from logical ID so updates retain
   identity. UTF-8 names sort bytewise, variable components/counts use uint32 big-endian framing,
   primitive tags and exact widths/bits are explicit. UUID v5 uses fixed namespace
   `26612f1d-f648-483a-9cfe-59c18f113891` and separate Event/Channel domain prefixes
   (`eventlog\\x00event\\x00v1\\x00`, `eventlog\\x00channel\\x00v1\\x00`).
--  **Record serializer/schema validator:** Encodes versioned strict JSON records as NDJSON and validates
+- **Record serializer/schema validator:** Encodes versioned strict JSON records as NDJSON and validates
   each record against the schema matching its `schema_version`. Standalone schemas are canonical; runtime
   embeds those files using `go:embed`.
--  **Append transaction writer:** Coordinates concurrent appends, sequence assignment, transaction
+- **Append transaction writer:** Coordinates concurrent appends, sequence assignment, transaction
   records and first-class Commit marker. New Channel and Event records are one transaction; validation
   failure writes nothing. Recoverable atomicity uses Commit and rollback/truncation for interrupted
   writes.
--  **Segment manager:** Writes authoritative segment files, rotates at transaction boundaries, and
+- **Segment manager:** Writes authoritative segment files, rotates at transaction boundaries, and
   maintains ordered global record sequence. A transaction exceeding target segment size may be placed
   alone in an oversized segment.
--  **Recovery/index manager:** Validates manifest, segment generation, records, sequences, transaction
+- **Recovery/index manager:** Validates manifest, segment generation, records, sequences, transaction
   Commit IDs/count/checksums and derived index. Incomplete trailing transaction truncates to its start;
   index is rebuilt from segment source if missing/inconsistent and atomically replaced.
--  **Reader/tailer:** Streams committed historical occurrences for exactly one consumer-provided Channel
+- **Reader/tailer:** Streams committed historical occurrences for exactly one consumer-provided Channel
   value, catches up with concurrent appends, and transitions to live tailing without gaps or duplicates.
   Global sequence/cursor/offset management is internal; consumers do not provide or receive storage
   cursors. Cancellation and errors are explicit. Reads are generic over the consumer's concrete Event
@@ -70,13 +70,13 @@ configuration is not inferred from Context or environment.
   registration/factory/prototype API. A channel may contain multiple concrete Event types; a `Reader[T]`
   returns matching occurrences in order and advances past other event types, which are filtered rather
   than treated as errors.
--  **Compactor:** Produces replacement segments/index without modifying reader-pinned files,
+- **Compactor:** Produces replacement segments/index without modifying reader-pinned files,
   validates/checksums and syncs them, finalizes, atomically switches manifest/index, and deletes old
   generations only after the last reader releases its pin.
--  **Change manager/scheduler:** One managed scheduler per prepared Log/change manager polls selected
+- **Change manager/scheduler:** One managed scheduler per prepared Log/change manager polls selected
   Event/Channel fields every 100 ms; no per-field goroutines. Cadence is internal/test-only. Consumer
   synchronizes its own mutations. Detected changes route to internal persistence.
--  **Notification dispatcher/backlog:** Channel exposes a notification Go channel through an accessor
+- **Notification dispatcher/backlog:** Channel exposes a notification Go channel through an accessor
   (signature TBD). Messages contain immutable concrete Event snapshots captured at the persistence
   boundary and are sent only after commit. Every persisted occurrence must eventually be consumer-visible
   without blocking persistence/scheduler on slow consumers. Internal backlog handles finite buffers;
@@ -96,22 +96,22 @@ sequence number. Envelope includes version, sequence, kind and type-specific dat
 contains ID/type/fields, Event payload contains ID/channel_id/type/fields, and Commit payload contains
 transaction ID/count/checksum. Versioned JSON is stored as NDJSON; there is no log header.
 
--  **Channel identity:** concrete Channel type, exposed field-name schema, and designated identity field
+- **Channel identity:** concrete Channel type, exposed field-name schema, and designated identity field
   name/value, canonically encoded and UUID v5. Non-identity changes retain logical identity but update
   the Channel snapshot. A Channel-only mutation does not create an Event occurrence; the next Event
   occurrence uses the latest Channel snapshot. Earlier occurrences keep their original Channel
   association. Identical physical Channel records are deduplicated.
--  **Event identity:** global and independent of Channel. It is based on concrete Go Event type, exposed
+- **Event identity:** global and independent of Channel. It is based on concrete Go Event type, exposed
   field-name schema, and designated identity field name/value, canonical encoding and UUID v5.
   Non-identity data changes keep logical ID and create new physical occurrences.
--  **Occurrence/HEAD:** each append or detected selected Event-field change creates an immutable physical
+- **Occurrence/HEAD:** each append or detected selected Event-field change creates an immutable physical
   occurrence associated with one Channel. Older occurrences remain in history. Highest-sequence
   occurrence determines HEAD/current Channel association and ordering. Logical promotion is not a
   separate record.
--  **Transaction ID:** the global sequence of the first transaction record. Transaction order is Channel
+- **Transaction ID:** the global sequence of the first transaction record. Transaction order is Channel
   record when new, Event occurrence, then Commit; existing-channel transactions contain Event then
   Commit.
--  **Sequence:** global across records and segments; Commit consumes a sequence but is excluded from
+- **Sequence:** global across records and segments; Commit consumes a sequence but is excluded from
   transaction record count and checksum.
 
 Duplicate reconciliation: recovery deduplicates same-sequence identical physical copies. Same sequence
@@ -274,15 +274,15 @@ memory use and platform parity precede numeric performance targets.
 
 ## Unresolved architectural details
 
--  Exact public Event/Channel interface, field selector signatures, generic constraints, pointer/value
+- Exact public Event/Channel interface, field selector signatures, generic constraints, pointer/value
   reconstruction convention and occurrence shape.
--  Exact canonical byte composition of schema metadata and designated identity value; framing, tag
+- Exact canonical byte composition of schema metadata and designated identity value; framing, tag
   assignments and UUID namespace/domain prefixes are approved but final layout remains open.
--  Internal prepared-value association, Log lifecycle, cancellation, reader close/resource cleanup,
+- Internal prepared-value association, Log lifecycle, cancellation, reader close/resource cleanup,
   terminal-error semantics.
--  Identity-field mutation detection and transition mechanics, snapshot consistency,
+- Identity-field mutation detection and transition mechanics, snapshot consistency,
   occurrence/HEAD/index and Channel association effects.
--  Notification accessor/payload/error API, backlog durability/retention and replay boundary, retry
+- Notification accessor/payload/error API, backlog durability/retention and replay boundary, retry
   termination, delivery/error order, scheduler interaction and shutdown drain failure.
--  Consumer synchronization/snapshot consistency details.
--  Benchmarks, memory/performance targets, and measurable acceptance criteria.
+- Consumer synchronization/snapshot consistency details.
+- Benchmarks, memory/performance targets, and measurable acceptance criteria.
