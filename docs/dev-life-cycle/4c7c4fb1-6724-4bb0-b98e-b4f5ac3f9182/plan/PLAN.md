@@ -40,11 +40,11 @@ Approved project decisions are recorded in the project decision register and int
 
 ### Reconciliation evidence
 
-- **Repository revision inspected before this decision:** `1c7c58e680eda3f3aad3dd20d93912a5ada972f3` (`main`).
+- **Repository revision inspected before this decision:** `8a142a6b2483f11ac6e248835c14bef60a828aad` (`main`).
 - **Project records reviewed in full:** `docs/project/requirements.md`, `architecture.md`, `decisions.md`, `acceptance.md`, and `benchmarks.md`.
 - **Cycle records reviewed:** this plan, current handoff, and `docs/dev-life-cycle/cycle-index.json`.
 - **Decision register:** D-001 through D-039 are Recorded; D-029 is refined by D-032 and D-030/D-031 are historical and superseded for process termination by D-034.
-- **Cross-document corrections made:** stale Channel snapshot, Reader wake-up, retry, and backlog open-item claims were reconciled; the duplicate runtime-shutdown section was consolidated; D-034 replaces the former shutdown-drain sequence with process-lifetime runtime ownership and recovery after process termination; D-035 assigns UUID identity tag `0x03`; D-036 requires valid UTF-8 metadata keys and values and rejects invalid bytes without normalization; D-037 settles reflected Go type naming, alias resolution, opaque instantiated generic names, and the cross-toolchain compatibility limitation. D-038 sets explicit v1 canonical identity framing limits; D-039 leaves exact registry-key representation as an implementation detail while preserving the observable registration, identity, reuse, and Channel-isolation rules.
+- **Cross-document corrections made:** stale Channel snapshot, Reader wake-up, retry, and backlog open-item claims were reconciled; the duplicate runtime-shutdown section was consolidated; D-034 replaces the former shutdown-drain sequence with process-lifetime runtime ownership and recovery after process termination; D-035 assigns UUID identity tag `0x03`; D-036 requires valid UTF-8 metadata keys and values and rejects invalid bytes without normalization; D-037 settles reflected Go type naming, alias resolution, opaque instantiated generic names, and the cross-toolchain compatibility limitation. D-038 sets explicit v1 canonical identity framing limits; D-039 leaves exact registry-key representation as an implementation detail while preserving the observable registration, identity, reuse, and Channel-isolation rules. The benchmark strategy was aligned with D-034 process-lifetime behavior, and initial Typical/Heavy/Stress workload profiles plus per-process memory and disk budgets were approved and recorded.
 - **Validation boundary:** this is a semantic document reconciliation. No implementation, Go build, Go tests, or benchmark measurements have been run.
 
 | Candidate item | Classification | Current evidence / next action |
@@ -60,7 +60,7 @@ Approved project decisions are recorded in the project decision register and int
 | Metadata UTF-8 policy | Resolved | D-036 and architecture section “Metadata UTF-8 policy” |
 | Maximum framing sizes | Resolved | D-038 and architecture section “Canonical identity framing limits (v1)” |
 | Exact internal registry-key composition | Resolved/deferred to implementation | D-039: representation is internal; architecture specifies required registration, identity, reuse, and Channel-isolation behavior |
-| Numeric performance/memory targets and measurement criteria | Unresolved | Agree target environments, resource ceilings, repetitions, warm-up, and acceptance methodology |
+| Numeric performance pass/fail thresholds and statistical measurement criteria | Unresolved | Initial workload profiles and resource budgets are approved in `benchmarks.md`; still agree repetitions, warm-up, variance/acceptance methodology, and whether any thresholds are appropriate |
 
 The current requirements, architecture, decision register, acceptance matrix, and benchmark strategy have been reviewed together against the active cycle records.
 
@@ -77,7 +77,7 @@ The current requirements, architecture, decision register, acceptance matrix, an
 
 ### Unresolved
 
-1. Measurable performance and memory targets, representative target environments, and benchmark measurement/acceptance criteria.
+1. Benchmark measurement/acceptance methodology: repetitions, warm-up, statistical treatment/variance, and any justified hard performance or memory pass/fail thresholds. Initial workload profiles and resource budgets are recorded in `benchmarks.md`.
 
 ### Explicitly not open
 
@@ -85,7 +85,7 @@ Channel snapshot consistency, Reader wake-up behavior, retry policy, process-lif
 
 ### Next Define work
 
-Agree measurable performance/memory targets and their measurement criteria, then perform the final cross-document consistency review. Define exit still requires your explicit approval.
+Agree benchmark measurement/acceptance methodology and any justified hard thresholds, then perform the final cross-document consistency review. Define exit still requires your explicit approval.
 
 ## Acceptance criteria
 
@@ -96,7 +96,8 @@ Agree measurable performance/memory targets and their measurement criteria, then
 - [x] Remaining architecture details are resolved or explicitly deferred.
 - [x] Bottom-up acceptance matrix and scenario pass conditions are agreed and recorded.
 - [x] Benchmark workload scenarios are defined and approved.
-- [ ] Measurable performance/memory targets and measurement/acceptance criteria are agreed.
+- [x] Initial benchmark workload profiles and resource budgets are agreed and recorded.
+- [ ] Statistical measurement/acceptance methodology and any justified hard performance/memory thresholds are agreed.
 - [ ] Requirements and architecture are coherent, internally consistent, and implementation-ready.
 - [ ] User explicitly approves exit from Define before implementation begins.
 
