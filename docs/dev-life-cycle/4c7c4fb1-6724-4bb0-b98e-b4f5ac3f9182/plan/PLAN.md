@@ -144,8 +144,7 @@ These are recommendations for Define, not active requirements. No implementation
 - Non-identity mutations remain supported: Channel snapshot updates are applied to future occurrences only; prior Event occurrences retain their committed Channel snapshot association.
 
 ### Notification delivery (superseded proposal)
-This prior Ack-based proposal is not active. The consumer-facing payload is concrete `TEvent`; public
-notifications are a receive-only channel accessor `Notifications() <-chan TEvent`. No public wrapper,
+This prior Ack-based proposal is not active. The notification stream element is the common `Event` interface; concrete Event values are delivered through `Notifications() <-chan Event`. No public wrapper,
 Ack, delivery token, or callback/sink method is part of the API. Delivery bookkeeping remains internal.
 
 
@@ -178,7 +177,7 @@ This proposal resolves remaining design questions with minimal public surface wh
 - Channel non-identity changes update the current snapshot only; future Event occurrences bind to it. Historical occurrences retain their Channel snapshot.
 
 ### Notification channel construction and ownership
-- **Settled public contract:** consumer-defined Channel types expose `Notifications() <-chan TEvent`.
+- **Settled public contract:** consumer-defined Channel types expose `Notifications() <-chan Event`.
   Consumer code receives concrete Event values from this stream.
 - No public helper struct, embedding requirement, wrapper payload, Ack, or callback/sink method is permitted.
 - The receive-only accessor is not itself writable by eventlog. Define must resolve how the library
@@ -198,7 +197,7 @@ This proposal resolves remaining design questions with minimal public surface wh
 - CI/quality: Linux and Windows; race detector; parser/recovery fuzzing. Benchmark append throughput, replay throughput, tail latency, compaction cost, and resident memory with stalled consumers. Set numeric thresholds only after baselines.
 
 ### Approval needed before promotion
-Approve/reject pointer-only preparation, shared-instance reuse, object-scoped identity quarantine, notification accessor `Notifications() <-chan TEvent` and send-side ownership/recovery semantics, diagnostics/shutdown shape, and this acceptance matrix. These are proposals only; active requirements/architecture remain unchanged and implementation remains forbidden until explicit Define exit approval.
+Approve/reject pointer-only preparation, shared-instance reuse, object-scoped identity quarantine, notification accessor `Notifications() <-chan Event` and send-side ownership/recovery semantics, diagnostics/shutdown shape, and this acceptance matrix. These are proposals only; active requirements/architecture remain unchanged and implementation remains forbidden until explicit Define exit approval.
 
 
 ### Superseded notification helper sketch
@@ -267,11 +266,11 @@ func PrepareLog[TEvent EventType, TChannel ChannelType](
 Consumer passes their constructor, e.g. `NewOrdersChannel`, which must have the exact compatible signature:
 
 ```go
-func NewOrdersChannel(send chan *OrderEvent) *OrdersChannel {
+func NewOrdersChannel(send chan Event) *OrdersChannel {
     return &OrdersChannel{notifications: send}
 }
 ```
-The Channel stores a receive-only field and returns it through `Notifications() <-chan *OrderEvent`. eventlog creates the bidirectional channel, retains send-side ownership, and supplies it to the constructor; the consumer does not send or close the channel. The required factory parameter ensures a constructor of the expected type is provided for each PrepareLog call. No `Notify` sink/callback, public helper/embedding, or notification wrapper payload is introduced. This is the approved construction direction; delivery/backlog/recovery/shutdown semantics remain separately open.
+`TEvent` in this API is the common `Event` interface, not `*OrderEvent`. The Channel stores a receive-only field and returns it through `Notifications() <-chan Event`; eventlog creates the bidirectional `chan Event`, retains send-side ownership, and supplies it to the constructor. The same stream can therefore carry `*OrderCreated`, `*OrderCancelled`, and other concrete Event implementations. The consumer does not send or close the channel. No `Notify` sink/callback, public helper/embedding, or notification wrapper payload is introduced. Delivery/backlog/recovery/shutdown semantics remain separately open.
 
 ## User correction — heterogeneous Channel notification stream (2026-11-24)
 
@@ -281,7 +280,7 @@ The Channel stores a receive-only field and returns it through `Notifications() 
 - One consumer-defined Channel may carry multiple concrete Event types (for example, `OrderCreated` and `OrderCancelled`) through the same notification stream.
 - The consumer-facing Channel API must remain unchanged. There is no `Notify` callback/sink method, no public helper/embedding requirement, and no per-concrete-type notification stream.
 
-**Correction to the earlier factory proposal:** The earlier example `func(chan TEvent) TChannel` cannot be interpreted as a per-concrete-Event factory for one heterogeneous Channel. It is type-compatible only if `TEvent` denotes the common Event interface. The relationship between `PrepareLog` type parameters, event-specific preparation, shared Channel resolution, and internal writable-channel construction must be reconciled without changing the approved consumer-facing API. Do not implement or publish a changed signature based on assumption.
+**Clarification of the factory type:** `TEvent` in the approved generic API denotes the common `Event` interface, not one individual concrete Event type. Therefore `func(chan TEvent) TChannel` is the common-Event channel factory and can carry heterogeneous concrete Event values. The earlier example using `chan *OrderEvent` is superseded. The remaining design work is to specify how event-specific preparation and registrations converge on the same Channel runtime and Reader progression without changing the consumer-facing Channel API.
 
 **Next Define work:** establish the generic type relationship and internal Channel construction/resolution model against the existing `PrepareLog` contract; ensure multiple event-specific preparations converge on one Channel runtime and one ordered heterogeneous stream. Then reconcile the requirements, architecture, plan and handoff. No implementation authorization is implied.
 
