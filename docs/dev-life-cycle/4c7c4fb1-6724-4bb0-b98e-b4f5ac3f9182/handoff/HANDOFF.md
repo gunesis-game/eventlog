@@ -10,10 +10,10 @@
 ## State
 - **Cycle:** 4c7c4fb1-6724-4bb0-b98e-b4f5ac3f9182 (sequence 1, execution order 1)
 - **Workflow / phase:** standard / define
-- **Registry:** in-progress at Define
-- **Execution lock:** active for ChatGPT-GPT-6 since 2026-11-24T18:24:13Z; claim verified on main at commit `199bc6b3d14eea4f72f743c6f042158bc46b9fbb`
+- **Registry:** paused at Define
+- **Execution lock:** released at 2026-11-24T18:28:01.823Z; release published atomically with the Cycle 1 pause checkpoint.
 - **Implementation:** none; no build or Go tests started.
-- **Latest checkpoint:** 2026-11-24T18:24:13Z — resumed Cycle 1 and began recording approved D-006. Earlier checkpoints and history remain preserved.
+- **Latest checkpoint:** 2026-11-24T18:28:01.823Z — D-006 recorded in canonical artifacts; Cycle 1 paused while awaiting the next user decision. Earlier checkpoints and history remain preserved.
 
 ## Correction after user review
 The previous cleanup was wrong: it optimized for file size and stripped substantive requirements/design from active project docs, leaving the archive as the place to find them. The user explicitly said this was not simply moving content and that architecture must retain the complete design. This pass restores and curates the active docs. Active specifications must remain complete and topic-oriented; archives are provenance only.
@@ -301,6 +301,14 @@ Historical checkpoint statements below that describe `TEvent` as the common inte
 - **Approved decision:** when a required concrete Event decoder has not registered, the Channel Reader waits asynchronously and indefinitely. There is no arbitrary timeout, and absence alone does not produce a fatal Channel error. Replay proceeds when the decoder registers. Unknown or undecodable persisted Event types still fail closed; no consumer-facing API changes.
 - **Canonical artifacts updated and fetched back:** `docs/project/architecture.md` at `4ea67d0ca45cc0bc2de7f46717844fbed42d4bb5`; `docs/project/requirements.md` at `3bbe21bdc79528aff55afa74f070f7d7ff629549`; Cycle 1 `plan/PLAN.md` at `0aa4496f30faf53279b41df8972acc91cadeeb9e`.
 - **Decision register:** D-006 is now Recorded against the verified architecture revision; the requirements and plan carry the same decision.
-- **Lifecycle state:** Cycle 1 is `in-progress` at Define; the active execution lock is held by ChatGPT-GPT-6 and was fetched back from `main`. The earlier 20:06 pause checkpoint is superseded by this resume.
+- **Lifecycle state:** Cycle 1 is `paused` at Define; the execution lock is released. This pause supersedes the earlier 20:06 pause checkpoint and the intervening resume.
 - **Verification:** each changed canonical artifact was fetched back from `main` and its content/blob revision inspected. No lifecycle validator, build, or Go tests have run in this session. No implementation has started.
-- **Next:** continue Define with the next unresolved design decision. Preserve the approved consumer-facing API and include both `TEvent` and `TChannel` in every `PrepareLog` example.
+- **Next:** resume Cycle 1 Define after the user responds to the next focused proposal on pointer/value conventions. Preserve the approved consumer-facing API and include both `TEvent` and `TChannel` in every `PrepareLog` example.
+
+
+## Pause after D-006 — 2026-11-24T18:28:01.823Z
+
+- D-006 is Recorded in the decision register and verified in architecture, requirements, and plan.
+- Cycle 1 is paused at Define; the registry and execution lock are updated together in one main-branch commit. No worker retains ownership while awaiting the user's next decision.
+- No implementation, local validator, build, or Go tests were run in this checkpoint.
+- Resume the same Cycle 1 through the normal lock-claim protocol. The next proposed Define topic is whether generic Event and Channel type arguments must be pointers or may be values.
