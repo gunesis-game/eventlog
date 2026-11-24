@@ -185,11 +185,12 @@ This proposal resolves remaining design questions with minimal public surface wh
 - Quarantine is object-scoped and latched. Event identity mutation preserves last committed snapshot, emits one typed fault, and stops tracking that Event. Channel identity mutation preserves its last committed snapshot, faults once, quarantines that Channel, and prevents further writes through it. Other Channels continue. No reset/rebind API in v1.
 - Channel non-identity changes update the current snapshot only; future Event occurrences bind to it. Historical occurrences retain their Channel snapshot.
 
-### Notification channel construction and ownership
+### Notification channel construction and ownership — corrected
 - Public payload remains concrete Event `T`, with no public IDs, token, wrapper, or Ack.
-- Proposed solution: users embed `eventlog.Notifications[TEvent]` in their Channel type. This exported zero-value helper has a library-owned private channel and a public receive-only `Notifications() <-chan TEvent` accessor; the library initializes it during PrepareLog. It is not included in `Fields()` and is not persisted. This avoids requiring consumers to implement or inject an accessor and preserves the two-return-value API.
-- The stream is ordered per Channel, bounded in memory, with disk-backed backlog; recovered pending notifications are sent before newer occurrences. Persistence/dispatch bookkeeping remains internal. Because there is no consumer Ack, delivery is at-least-once across crash windows (duplicates possible), not exactly-once processing. Consumers should make handlers idempotent.
-- Dispatch send is never performed by append/polling paths. Persistent dispatcher errors/quarantine faults are surfaced through a separate bounded/coalescing diagnostics status channel (exact accessor still to be specified). Shutdown closes notification streams only after dispatcher stop; pending unconfirmed deliveries remain recoverable. Shutdown drain has a deadline and returns typed failure if backlog cannot drain.
+- No public notification-helper struct and no consumer embedding requirement. The consumer defines its own Channel struct.
+- The Channel interface must require a notification function/method that consumer-defined Channel types implement. eventlog uses that method for notification delivery.
+- Exact method signature, channel construction/access contract, bounded buffering/backpressure, dispatch ownership, persistence/recovery and shutdown semantics remain open Define questions. Do not revive the helper struct proposal.
+- Delivery guarantees must account for the absence of public consumer Ack; the exact semantics need to be finalized after the required consumer method is defined.
 
 ### Acceptance matrix and benchmark proposal
 - API/type contract: compile examples; pointer-only enforcement; stable repeated preparation; incompatible schema/pair conflict; cancellation and shared initialization tests.
@@ -201,7 +202,7 @@ This proposal resolves remaining design questions with minimal public surface wh
 - CI/quality: Linux and Windows; race detector; parser/recovery fuzzing. Benchmark append throughput, replay throughput, tail latency, compaction cost, and resident memory with stalled consumers. Set numeric thresholds only after baselines.
 
 ### Approval needed before promotion
-Approve/reject pointer-only preparation, shared-instance reuse, object-scoped identity quarantine, embedded `Notifications[T]` helper, at-least-once duplicate semantics, diagnostics/shutdown shape, and this acceptance matrix. These are proposals only; active requirements/architecture remain unchanged and implementation remains forbidden until explicit Define exit approval.
+Approve/reject pointer-only preparation, shared-instance reuse, object-scoped identity quarantine, consumer-defined Channel notification method, at-least-once duplicate semantics, diagnostics/shutdown shape, and this acceptance matrix. These are proposals only; active requirements/architecture remain unchanged and implementation remains forbidden until explicit Define exit approval.
 
 
 ### Go feasibility sketch for the embedded notification helper (proposal)

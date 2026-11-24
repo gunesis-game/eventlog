@@ -91,3 +91,9 @@ User approved the public payload simplification: consumers receive only `T Event
 - User explicitly rejected a public notification-helper struct. Channel interface must require a notification method/function implemented by consumer-defined Channel structs; consumer defines its own Channel type. eventlog uses that method for notifications.
 - This supersedes the embedded `eventlog.Notifications[T]` helper proposal. Signature and internal delivery mechanism remain open for Define.
 - Avoid re-proposing a library-owned public helper or embedding pattern. Update active requirements/architecture only after final method signature and semantics are resolved.
+
+
+## Next Define checkpoint — corrected API and pending notification questions
+- Removed the prior embedded-helper proposal from the current notification design section; it is superseded and must not be considered a valid option.
+- Required API shape is consumer-defined Channel struct implementing the notification function/method required by the Channel interface. Exact signature remains pending and should not be guessed.
+- Continue with API/lifecycle and identity mutation edge cases, then complete notification method signature/ownership/backpressure/recovery, acceptance matrix, reconcile requirements+architecture, and request Define exit approval.
