@@ -72,7 +72,6 @@ The current requirements, architecture, decisions, acceptance matrix, and benchm
 
 ### Unresolved
 
-- Exact internal runtime-shutdown trigger. The public API has no shutdown method, and process-wide signal interception is not approved.
 - Remaining architecture details: UUID identity marker/tag, metadata UTF-8 policy, canonical alias/instantiated-generic naming, maximum framing sizes, and exact internal registry-key details.
 - Measurable performance and memory targets, representative target environments, and benchmark measurement/acceptance criteria.
 
