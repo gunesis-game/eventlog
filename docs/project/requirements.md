@@ -298,3 +298,12 @@ This provisional decision incorrectly used the initial exposed-field snapshot as
 - Persistence and the internal scheduler must not block on slow/unread consumers; Eventlog's internal backlog/replay reconciles bounded buffers with guaranteed delivery.
 - Exact internal implementation, backlog persistence/retention, lifecycle/shutdown behavior, and failure semantics remain open Define decisions.
 - No implementation/build/tests have started; implementation still requires Define completion and explicit approval.
+
+
+## Define decision — notification shutdown drain approved (2026-11-24)
+
+- Orderly shutdown must drain pending notifications; it may not discard pending persisted occurrences.
+- The consumer notification channel stays open during draining and closes only after the pending notifications have been delivered.
+- If crash or process termination interrupts delivery, persisted occurrences are recovered on the next initialization.
+- Exact lifecycle triggers, drain failure semantics, and startup replay ordering remain open Define decisions.
+- No implementation/build/tests have started; implementation still requires Define completion and explicit approval.
