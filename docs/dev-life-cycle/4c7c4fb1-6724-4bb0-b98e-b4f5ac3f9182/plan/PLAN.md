@@ -143,18 +143,10 @@ These are recommendations for Define, not active requirements. No implementation
 - Quarantine is latched until the live object lifecycle is replaced (no implicit auto-clear). No rebind/reset public API is proposed now. Emit one typed fault when quarantined, then avoid repeated error spam; expose ongoing status in diagnostics.
 - Non-identity mutations remain supported: Channel snapshot updates are applied to future occurrences only; prior Event occurrences retain their committed Channel snapshot association.
 
-### Notification delivery: explicit acknowledgment and at-least-once
-**Recommendation:** make the contract at-least-once, not exactly-once. A consumer-visible channel send is not evidence that application processing completed.
-- Notification message carries an immutable Event snapshot, logical Event ID, occurrence ID, and opaque delivery token. Do not expose storage sequence, segment, or file offset.
-- Provide receive-only `Notifications() <-chan Notification` plus a message `Ack() error` (or equivalent library-owned acknowledgment function). Ack commits the acknowledgment in the durable delivery ledger. Consumers must Ack only after their own handling succeeds.
-- Persist pending delivery before exposing notification. Replay unacknowledged deliveries first in original order after restart. A crash after send but before Ack may redeliver; consumers must be idempotent. Once Ack is durably recorded, never redeliver that token.
-- Delivery dispatcher uses a bounded channel; slow consumers cannot block append/polling. Durable backlog supplies backpressure. Define one in-flight notification per channel to simplify order and acknowledgment.
-- A receive-only diagnostics/errors stream reports typed permanent or repeated delivery errors and quarantined-object faults. Error stream must itself be bounded with coalescing/status semantics so it cannot deadlock the log.
-- Shutdown drains only while consumers Ack pending items. If the drain deadline expires, return a typed shutdown error, retain unacked durable backlog for restart, and close notification channels only after dispatcher stop; do not claim drain success. A channel send without Ack is unconfirmed delivery.
-- Delivery/ack ordering is commit order for the channel. Event persistence and delivery enqueue are atomic; notification acknowledgments are separate durable records. The sync policy applies to both occurrence/enqueue and acknowledgment ledger records.
-
-### Explicit trade-off
-This proposal adds Ack/status API surface and delivery-ledger writes, but avoids claiming exactly-once consumer processing (which cannot be guaranteed across the send/process/ack crash window without consumer-side transactional integration). A consumer may see duplicates; loss of unacknowledged delivery is prohibited. Durable acknowledgment may add disk I/O and latency; batching acknowledgments is a possible future optimization, but not part of the initial contract.
+### Notification delivery (superseded proposal)
+This prior Ack-based proposal is not active. The consumer-facing payload is concrete `TEvent`; public
+notifications are a receive-only channel accessor `Notifications() <-chan TEvent`. No public wrapper,
+Ack, delivery token, or callback/sink method is part of the API. Delivery bookkeeping remains internal.
 
 
 ## Approved notification public API decision — 2026-11-24
@@ -185,12 +177,16 @@ This proposal resolves remaining design questions with minimal public surface wh
 - Quarantine is object-scoped and latched. Event identity mutation preserves last committed snapshot, emits one typed fault, and stops tracking that Event. Channel identity mutation preserves its last committed snapshot, faults once, quarantines that Channel, and prevents further writes through it. Other Channels continue. No reset/rebind API in v1.
 - Channel non-identity changes update the current snapshot only; future Event occurrences bind to it. Historical occurrences retain their Channel snapshot.
 
-### Notification channel construction and ownership — corrected
-- Public payload remains concrete Event `T`, with no public IDs, token, wrapper, or Ack.
-- No public notification-helper struct and no consumer embedding requirement. The consumer defines its own Channel struct.
-- The Channel interface must require a notification function/method that consumer-defined Channel types implement. eventlog uses that method for notification delivery.
-- Exact method signature, channel construction/access contract, bounded buffering/backpressure, dispatch ownership, persistence/recovery and shutdown semantics remain open Define questions. Do not revive the helper struct proposal.
-- Delivery guarantees must account for the absence of public consumer Ack; the exact semantics need to be finalized after the required consumer method is defined.
+### Notification channel construction and ownership
+- **Settled public contract:** consumer-defined Channel types expose `Notifications() <-chan TEvent`.
+  Consumer code receives concrete Event values from this stream.
+- No public helper struct, embedding requirement, wrapper payload, Ack, or callback/sink method is permitted.
+- The receive-only accessor is not itself writable by eventlog. Define must resolve how the library
+  obtains a send-capable channel and initializes it, while preserving the approved accessor and
+  consumer-defined Channel type. Do not implement until this ownership mechanism is settled.
+- Backlog durability, replay/order, bounded memory, retry, shutdown and delivery failure reporting
+  remain design topics. Without consumer Ack, exactly-once processing is not promised.
+
 
 ### Acceptance matrix and benchmark proposal
 - API/type contract: compile examples; pointer-only enforcement; stable repeated preparation; incompatible schema/pair conflict; cancellation and shared initialization tests.
@@ -205,26 +201,15 @@ This proposal resolves remaining design questions with minimal public surface wh
 Approve/reject pointer-only preparation, shared-instance reuse, object-scoped identity quarantine, consumer-defined Channel notification method, at-least-once duplicate semantics, diagnostics/shutdown shape, and this acceptance matrix. These are proposals only; active requirements/architecture remain unchanged and implementation remains forbidden until explicit Define exit approval.
 
 
-### Go feasibility sketch for the embedded notification helper (proposal)
-The helper approach is feasible with a type-parameterized Channel constraint, e.g. conceptually:
-```go
-type EventType interface { Fields() Fields }
-type Notifications[T EventType] struct { ch chan T }
-func (n *Notifications[T]) Notifications() <-chan T { return n.ch }
-func (n *Notifications[T]) initNotifications() { /* library initializes once */ }
-type ChannelType[T EventType] interface {
-    Fields() Fields
-    initNotifications()
-}
-func PrepareLog[TEvent EventType, TChannel ChannelType[TEvent]](ctx context.Context) (TEvent, TChannel, error)
-```
-The unexported initialization method is promoted from the embedded helper, so external consumers can satisfy the constraint by embedding `eventlog.Notifications[TEvent]`; they cannot forge the initialization method. The helper is zero-value-safe, initialized before PrepareLog returns, and its channel is never closed/sent by consumer code. Runtime pointer-kind and typed-nil checks are still required because Go constraints do not cleanly enforce pointer-only type arguments.
-This is a sketch to validate during final API design, not committed implementation or an approved contract.
+### Superseded notification helper sketch
+The embedded helper proposal was rejected by the user. It is retained in historical context only and
+must not be treated as a viable current design or reintroduced.
 
 
-## User correction — consumer-defined Channel notification method (2026-11-24)
-
-**Supersedes the embedded `eventlog.Notifications[T]` helper proposal above.** The public API must not introduce a library-provided notification helper struct or require consumers to embed one. The consumer defines their own Channel struct, and the Channel interface requires a notification method/function implemented by that consumer-defined type. eventlog uses that method for notification delivery/access. Exact method signature and internal delivery mechanics remain to be designed; do not assume or promote an embedded helper. This user-confirmed requirement takes precedence over the earlier proposal.
+## Superseded notification-sink checkpoint
+Earlier sink-method discussion is superseded. The settled public accessor is `Notifications() <-chan TEvent`;
+do not re-open or re-propose the sink-method decision. The remaining problem is internal send-channel
+ownership/construction, not the consumer-facing API signature.
 
 
 ## Approved canonical identity byte composition — 2026-11-24
