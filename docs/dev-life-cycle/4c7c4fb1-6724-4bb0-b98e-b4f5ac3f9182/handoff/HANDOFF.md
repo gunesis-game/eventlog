@@ -118,3 +118,13 @@ A recommendation-only subsection in the current PLAN addresses nil identity, raw
 
 ## User correction checkpoint — UUID-only identity (2026-11-24)
 User clarified that the consumer-selected identity field for both Event and Channel **must be a UUID**. Identity may not be nullable or any arbitrary primitive/string/numeric value. The active requirements and architecture are being updated accordingly. UUID payload should be represented canonically as 16 bytes; UUID tag assignment and accepted Go UUID type/representation remain Define questions. Primitive tags remain available for ordinary persisted Fields, not identities. No implementation/build/tests started.
+
+
+## Documentation ownership review checkpoint — 2026-11-24
+- Cycle 1's execution lock remains active and matches the registry's in-progress Cycle 1 claim; no release/reclaim was needed. Work continued under the existing claim.
+- Updated requirements framing to own product behavior, domain rules, constraints and acceptance expectations, avoiding internal design prescription.
+- Updated architecture framing to own technical mechanisms and design; corrected stale UUID identity encoding and notification accessor/open-question text.
+- Updated coding standards and steering guidance to distinguish requirements, architecture, implementation standards, verified commands, and temporary cycle records.
+- Updated files: `docs/project/requirements.md`, `docs/project/architecture.md`, `docs/project/coding-standards.md`, `steering.md`. `docs/project/commands.md` was reviewed and already correctly requires verified commands, so it was left unchanged.
+- Verification performed: GitHub fetch-back review of updated text. No local schema validator, build, or Go tests ran because this connector session provides file fetch/update but no repository checkout/command execution.
+- Next action: finish fetch-back contradiction review, then continue Define topics; no implementation begins before explicit Define approval.
