@@ -3,8 +3,8 @@
 ## State
 - **Cycle:** 4c7c4fb1-6724-4bb0-b98e-b4f5ac3f9182 (sequence 1, execution order 1)
 - **Workflow / phase:** standard / define
-- **Registry:** paused at Define after this handoff
-- **Execution lock:** released after checkpoint
+- **Registry:** in-progress at Define
+- **Execution lock:** active for ChatGPT (claimed 2026-11-24T16:30:00Z)
 - **Implementation:** none; no build or Go tests started.
 - **Latest checkpoint:** proposal commit `c57fbdf2f336d0c3c6370233249bdf59a8f22896`; handoff update `68b42ab313c84617dd13832e529ee8f01ee82846`; registry pause commit `1d2d691350e71f7b7d2f11349d57951aa5e36074`; lock release commit `e0dd9ad1a53777376f3eae3d36394b8897bbcfd2`.
 
@@ -155,3 +155,14 @@ part of the API. The remaining issue is internal writable-channel ownership and 
 - Resolved construction/send-ownership gap: `PrepareLog` takes required factory `func(chan TEvent) TChannel`; the consumer supplies its constructor (e.g. `NewOrdersChannel`) and Go compile-checks this function shape at the call site.
 - eventlog creates and owns the writable channel, passes it into the constructor; consumer Channel retains a receive-only view exposed by `Notifications() <-chan TEvent`. Consumer never sends or closes it.
 - Go cannot enforce a named constructor function as a type/interface member; required typed factory is the compile-time enforcement mechanism. This is the approved design direction. Delivery/backlog/recovery/shutdown semantics remain unresolved. No implementation or tests started.
+
+## Progress checkpoint — 2026-11-24T17:09:29Z
+
+- **Last progress checkpoint:** 2026-11-24T17:09:29Z
+- **Registry/lock:** Cycle 1 remains `in-progress` at `define`; the active lock remains held by ChatGPT for this same cycle. No takeover or lock reset was performed.
+- **Governance propagated:** Added active-work checkpoint cadence (material decisions and at least every 15 minutes), pause/block-before-waiting, no automatic lock expiry, and explicit owner-confirmed recovery rules to eventlog's lifecycle README and steering. Added the last-progress timestamp field to the handoff template.
+- **Verification:** GitHub read-back of governance files is pending. No local validator, build, or Go tests have run.
+- **Approved API clarification from the user:** Channel interface method is `Notifications() <-chan Event`; `Event` is the common interface and one consumer-defined Channel may carry multiple concrete Event types in that stream. The consumer-facing Channel API must not change; no `Notify` callback/sink method.
+- **Design inconsistency found:** The previous `func(chan TEvent) TChannel` factory example is incompatible if `TEvent` means one concrete Event type. It only works as a heterogeneous stream factory if `TEvent` is the common Event interface. This must be reconciled with event-specific `PrepareLog` calls and Channel-scoped runtime resolution; no signature change is assumed or implemented.
+- **Completed in this checkpoint:** Governance policy propagated; requirements/architecture/plan corrected to record the heterogeneous notification contract and the factory mismatch; current handoff status corrected to match the registry and lock.
+- **Next action:** Read back all changed files, reconcile the exact `PrepareLog` generic relationship and shared Channel construction, then continue remaining Define topics. Implementation remains prohibited until explicit Define exit approval.
