@@ -374,7 +374,7 @@ Historical checkpoint statements below that describe `TEvent` as the common inte
 - Next: resume this same Cycle 1 through the normal lock-claim protocol and continue Define with the internal prepared-instance registry key. Preserve the approved consumer-facing API and include both generic type arguments in every example.
 
 
-| D-010 | Separate Event type/schema registration, Event live-instance reuse by canonical Event identity, and Channel runtime reuse by canonical Channel identity; do not key Channel runtimes by concrete Go type alone | Recorded | docs/project/architecture.md, requirements.md and Cycle 1 plan | pending fetched-back verification |
+| D-010 | Separate Event type/schema registration, Event live-instance reuse by canonical Event identity, and Channel runtime reuse by canonical Channel identity; do not key Channel runtimes by concrete Go type alone | Recorded | docs/project/architecture.md, requirements.md and Cycle 1 plan | architecture `f3e7b8ea2dfc742fa297d19eadc20b5422ff8291`; requirements `a2ee2bea0db9357667da144ba21047d13f666b43`; plan `8e10bd9f63da60fefa2bfb76d3b1b5403899871b` |
 
 ## D-010 recorded checkpoint
 
