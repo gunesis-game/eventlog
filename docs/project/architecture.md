@@ -272,3 +272,8 @@ Every successfully persisted occurrence must eventually become visible to the co
 ## Define decision — notification shutdown drain approved (2026-11-24)
 
 On orderly shutdown, pending notifications are drained rather than discarded. The consumer notification channel remains open until the pending persisted occurrences have been delivered, then closes. If a crash or process termination interrupts delivery, persisted occurrences are recovered on the next initialization. Exact lifecycle triggers, drain failure semantics, and startup replay ordering remain open Define decisions. No implementation/build/tests have started; implementation still requires Define completion and explicit approval.
+
+
+## Define decision — startup replay ordering approved (2026-11-24)
+
+Recovered persisted occurrences awaiting notification are delivered first, in persistence order. Newly detected/live notifications follow and must not overtake the recovered backlog. Exact replay boundary, ordering scope, and coordination mechanics remain open Define details. No implementation/build/tests have started; implementation still requires Define completion and explicit approval.
