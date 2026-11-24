@@ -99,6 +99,26 @@ is part of the API.
   synchronizes its own mutations. Detected changes route to internal persistence.
 - **Notification dispatcher/backlog:** The Channel interface exposes `Notifications() <-chan Event` and `Errors() <-chan error`. One Channel owns one heterogeneous notification stream and one shared error stream. No `Notify` callback/sink method, public helper struct, or consumer embedding requirement is permitted. eventlog delivers immutable concrete Event snapshots after commit without blocking persistence/scheduler on slow consumers. The in-memory pending-delivery buffer is finite; a full buffer applies backpressure to the Channel Reader, which waits and resumes from its held position when capacity becomes available. This bounds notification-backlog memory without blocking persistence or discarding committed history. The authoritative committed append log remains the source of pending history; no separate durable queue is introduced. The error stream has capacity one, retains the first fatal error internally, and uses best-effort non-blocking delivery. Recoverable delivery errors may be retried only while the pending occurrence is retained and order/completeness are preserved; a failed occurrence is never silently skipped to advance the Reader. When retry policy declares a failure terminal, the Channel Reader terminates, reports the error through `Errors()`, and closes its streams after fatal-error reporting. Committed pending history remains recoverable from the authoritative log for a future runtime. Retry policy is internal: temporary delivery failures retry the same pending occurrence using bounded backoff and a finite retry limit; retry does not advance the Reader or permit later occurrences to overtake. On retry exhaustion, the Channel Reader terminates and reports through Errors(); committed pending history remains recoverable from the authoritative log. Other Channel Readers continue independently. Numeric buffer capacity, limits, delay values, and classification details are implementation/test policy, not public configuration. Exactly-once consumer processing is not guaranteed without consumer acknowledgment or transactional integration.
 
+### Registry key implementation boundary
+
+The registry-key representation is an internal implementation detail and is not a persisted format or
+consumer-facing contract. Implementations may choose maps, composite keys, or another representation,
+provided they preserve these observable rules:
+
+- Event decoder registration is keyed by concrete Event Go type plus exposed field-name schema.
+  Re-registering the same combination reuses the registration; registering the same concrete type with a
+  different schema fails with the specified typed schema-conflict error without replacing the existing
+  registration.
+- Event instance reuse follows canonical logical Event identity.
+- Channel runtime reuse follows canonical logical Channel identity, not concrete Channel Go type alone.
+  Distinct logical Channels of the same concrete Go type have separate live pointers, runtimes, and Reader
+  progressions; repeated preparation of the same logical Channel reuses its existing pointer/runtime/Reader.
+- Event decoder registration, Event instance identity, and Channel runtime identity remain separate
+  registry concerns.
+
+No internal registry key is serialized or exposed through the public API. Changing the internal
+representation is permitted as long as these behaviors remain unchanged.
+
 ## Field selection, reconstruction, and identity integrity
 
 Consumers select direct fields using typed selectors. FieldOf accepts func(*T) *V for a non-nullable
@@ -396,8 +416,6 @@ memory use and platform parity precede numeric performance targets.
 ## Unresolved architectural details
 
 - Maximum framing sizes. Canonical type naming is settled by D-037: reflected package path and runtime-provided name, with aliases resolving to their target and instantiated generic names treated as opaque text.
-- Exact internal registry-key composition for prepared instances and the precise behavior for distinct
-  logical Channels represented by the same concrete Channel Go type.
 - Numeric benchmark targets, memory targets, representative measurement environments, repetitions,
   warm-up policy, and statistical acceptance criteria.
 
