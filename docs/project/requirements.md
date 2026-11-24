@@ -137,7 +137,9 @@ from replay into live tailing. It is not tied to an event-sourcing framework or 
 
 Remaining design questions are maintained in [architecture.md](architecture.md), with decision provenance
 in [decisions.md](decisions.md). They include the UUID identity marker/tag, metadata UTF-8 policy,
-canonical naming of aliases and instantiated generic types, maximum framing sizes, remaining internal
-lifecycle and cancellation details, Channel mutation/snapshot consistency, and measurable
-performance/memory targets. Approved benchmark workloads are recorded in [benchmarks.md](benchmarks.md); numeric targets remain open. Retry policy, bounded notification backlog, and shutdown-drain failure behavior
-are approved decisions; their acceptance scenarios are recorded in [acceptance.md](acceptance.md). 
+canonical naming of aliases and instantiated generic types, maximum framing sizes, exact internal
+registry-key details, and the internal runtime-shutdown trigger. Channel snapshot ordering/consistency,
+delivery retry behavior, bounded notification backlog, and shutdown-drain policy are approved and
+recorded in D-027 and D-030–D-033. The acceptance scenarios are recorded in [acceptance.md](acceptance.md).
+Benchmark workloads are approved and recorded in [benchmarks.md](benchmarks.md); measurable performance
+and memory targets and their measurement/acceptance criteria remain open. 
