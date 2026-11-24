@@ -307,8 +307,8 @@ Reader advancement is permitted only after the committed occurrence is safely tr
 The approved shutdown sequence is:
 1. Stop accepting new preparations and stop initiating new change-detection appends.
 2. Coordinate outstanding append transactions until each reaches a committed or safely aborted state.
-3. Stop/cancel Channel Reader and delivery work at the defined shutdown boundary.
-4. Attempt a graceful notification drain for a fixed internal grace period, not configurable through the public API. On expiry, abort remaining delivery attempts, report lifecycle failure best-effort through the existing `Errors()` stream, and preserve committed undelivered history as recoverable.
+3. Stop Channel Reader advancement so no newer occurrences enter the delivery path; allow already-pending notification sends to drain.
+4. Attempt the graceful drain for a fixed internal grace period, not configurable through the public API. If the deadline expires, abort/cancel remaining delivery attempts, report lifecycle failure best-effort through the existing `Errors()` stream, and preserve committed undelivered history as recoverable.
 5. Wait for all sender goroutines to exit before closing notification/error streams.
 6. Release storage and process-ownership resources.
 
