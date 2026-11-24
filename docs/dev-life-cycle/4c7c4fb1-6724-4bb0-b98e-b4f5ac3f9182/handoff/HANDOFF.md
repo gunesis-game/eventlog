@@ -7,6 +7,8 @@
 - **Registry:** in-progress
 - **Lock:** active for ChatGPT-GPT-6, published on shared `main` in claim commit `54d0f5fb897aa7ef0aa416776093b881af4d73f6`.
 - **Implementation:** none; no build or Go tests started.
+- **Documentation cleanup commit:** `98a3b17784c13419ccda7c2ac78e0081b770967e` (shared `main`, confirmed).
+- **Lifecycle CI:** run `45315940750` succeeded for that exact cleanup commit; `Validate cycle registry and execution lock` passed. This validates lifecycle records, not documentation semantics or Go code.
 
 ## Public API/configuration approved
 ```go
