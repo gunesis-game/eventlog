@@ -98,9 +98,11 @@ from replay into live tailing. It is not tied to an event-sourcing framework or 
 - The Channel interface defines the receive-only notification accessor `Notifications() <-chan Event`, where `Event` is the common interface implemented by concrete Event types. In the approved generic preparation API, `TEvent` denotes this common Event interface, not an individual concrete Event type. A single consumer-defined Channel may receive heterogeneous concrete Event values (for example, `OrderCreated` and `OrderCancelled`) through this one stream. Notifications carry concrete Event values as immutable snapshots after successful persistence. There is no `Notify` callback/sink method. The typed channel-construction factory therefore accepts the common Event interface and supports this heterogeneous stream without changing the approved consumer-facing Channel API.
 - Notifications are channel-scoped, ordered, and lossless across buffer pressure or recovery. Slow
   consumers must not stall persistence. Pending deliveries are recovered and delivered before newer ones.
-- Shutdown drains pending notifications before closing the consumer channel; lifecycle failure is reported.
-  Delivery/recovery must be described honestly: without consumer acknowledgment or transactional
-  integration, exactly-once consumer processing is not guaranteed and duplicates may occur.
+- Shutdown stops new preparation/appends, coordinates outstanding commits, cancels Reader/delivery workers,
+  waits for senders to stop, drains pending notifications according to the shutdown policy, closes the
+  notification stream only after sending has stopped, and then releases storage resources. Lifecycle
+  failure is reported and recoverable pending state is retained. Without consumer acknowledgment or
+  transactional integration, exactly-once consumer processing is not guaranteed and duplicates may occur.
 
 ## Quality expectations and constraints
 - Correctness, recovery safety, predictable memory use, and Linux/Windows parity are prioritized ahead
