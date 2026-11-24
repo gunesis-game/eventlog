@@ -26,5 +26,5 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Validate cycle registry and decision records
+      - name: Validate cycle registry and project decision ledger
         run: python3 scripts/validate-steering.py
