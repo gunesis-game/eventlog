@@ -165,3 +165,8 @@ The mechanism and ordering used to obtain and validate a candidate Channel's ide
 ## Channel candidate resolution — D-011
 
 Preparation MUST obtain a candidate Channel from the supplied factory, derive its canonical Channel identity from its exposed fields, and resolve the Channel runtime registry by that identity. An existing logical Channel MUST reuse its existing Channel pointer and runtime/Reader; the candidate is discarded. A new logical Channel adopts the candidate and creates its runtime. This requirement is internal and MUST NOT change the approved consumer-facing `PrepareLog[TEvent, TChannel]` API. The factory can be invoked even when its candidate is discarded.
+
+
+## Channel factory side-effect contract — D-012
+
+The Channel factory MUST act only as a constructor: it creates and initializes a candidate Channel value and MUST NOT start goroutines, open external resources, or perform other external side effects. A candidate may be discarded when an existing logical Channel runtime is reused; therefore, discarding a candidate MUST be safe. The library starts the runtime only after adopting a candidate for a new logical Channel. This requirement MUST NOT change the consumer-facing API.
