@@ -294,14 +294,15 @@ memory use and platform parity precede numeric performance targets.
 
 - Exact public Event/Channel interface, field selector signatures, generic constraints, pointer/value
   reconstruction convention and occurrence shape.
-- Exact canonical byte composition of schema metadata and designated identity value; framing, tag
-  assignments and UUID namespace/domain prefixes are approved but final layout remains open.
+- UUID Go type/representation, canonical byte order and identity-tag assignment; metadata UTF-8 policy;
+  canonical naming of aliases/generic instantiated types; and maximum framing sizes. The field-schema
+  framing layout is approved, but these validation details remain open.
 - Internal prepared-value association, Log lifecycle, cancellation, reader close/resource cleanup,
   terminal-error semantics.
 - Identity-field mutation detection and transition mechanics, snapshot consistency,
   occurrence/HEAD/index and Channel association effects.
-- Notification accessor/payload/error API, backlog durability/retention and replay boundary, retry
-  termination, delivery/error order, scheduler interaction and shutdown drain failure.
+- Notification method signature/accessor ownership, internal backlog durability/retention and replay
+  boundary, retry termination, delivery/error ordering, scheduler interaction and shutdown drain failure.
 - Consumer synchronization/snapshot consistency details.
 - Benchmarks, memory/performance targets, and measurable acceptance criteria.
 
