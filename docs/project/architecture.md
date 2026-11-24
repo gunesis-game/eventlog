@@ -383,3 +383,8 @@ Canonical Event identity remains based on concrete Event type, exposed field-nam
 Type/schema registration conflicts are distinct from logical-instance identity. A registry keyed only by concrete Channel Go type is insufficient and must not merge distinct logical Channels. This is an internal design only; the approved `PrepareLog[TEvent, TChannel]` signature and all consumer-facing interfaces remain unchanged.
 
 The exact preparation ordering and mechanism for obtaining/validating candidate Channel identity fields before resolving the Channel runtime remain open.
+
+
+## Approved Channel candidate resolution sequence — D-011
+
+During `PrepareLog[TEvent, TChannel]` preparation, invoke the supplied Channel factory to create a candidate, derive its canonical Channel identity from the candidate's `Fields()` schema and designated identity field, then consult the Channel runtime registry by that canonical identity. If a runtime already exists, return and reuse its existing Channel pointer and runtime/Reader; the newly created candidate is discarded. If no runtime exists, adopt the candidate and create the Channel runtime. This is an internal preparation rule and does not change the consumer-facing API. The factory may therefore be invoked even when its candidate is discarded.
