@@ -378,3 +378,22 @@ The next session must re-fetch shared `main` and verify `docs/dev-life-cycle/exe
 4. Specify scheduler shutdown/retry and internal persistence-error handling without adding public operational APIs.
 5. Complete initialization/cancellation/resource, benchmark, acceptance, and cross-document consistency review.
 6. Obtain explicit user approval before implementation.
+
+
+## Latest session checkpoint — stable logical Event identity approved (2026-11-24)
+
+- User approved that an Event retains the same logical ID when its selected fields change.
+- The initial logical ID is derived from Event type plus its initial selected-field snapshot. The prepared Event value retains this ID for its lifetime; later field changes do not recalculate it.
+- Each detected field change appends a new immutable occurrence under the same logical ID. Earlier occurrences remain in history; the latest becomes HEAD and determines current channel and ordering.
+- Channel identity remains separate. This supersedes the older current-fields-derived Event ID rule.
+- Implementation detail still to define: internal association of the prepared Event value with its assigned ID, including recovery and persistence representation, without adding a public operational API.
+- No implementation, build, or Go tests have started. The Cycle 1 execution lock remains active under ChatGPT-GPT-6.
+
+### Next Define tasks
+
+1. Specify how the internal manager assigns and retains the initial logical Event ID for each prepared Event value, and how the stable association is represented in persisted occurrences and rebuilt during recovery.
+2. Define Channel-field changes: channel identity changes, association transitions, occurrence behavior, and ordering.
+3. Define caller synchronization and snapshot consistency; polling does not make unsynchronized struct writes race-safe.
+4. Specify scheduler shutdown/retry and internal persistence-error handling without adding public operational APIs.
+5. Complete initialization/cancellation/resource, benchmark, acceptance, and cross-document consistency review.
+6. Obtain explicit user approval before implementation.
