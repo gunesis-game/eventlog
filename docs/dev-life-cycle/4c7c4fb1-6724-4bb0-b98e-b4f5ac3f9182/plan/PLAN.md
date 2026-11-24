@@ -870,3 +870,7 @@ Concurrent `PrepareLog` calls wait for the first shared storage initialization a
 ## Define decision — storage path resolution and capture (2026-11-24)
 
 The storage-directory option accepts a non-empty path, including a relative path. A successful `Config(...)` resolves the path against the process working directory and stores the resulting absolute path in the immutable runtime configuration. All subsequent initialization uses that captured absolute path, so a later working-directory change cannot alter the storage target. Empty or whitespace-only paths are rejected. Exact path cleaning, symlink behavior, filesystem existence/permission validation, and whether validation may inspect the filesystem remain open. Path resolution itself does not create or initialize storage; storage initialization remains part of `PrepareLog`.
+
+## Define decision — Config option application and validation (2026-11-24)
+
+The public configuration shape is `Config(options ...Option) error`, with exported option constructors and an unexported option application method so consumers cannot implement arbitrary mutations of internal configuration. `WithStorageDirectory(path)` is the required storage setting. Config accepts multiple distinct options, rejects nil options, rejects duplicate settings rather than applying last-option-wins, and fails if the storage-directory option is absent. Validation is completed before immutable configuration is published; a failed attempt leaves the runtime unconfigured and retryable.
