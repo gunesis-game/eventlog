@@ -114,7 +114,7 @@ Vary history size, Reader count, Event-type diversity, and append rate independe
 
 Vary consumer speed, Event size, pending-buffer occupancy, and Channel count independently. Measure end-to-end notification latency separately from append/commit latency. Include retry and backpressure in sustained-load tests. Verify retry ordering and bounded memory. A successful channel send does not prove consumer processing and does not establish exactly-once delivery.
 
-## Layer 7 — Runtime lifecycle
+## Layer 7 — Runtime initialization and process recovery
 
 | ID | Workload | Measurements |
 |---|---|---|
@@ -122,14 +122,14 @@ Vary consumer speed, Event size, pending-buffer occupancy, and Channel count ind
 | B-RT02 | Configuration validation | Validation latency and allocations for valid/invalid options |
 | B-RT03 | Concurrent PrepareLog calls | Preparation throughput, latency, contention |
 | B-RT04 | Repeated preparation against shared runtime | Per-call latency and resource growth |
-| B-RT05 | Graceful shutdown with pending deliveries | Drain duration, throughput, completion rate |
-| B-RT06 | Shutdown after grace-period expiry | Timeout handling latency, cleanup duration, resource release |
-| B-RT07 | Repeated runtime lifecycle cycles | Resource growth, goroutine count, memory stability |
-| B-RT08 | Shutdown with multiple active Channel Readers | Shutdown duration and per-Reader cleanup |
+| B-RT05 | Abrupt process termination with pending committed deliveries | Restart recovery time, pending-history replay time, duplicate exposure |
+| B-RT06 | Process termination during an incomplete append transaction | Recovery time and proof that the incomplete trailing transaction is discarded |
+| B-RT07 | Repeated process start/termination cycles | Startup/recovery time, memory and OS-resource stability across process instances |
+| B-RT08 | Process termination with multiple active Channel Readers | Recovery time and independent resumption of each Channel's pending history |
 | B-RT09 | Preparation cancellation under shared runtime load | Cancellation response time and impact on unrelated callers |
 | B-RT10 | Resource cleanup after Reader failure | Cleanup latency and residual resource usage |
 
-Measure goroutine count, memory, open file descriptors/handles, and other relevant resources before and after lifecycle cycles. Separate graceful shutdown from grace-period expiry. Include concurrent preparation and active delivery. Verify one caller's cancellation does not disrupt shared workers. The shutdown grace period is fixed internal policy, not a tunable public configuration option.
+Measure initialization latency, goroutine count, memory, open file descriptors/handles, and other relevant resources within each process instance. Include concurrent preparation and active delivery. Verify one caller's cancellation does not disrupt shared workers. Process termination is external: eventlog provides no shutdown, drain, final-sync, or cleanup operation. Recovery checks must distinguish committed pending occurrences (which are replayed) from incomplete trailing transactions (which are discarded).
 
 ## Layer 8 — Public API and end-to-end
 
