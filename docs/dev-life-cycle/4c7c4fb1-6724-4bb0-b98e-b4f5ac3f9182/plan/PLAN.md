@@ -935,3 +935,13 @@ This earlier provisional decision is replaced by the approved consumer-designate
 ## Define topic — identity-field mutation on prepared instances (principle approved; details open)
 
 Consumer changes to the designated identity field on Event or Channel instances returned by `PrepareLog` must be handled internally by eventlog. The exact detection and transition semantics (including occurrence creation, HEAD/index updates, channel association, and persistence) remain a Define task. No implementation/build/tests have started.
+
+## Define decision — Channel notification direction (approved)
+
+- Public Channel API will expose a notification Go channel through an accessor method (name/signature TBD).
+- Successful occurrence notifications carry the concrete consumer Event instance/snapshot, rather than IDs-only or a generic event-type payload.
+- Errors are typed to support `errors.Is` and `errors.As`.
+- Slow/unread notification consumers must not block persistence or the internal poll scheduler; delivery/buffering strategy remains to be specified.
+- Close the notification channel when the relevant lifecycle shuts down; close it on initialization failure if it was allocated.
+- API backward compatibility is not a constraint in this early Define phase.
+- Identity-violation handling remains an open design discussion.
