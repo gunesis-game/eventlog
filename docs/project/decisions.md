@@ -33,6 +33,7 @@ This is the durable register of approved project decisions. It records outcomes 
 | D-022 | The internal queue is bounded; capacity pressure delays monitoring rather than consumer assignments; already-enqueued snapshots remain retained | Recorded | docs/project/architecture.md | 37da85f14975b31ae9810d0f22454537bb0e6c09 |
 | D-023 | One Log-owned bounded ingress queue dispatches by logical Event identity; each Event persists serially/FIFO while different Events may persist concurrently; global sequence is assigned at commit | Recorded | docs/project/architecture.md | e3ef12c0edf141d2468898655a2708c6433cb654 |
 | D-024 | Event and Channel identity fields accept [16]byte and named types with that underlying type; the UUID payload is the 16 bytes in array-index order; nullable and other underlying types are rejected | Recorded | docs/project/architecture.md | aa3fede134f317487585548056fa878486d6b3da |
+| D-025 | Notification Reader advances only after safe transfer to internal pending delivery; pending notifications reconstruct from authoritative committed log without a separate durable queue, preserving order; crash-window duplicates are possible absent consumer acknowledgment | Recorded | docs/project/architecture.md | 098f3f7e5de9d0f2f68e361a64806cf559e49289 |
 
 ## Decision maintenance
 
