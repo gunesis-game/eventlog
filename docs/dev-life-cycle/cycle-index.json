@@ -17,7 +17,7 @@
       "acceptance_criteria": null,
       "verification_evidence": null,
       "outcome": null,
-      "status_reason": "Awaiting user review of proposed consumer-defined Channel notification sink signature Notify(event TEvent) error and related delivery semantics; next action is user decision."
+      "status_reason": "Notify(event TEvent) error proposal rejected/superseded. Notifications() <-chan TEvent is confirmed; Define remains blocked only on internal send-channel ownership/construction and related delivery semantics."
     }
   ]
 }
