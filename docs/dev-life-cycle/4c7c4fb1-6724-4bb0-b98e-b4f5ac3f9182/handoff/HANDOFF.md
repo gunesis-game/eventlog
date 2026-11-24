@@ -2,18 +2,18 @@
 
 ## Current approved baseline (authoritative)
 
-- `PrepareLog[TEvent, TChannel](ctx, newChannel)` uses concrete `TEvent Event`, concrete `TChannel Channel`, and `newChannel func(chan Event) TChannel`.
+- `PrepareLog[TEvent, TChannel](ctx, newChannel)` uses concrete pointer type arguments `TEvent Event` and `TChannel Channel`, and `newChannel func(chan Event) TChannel`.
 - Channel accessors are `Notifications() <-chan Event` and `Errors() <-chan error`.
-- Historical replay waits asynchronously for all decoders required by committed Channel history; no public registration or activation method.
+- Historical replay waits asynchronously for all decoders required by committed Channel history; a missing decoder waits indefinitely without timeout or fatal error solely due to absence; no public registration or activation method.
 - Error stream: shared per Channel, capacity one, first fatal error retained, best-effort non-blocking delivery; fatal Reader termination closes streams after reporting.
 
 ## State
 - **Cycle:** 4c7c4fb1-6724-4bb0-b98e-b4f5ac3f9182 (sequence 1, execution order 1)
 - **Workflow / phase:** standard / define
-- **Registry:** paused at Define
-- **Execution lock:** released at 2026-11-24T18:28:01.823Z; release published atomically with the Cycle 1 pause checkpoint.
+- **Registry:** in-progress at Define
+- **Execution lock:** active for ChatGPT-GPT-6; claim published and fetched back at `2a92ccd5f68b744e260f7fb2a738d5f7fdfd9196`.
 - **Implementation:** none; no build or Go tests started.
-- **Latest checkpoint:** 2026-11-24T18:28:01.823Z — D-006 recorded in canonical artifacts; Cycle 1 paused while awaiting the next user decision. Earlier checkpoints and history remain preserved.
+- **Latest checkpoint:** D-007 approval is being recorded in canonical artifacts. Earlier checkpoints and history remain preserved.
 
 ## Correction after user review
 The previous cleanup was wrong: it optimized for file size and stripped substantive requirements/design from active project docs, leaving the archive as the place to find them. The user explicitly said this was not simply moving content and that architecture must retain the complete design. This pass restores and curates the active docs. Active specifications must remain complete and topic-oriented; archives are provenance only.
@@ -257,6 +257,7 @@ This is the authoritative decision ledger for Cycle 1. Every material user-appro
 | D-004 | Fatal Reader error terminates Channel Reader and closes notification/error streams after reporting; safe recoverable errors may continue | Recorded | docs/project/architecture.md | d4fe4e197b07385e95159d7090e8110f4805b68f |
 | D-005 | Concrete decoder registration derives from generic `TEvent`; historical replay waits asynchronously for all decoders required by committed Channel history; no public registration/activation API | Recorded | docs/project/architecture.md | d4fe4e197b07385e95159d7090e8110f4805b68f |
 | D-006 | A required decoder that has not registered causes indefinite asynchronous Channel Reader waiting; no arbitrary timeout or fatal error solely due to absence; replay resumes when registered | Recorded | docs/project/architecture.md (also reconciled in requirements.md and Cycle 1 plan) | `4ea67d0ca45cc0bc2de7f46717844fbed42d4bb5`; requirements `3bbe21bdc79528aff55afa74f070f7d7ff629549`; plan `0aa4496f30faf53279b41df8972acc91cadeeb9e` |
+| D-007 | Both generic type arguments `TEvent` and `TChannel` supplied to `PrepareLog[TEvent, TChannel]` must be pointer types; enforcement mechanism remains open | Recorded | docs/project/architecture.md (also reconciled in requirements.md and Cycle 1 plan) | architecture `98918b4a4529f004fc14e267627571d462521214`; requirements `183fab3f4f4ba4bd5393e1858812fde8c8d5c718`; plan `db1c05e39b31ae3c215bb8f96df2d5a0daffeb6e` |
 
 ## Governance correction checkpoint — 2026-11-24T20:02+02:00
 
@@ -312,3 +313,12 @@ Historical checkpoint statements below that describe `TEvent` as the common inte
 - Cycle 1 is paused at Define; the registry and execution lock are updated together in one main-branch commit. No worker retains ownership while awaiting the user's next decision.
 - No implementation, local validator, build, or Go tests were run in this checkpoint.
 - Resume the same Cycle 1 through the normal lock-claim protocol. The next proposed Define topic is whether generic Event and Channel type arguments must be pointers or may be values.
+
+
+## D-007 recorded checkpoint — 2026-11-24T18:31:27.019Z
+
+- **Approved decision:** both `TEvent` and `TChannel` generic arguments to `PrepareLog[TEvent, TChannel]` must be pointer types. Example: `PrepareLog[*OrderCreated, *OrdersChannel](ctx, newOrdersChannel)`. No consumer-facing API change.
+- **Canonical artifacts updated and fetched back:** `docs/project/architecture.md` at `98918b4a4529f004fc14e267627571d462521214`; `docs/project/requirements.md` at `183fab3f4f4ba4bd5393e1858812fde8c8d5c718`; Cycle 1 `plan/PLAN.md` at `db1c05e39b31ae3c215bb8f96df2d5a0daffeb6e`.
+- **Open distinction:** the pointer-only requirement is approved; the exact enforcement mechanism is not. Field-value reconstruction conventions also remain open.
+- **Verification:** all three canonical artifacts were fetched back from `main` and the approved wording inspected. No lifecycle validator, Go build, or Go tests were run. No implementation has started.
+- **Next:** decide how the pointer-only requirement is enforced without changing the approved two-parameter consumer-facing `PrepareLog[TEvent, TChannel]` API. All examples must include both type arguments.
