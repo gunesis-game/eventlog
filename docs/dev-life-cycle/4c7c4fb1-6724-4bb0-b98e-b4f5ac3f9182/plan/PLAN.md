@@ -39,7 +39,7 @@ Approved project decisions are recorded in the project decision register and int
 
 1. Finalize internal runtime lifecycle, cancellation, reader/resource cleanup, and terminal-error behavior.
 2. Resolve remaining Channel mutation and snapshot-consistency details.
-3. Finalize internal backlog/replay boundaries, retry termination, and shutdown-drain failure behavior. Retry policy is now approved and recorded as D-032.
+3. Finalize internal backlog/replay boundaries, retry termination, and shutdown-drain failure behavior. Retry policy is approved as D-032; bounded notification backlog with Reader backpressure is approved as D-033.
 4. Complete the acceptance matrix, benchmark scenarios, and measurable performance/memory targets.
 5. Reconcile requirements, architecture, and decisions; then request explicit approval to exit Define.
 
