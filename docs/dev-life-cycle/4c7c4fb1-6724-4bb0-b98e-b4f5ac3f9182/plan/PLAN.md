@@ -878,3 +878,8 @@ The public configuration shape is `Config(options ...Option) error`, with export
 ## Define decision — storage directory validation (approved 2026-11-24)
 
 `Config` rejects empty or whitespace-only storage paths. It accepts relative paths, resolves them to an absolute path at configuration time, lexically cleans the absolute result, and freezes that cleaned absolute path in immutable runtime configuration. Cleaning is equivalent to `filepath.Clean`; it removes redundant path elements but does not resolve symlinks. Config does not require the directory to exist and does not create it. During `PrepareLog`, initialization creates the directory when absent. If the target exists but is not a directory, or creation fails, initialization returns an error.
+
+
+## Define decision — exported configuration errors (approved 2026-11-24)
+
+The user approved the exported sentinel error contract: `ErrConfigNotInitialized` for PrepareLog before successful Config and `ErrConfigAlreadySet` for repeated Config or Config after initialization begins. Invalid options return descriptive validation errors; filesystem causes are wrapped and discoverable through `errors.Is`/`errors.As`; context cancellation/deadline causes remain discoverable. Failed validation leaves configuration unset and retryable. This decision closes the exported configuration error taxonomy item; implementation remains out of scope until Define is complete and explicitly approved.
