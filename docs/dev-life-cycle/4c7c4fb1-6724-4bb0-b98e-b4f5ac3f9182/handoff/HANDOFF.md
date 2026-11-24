@@ -3,10 +3,12 @@
 **Cycle ID:** 4c7c4fb1-6724-4bb0-b98e-b4f5ac3f9182  
 **Workflow:** Standard  
 **Phase:** Define  
-**Status:** In progress  
-**Execution lock:** Active for this session; see `docs/dev-life-cycle/execution-lock.json`.
+**Status:** Paused  
+**Execution lock:** Released for session handoff.
 
-## Latest checkpoint — 2026-11-24 — public API decision
+## Latest checkpoint — 2026-11-24 — session handoff
+
+### Approved public API
 
 The user explicitly approved exactly one public API at this stage:
 
@@ -20,22 +22,44 @@ Declaration:
 func PrepareLog[TEvent EventType, TChannel ChannelType](ctx context.Context) (TEvent, TChannel, error)
 ```
 
-Public constraints:
+Constraints:
 
 ```go
 type ChannelType interface { Fields() Fields }
 type EventType interface { Fields() Fields }
 ```
 
-- There is no public `Log` handle and no consumer-facing Append, Read, Next, Close, Flush, or Compact API at this stage.
-- The `Log` struct and its instance are internal to eventlog. It manages append, read, next, synchronization, recovery, and the complete lifecycle.
-- Consumers receive the typed event and channel instances and set/change their fields. Internal routines inspect `Fields()` to detect and persist field changes.
-- One process owns a log at a time. Multiple goroutines may use the API concurrently. This does not imply one global log across all processes or all storage locations.
-- Previous generic public Log-handle and generic Append/Read proposals in the historical handoff below are superseded.
+### Agreed architecture and constraints
 
-## Resume state
+- `Log` is an internal struct owned by `eventlog`; consumers never receive or manage a Log handle.
+- The internal Log manages append, read, next, synchronization, recovery, and the complete lifecycle. No other public append/read/next/close/flush/compact API is approved at this stage.
+- Consumers receive typed event and channel values and set/change their fields. Internal routines use `Fields()` to inspect field changes.
+- A single process owns a log at a time. Multiple goroutines within that process may use the API concurrently. This does not impose one global log across all processes or storage locations.
+- Existing persistence, transaction, recovery, segmented storage, manifest, rebuildable index, reader-safe compaction, and Linux/Windows constraints remain in force unless separately changed.
 
-Cycle 1 remains in Define. Existing persistence, transaction, recovery, segmented storage, manifest, rebuildable index, reader-safe compaction, and Linux/Windows constraints remain in force unless separately changed. No implementation, build, or Go tests have started. Next, specify the semantics and lifecycle of the single preparation API and its relationship to the internal Log, then reconcile remaining design and acceptance criteria. Do not introduce additional public APIs without an explicit user decision.
+### Work completed
+
+- Updated `docs/project/requirements.md` and `docs/project/architecture.md` to record the approved single public API and internal Log ownership.
+- Updated the Cycle 1 plan and handoff with the same decision.
+- Updated the cycle registry from blocked to in-progress when Define resumed.
+- No source implementation, build, or Go tests have started.
+
+### Outstanding work
+
+- Specify how `PrepareLog` identifies its storage location and how context participates in initialization/recovery. The prior design used `Open(path)`, but that API is superseded; no replacement mechanism has been approved.
+- Specify how the returned event/channel values are associated with the internally owned Log.
+- Finish internal lifecycle, validation, cancellation, resource, error, benchmark, and acceptance criteria.
+- Complete the Define consistency review and obtain explicit approval before implementation.
+
+### Verification state
+
+- Documentation commits `27b72129f26c3d4f3c871dd6782053dca97c3e99` and `a905772aeaa52d17c602969d8bed0545ddef2e1b` are on `main`.
+- No implementation or test verification has been performed.
+- This session handoff pauses Cycle 1 in Define; it does not complete or cancel the cycle.
+
+### Resume instructions
+
+Resume this same standard cycle (ID `4c7c4fb1-6724-4bb0-b98e-b4f5ac3f9182`) from Define. Follow `docs/dev-life-cycle/README.md`: confirm the execution lock is released, then claim the lock for this cycle with a lock-only commit on shared `main` before changing the registry or project files. The next design task is to resolve storage-location selection for the sole `PrepareLog(ctx)` API without introducing another public API unless the user explicitly approves it.
 
 ---
 
