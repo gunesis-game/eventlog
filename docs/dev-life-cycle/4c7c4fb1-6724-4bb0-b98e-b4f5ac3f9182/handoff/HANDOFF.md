@@ -422,3 +422,13 @@ Historical checkpoint statements below that describe `TEvent` as the common inte
 - No consumer-facing registration/activation API is added, and the approved consumer-facing API remains unchanged.
 - **Canonical artifacts updated:** architecture commit `92d5b462d99a55763cbe5a217292e52a37e4e7e1`; requirements commit `cfe540632ab40b4d8214cbb39e21b515a2aba741`; Cycle 1 plan commit `4930e55f635eed5d6f713812ba42e2ed928b7b80`.
 - No implementation, lifecycle validator, Go build or Go tests were run.
+
+
+| D-015 | Successful concrete Event decoder registrations persist for the Log runtime lifetime, keyed by concrete Event type and exposed schema rather than Channel; no consumer unregister operation | Recorded | docs/project/architecture.md, requirements.md and Cycle 1 plan | architecture `3258af3313da4a40f43e7e3a7dd698bb4e5f1de1`; requirements `631b75c1855031203dee4da4651882f94f4404bc`; plan `1feb39b9c44f8a3e1aa015c7dba55df03dd1787e` |
+
+## D-015 recorded checkpoint
+
+- **Approved decision:** once a concrete Event decoder is registered successfully, that registration remains available for the lifetime of the Log runtime. It is not tied to the lifetime or completion of the individual `PrepareLog[TEvent, TChannel]` call that caused registration.
+- Registration is associated with concrete Event type plus exposed field-name schema, not an individual Channel. No consumer-facing unregister operation is added; the consumer-facing API remains unchanged.
+- **Canonical artifacts updated:** architecture commit `3258af3313da4a40f43e7e3a7dd698bb4e5f1de1`; requirements commit `631b75c1855031203dee4da4651882f94f4404bc`; Cycle 1 plan commit `1feb39b9c44f8a3e1aa015c7dba55df03dd1787e`.
+- No implementation, lifecycle validator, Go build or Go tests were run.
