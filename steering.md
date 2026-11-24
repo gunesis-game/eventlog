@@ -3,13 +3,13 @@
 ## 1. Purpose and authority
 This file establishes the repository's governing development principles. Its north star is:
 
-1. **Development work is tracked through the persisted development-cycle mechanism, subject to the explicit governance-maintenance exemption below.**
-2. **All work is performed on the `main` branch only.**
-3. **Contributors may work concurrently; there is no repository-wide execution lock or single-worker restriction.**
+1. **Ordinary development work is tracked through the persisted development-cycle mechanism.**
+2. **All work is performed on the main branch only.**
+3. **Contributors coordinate through ordinary Git collaboration and review.**
 
 The detailed lifecycle rules, registry contract, standard and micro cycle workflows, phase machine, plan and handoff formats, verification loop, documentation audits, and completion gates are defined in [docs/dev-life-cycle/README.md](docs/dev-life-cycle/README.md). That document and its registry/schema/templates are the operational specification for the cycle mechanism.
 
-**Governance-maintenance exemption:** Changes whose scope is limited to `steering.md` and/or the development-cycle mechanism under `docs/dev-life-cycle/`, and whose purpose is to amend those governance or lifecycle rules, are exempt from creating, selecting, resuming, or completing a development cycle. This exemption applies only to those governance files and does not authorize unrelated project changes. It does not, by itself, waive other repository controls such as branch, security, or access requirements. If a change also includes ordinary project work, that work must be tracked through the normal cycle mechanism.
+**Governance-maintenance exemption:** Changes limited to steering.md, docs/dev-life-cycle/, scripts/validate-steering.py, and the steering-validation workflow, when made to amend or repair governance itself, are applied directly and are exempt from creating, selecting, resuming, or completing a development cycle. This exemption does not cover project requirements, architecture, implementation, or unrelated documentation; those remain subject to the ordinary development process. It does not waive applicable branch, security, access, or repository controls.
 
 **User authority and policy changes:** User instructions govern the requested outcome. A user may explicitly authorize a change to this steering policy or lifecycle specification. When the request is to amend these governance files, apply the governance-maintenance exemption above rather than requiring a cycle to change the rules that define cycles. For ordinary work, follow the lifecycle selection and priority rules in the lifecycle README. If project sources disagree, identify the conflict and resolve it explicitly; do not silently weaken unrelated requirements.
 
@@ -33,7 +33,8 @@ Never assume project-specific facts. Discover them from the repository, its docu
 - **Preserve intent.** Maintain established behavior, public contracts, compatibility, and project conventions unless the requested change requires otherwise.
 - **Keep changes focused.** Prefer the smallest coherent implementation; avoid unrelated refactoring, speculative abstractions, and unnecessary dependencies.
 - **Make decisions explicit and durable.** Explain consequential trade-offs and record durable project decisions in the appropriate project documentation.
-- **Enforce approval-to-artifact governance.** After every material user approval, update the canonical artifact, publish it, fetch it back and verify its exact revision, then mark the decision Recorded in the current handoff before introducing another independent decision. If recording or verification fails, stop and report the approved-but-unrecorded decision as a blocker.
+- **Enforce approval-to-artifact governance.** For a material project decision, integrate the approved outcome into its owning specification and record its provenance in docs/project/decisions.md. Publish and fetch both back, verify their exact revisions, and update the active handoff only with the resulting progress and next action. If recording or verification fails, stop and report the approved-but-unrecorded decision as a blocker. Governance-policy changes are applied directly to their owning governance files and are not entered in the project decision ledger.
+
 - **Keep evidence honest.** Never claim that a change, test, build, CI run, review, or deployment succeeded unless it was performed and its result observed.
 - **Control scope.** Do not expand the task or introduce tools, infrastructure, or policy changes without a clear need and appropriate authorization.
 - **Protect existing work.** Inspect the working tree before editing. Preserve user changes; never overwrite or discard unrelated work.
@@ -55,11 +56,11 @@ The main-only rule does not authorize bypassing repository security, review, or 
 
 ## 5. Development-cycle mechanism
 
-Ordinary development tasks must be managed through the persisted development-cycle mechanism. Standard and eligible micro workflows require a persisted registry record, main-only work, and truthful verification. There is deliberately no repository-wide execution lock, worker claim, heartbeat, lease, or single-worker restriction. Multiple cycles and contributors may be active concurrently.
+Ordinary development tasks must be managed through the persisted development-cycle mechanism. Standard and eligible micro workflows require a persisted registry record, main-only work, and truthful verification. Multiple cycles and contributors may be active concurrently.
 
-The registry at `docs/dev-life-cycle/cycle-index.json` is authoritative for cycle identity, ordering, workflow, status, and current phase. Standard cycles require their plan and handoff files; micro cycles record their objective, eligibility rationale, acceptance condition, verification evidence, and outcome directly in the registry. Contributors coordinate through ordinary Git collaboration, review, and conflict resolution; no contributor has exclusive ownership of the repository.
+The registry at `docs/dev-life-cycle/cycle-index.json` is authoritative for cycle identity, ordering, workflow, status, and current phase. Standard cycles require their plan and handoff files; micro cycles record their objective, eligibility rationale, acceptance condition, verification evidence, and outcome directly in the registry. Contributors coordinate through ordinary Git collaboration, review, and conflict resolution.
 
-The governance-maintenance exemption in Section 1 applies when changing `steering.md` or the lifecycle mechanism itself. Do not create a cycle for such a self-maintenance change.
+The governance-maintenance exemption in Section 1 applies to changes confined to the listed governance files. Apply those changes directly without creating or advancing a development cycle.
 
 The lifecycle README is the single source of truth for cycle selection, prioritization, phase transitions, plan/handoff maintenance, progress checkpoints, verification, documentation audits, and completion gates.
 
@@ -79,9 +80,10 @@ Maintain documentation by subject ownership; do not use one document as a catch-
 - **Architecture** ([docs/project/architecture.md](docs/project/architecture.md)) owns technical design: components, responsibilities, boundaries, interfaces, algorithms, data/storage representations, lifecycle, and trade-offs. It must satisfy requirements, not redefine them.
 - **Coding standards** ([docs/project/coding-standards.md](docs/project/coding-standards.md)) own implementation conventions, code organization, naming, quality, and maintainability within the approved architecture. They must not introduce product or architecture decisions.
 - **Commands** ([docs/project/commands.md](docs/project/commands.md)) owns verified setup, build, test, lint, and validation commands, including prerequisites and expected outcomes. Never list unverified commands as project guidance.
-- **Cycle plans and handoffs** capture temporary execution scope, progress, checkpoints, proposals awaiting decisions, verification evidence, and next steps. They are not the sole home of durable requirements or approved design.
+- **Project decisions** (docs/project/decisions.md) own the durable decision register and provenance. Requirements and architecture remain the curated normative specifications.
+- **Cycle plans and handoffs** capture temporary execution scope, progress, verification evidence, blockers, and next steps. They link to durable decisions rather than duplicating the decision register.
 
-Keep information in its authoritative owner and prefer concise cross-references over duplicating details. Clearly distinguish approved decisions, proposals, unresolved questions, verified implementation facts, and historical provenance. Do not present intended design as implemented behavior or test evidence. When requirements or architecture change, update the owning document and reconcile affected documents and cycle records. Preserve substantive approved design in active architecture documentation; archives are provenance, not a substitute for the current specification.
+Keep information in its authoritative owner and prefer concise cross-references over duplicating details. Curate approved outcomes into the relevant requirements or architecture topic; do not append raw checkpoints or handoff narratives to those specifications. The decision ledger records concise outcomes and provenance, not a second specification. Clearly distinguish approved decisions, proposals, unresolved questions, verified implementation facts, and historical provenance. Do not present intended design as implemented behavior or test evidence. When project specifications change, reconcile only the documents affected by that change.
 
 ## 7. Communication
 
@@ -91,10 +93,10 @@ Do not imply that work is complete because code was written, a commit was create
 
 ## 8. Active-work checkpoints
 
-Cycle records and handoffs record progress; they do not grant exclusive ownership. Contributors may work concurrently and coordinate through ordinary Git collaboration.
+Cycle records and handoffs record progress. Contributors coordinate through ordinary Git collaboration.
 
 While actively working, update the current handoff or micro-cycle registry after every material decision, completed investigation, implementation checkpoint, blocker/next-action change, or verification result, and at least every 15 minutes during uninterrupted work. Each checkpoint records the exact phase, established/changed state, remaining work, verification performed or not performed, and one next action. Do not create cosmetic activity solely to refresh a timestamp.
 
 Before an extended pause, while waiting for a response, on context switch, or before ending a session, checkpoint the work and mark a standard cycle `paused` or `blocked` as appropriate. A blocked cycle records its concrete blocker and unblocking action.
 
-Preserve cycle history and checkpoint the actual state before another contributor continues. Resolve overlapping edits through ordinary Git collaboration; do not assume that a cycle record grants exclusive ownership.
+Preserve cycle history and checkpoint the actual state before another contributor continues. Resolve overlapping edits through ordinary Git collaboration.
