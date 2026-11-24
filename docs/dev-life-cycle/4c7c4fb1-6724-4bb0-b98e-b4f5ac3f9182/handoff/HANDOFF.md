@@ -80,3 +80,8 @@ User approved the public payload simplification: consumers receive only `T Event
 - Proposal recommends pointer type arguments, stable pair reuse, per-caller Context cancellation with library-owned shared init, and object-scoped quarantine for identity mutation.
 - Acceptance matrix/benchmark scenarios added to proposal. None promoted to active docs; requires explicit user approval.
 - Next: user review of proposal, then finalize remaining API/identity/delivery diagnostics/shutdown decisions, acceptance/benchmark matrix, reconcile active requirements and architecture, and seek explicit approval to exit Define. Implementation still prohibited.
+
+
+## API feasibility note — 2026-11-24
+- Added a Go type-constraint sketch for the embedded notification helper. The helper can promote a package-private initialization method to the consumer's Channel type; a type-parameterized Channel constraint ties its notification stream to Event type. Pointer-only generic arguments still require runtime validation.
+- No source code, build or tests started; note remains a design proposal.

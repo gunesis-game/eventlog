@@ -202,3 +202,20 @@ This proposal resolves remaining design questions with minimal public surface wh
 
 ### Approval needed before promotion
 Approve/reject pointer-only preparation, shared-instance reuse, object-scoped identity quarantine, embedded `Notifications[T]` helper, at-least-once duplicate semantics, diagnostics/shutdown shape, and this acceptance matrix. These are proposals only; active requirements/architecture remain unchanged and implementation remains forbidden until explicit Define exit approval.
+
+
+### Go feasibility sketch for the embedded notification helper (proposal)
+The helper approach is feasible with a type-parameterized Channel constraint, e.g. conceptually:
+```go
+type EventType interface { Fields() Fields }
+type Notifications[T EventType] struct { ch chan T }
+func (n *Notifications[T]) Notifications() <-chan T { return n.ch }
+func (n *Notifications[T]) initNotifications() { /* library initializes once */ }
+type ChannelType[T EventType] interface {
+    Fields() Fields
+    initNotifications()
+}
+func PrepareLog[TEvent EventType, TChannel ChannelType[TEvent]](ctx context.Context) (TEvent, TChannel, error)
+```
+The unexported initialization method is promoted from the embedded helper, so external consumers can satisfy the constraint by embedding `eventlog.Notifications[TEvent]`; they cannot forge the initialization method. The helper is zero-value-safe, initialized before PrepareLog returns, and its channel is never closed/sent by consumer code. Runtime pointer-kind and typed-nil checks are still required because Go constraints do not cleanly enforce pointer-only type arguments.
+This is a sketch to validate during final API design, not committed implementation or an approved contract.
