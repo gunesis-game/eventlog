@@ -917,3 +917,11 @@ This earlier provisional decision is replaced by the approved consumer-designate
 - Occurrences are append-only and immutable; previous history is retained, newest occurrence becomes HEAD/current state.
 - Physical Event and Channel records are deduplicated; identical physical data must be stored once and referenced/reused.
 - No implementation/build/test has begun. This supersedes conflicting provisional stable-ID/full-field identity decisions above; reconcile active text and historical notes in Define.
+
+
+## Define decision — internal-only synchronization (approved 2026-11-24)
+
+- Preserve the existing public API; do not introduce any lock, mutex, synchronization interface, or configuration option for consumer-field mutation.
+- eventlog's synchronization remains internal and covers its own scheduler, change detection, persistence, and lifecycle coordination.
+- Consumers are responsible for synchronizing their own mutations of returned Event and Channel fields when concurrent access occurs. The 100 ms polling mechanism does not make unsynchronized ordinary Go struct field writes race-safe and must not be documented as doing so.
+- This decision rejects the proposed consumer-shared-lock configuration option and introduces no public API.
