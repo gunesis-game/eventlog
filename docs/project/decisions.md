@@ -48,3 +48,4 @@ When a user approves a material project decision:
 3. Fetch both files back and verify their exact content and revisions before introducing another independent decision.
 
 Do not append raw chat transcripts, progress checkpoints, or handoff prose to the specifications. Do not copy the same decision text into both specifications; use a concise cross-reference when the other document is affected.
+| D-033 | Notification pending-delivery memory is bounded; when the buffer fills, the Channel Reader waits and resumes from its held position; persistence continues, committed pending history remains in the authoritative append log, and no separate durable queue is added | Recorded | docs/project/architecture.md | 91b51599cf856e8cae6e0120b75b51ccb50c0ec9 |
