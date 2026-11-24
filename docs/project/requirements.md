@@ -248,3 +248,16 @@ This provisional decision incorrectly used the initial exposed-field snapshot as
 - eventlog's synchronization remains internal and covers its own scheduler, change detection, persistence, and lifecycle coordination.
 - Consumers are responsible for synchronizing their own mutations of returned Event and Channel fields when concurrent access occurs. The 100 ms polling mechanism does not make unsynchronized ordinary Go struct field writes race-safe and must not be documented as doing so.
 - This decision rejects the proposed consumer-shared-lock configuration option and introduces no public API.
+
+## Define decision — canonical Channel identity and mutation (approved 2026-11-24)
+
+- Channel logical identity follows the same canonical identity determination as Event identity: concrete Go type, exposed `Fields()` schema, consumer-designated identity field name/value, canonical encoding, and deterministic UUID v5 derivation.
+- Changes to non-identity Channel fields do not change logical Channel identity, though they change the Channel data snapshot.
+- A Channel-field change alone does not create an Event occurrence. When an Event change is detected, its new occurrence uses the latest Channel snapshot.
+- Existing occurrences retain their original Channel association; associations are not retroactively moved.
+- A Channel identity/data record is created or reused as needed, atomically with the first successful event occurrence that references it. Canonically identical Channel records are deduplicated.
+
+## Define topic — consumer mutation of designated identity fields (approved principle; details open)
+
+- If a consumer changes the designated identity field on the Event or Channel instances returned by `PrepareLog`, eventlog must detect and handle the identity change internally; consumers must not need to manually coordinate identity transitions through a public API.
+- Define the exact detection, snapshot, occurrence, HEAD/index, Channel-association, and persistence semantics before implementation. This topic remains open for fleshing out.
