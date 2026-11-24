@@ -34,5 +34,12 @@ jobs:
             | awk 'NR > 4' \
             | while read -r run_id; do
                 [ -n "$run_id" ] || continue
-                gh api --method DELETE "repos/${GITHUB_REPOSITORY}/actions/runs/${run_id}"
+                if ! delete_output=$(gh api --method DELETE "repos/${GITHUB_REPOSITORY}/actions/runs/${run_id}" 2>&1); then
+                  if [[ "$delete_output" == *"HTTP 404"* ]]; then
+                    echo "Run ${run_id} was already removed; continuing."
+                  else
+                    printf '%s\n' "$delete_output" >&2
+                    exit 1
+                  fi
+                fi
               done
