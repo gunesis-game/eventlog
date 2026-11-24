@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "status": "active",
+  "status": "released",
   "cycle_id": "4c7c4fb1-6724-4bb0-b98e-b4f5ac3f9182",
   "workflow": "standard",
   "worker_id": "ChatGPT-GPT-6",
   "claimed_at": "2026-11-24T02:40:00Z",
-  "released_at": null,
-  "release_evidence": null
+  "released_at": "2026-11-24T02:49:00Z",
+  "release_evidence": "Define decisions recorded in plan, handoff, requirements, architecture; lock released for next session"
 }
