@@ -391,3 +391,8 @@ The supplied Channel factory only creates and initializes a candidate Channel va
 ## Approved D-013 — atomic Channel runtime resolution
 
 Runtime lookup and candidate adoption are atomic under canonical Channel identity. Concurrent preparations resolving to the same logical Channel result in one adopted Channel pointer and one runtime/Reader; competing preparations reuse the winner. No consumer-facing API change.
+
+
+## Approved D-014 — concurrent Event-type preparation
+
+Different concrete Event types may be prepared concurrently for the same logical Channel. Each Event type registers independently; preparations converge on the one Channel pointer/runtime/Reader selected by canonical Channel identity and atomic adoption. A preparation does not synchronously wait for another Event type registration. The shared Reader's historical replay barrier remains asynchronous and waits for all decoders required by committed history. The consumer-facing API remains unchanged.
