@@ -368,3 +368,18 @@ Both generic arguments to `PrepareLog[TEvent, TChannel]` must be pointer types. 
 For a compatible repeated preparation using the same concrete `TEvent` and `TChannel` types and unchanged exposed field schemas, eventlog returns the same live Event pointer and Channel pointer rather than allocating a second prepared pair. An incompatible registration for an already prepared type/schema combination fails with a typed conflict error; it must not silently create a competing prepared instance or Channel runtime.
 
 This reuse is consistent with the Channel-scoped lifecycle: event-specific preparations that resolve to the same logical Channel reuse that Channel's existing live pointer, runtime and single Reader progression, including when another concrete Event type is prepared for that Channel. Each concrete Event type retains its own prepared Event instance. The precise internal registry key, typed conflict taxonomy, and behavior for distinct logical Channels of the same concrete Channel type remain Define details. No consumer-facing API is added or changed.
+
+
+## Approved prepared-instance registry separation — D-010
+
+The internal registry design separates type registration from logical live-instance identity:
+
+- **Event type registry:** keyed by concrete Event type and exposed field-name schema; owns field metadata and decoder registration for that type/schema.
+- **Event instance registry:** keyed by canonical Event identity; reuses the live Event pointer for the same logical Event.
+- **Channel runtime registry:** keyed by canonical Channel identity; reuses the live Channel pointer, runtime and single Reader progression for the same logical Channel.
+
+Canonical Event identity remains based on concrete Event type, exposed field-name schema, and designated UUID identity field name/value. Canonical Channel identity remains based on concrete Channel type, exposed field-name schema, and designated UUID identity field name/value. Therefore, one concrete Channel Go type may represent multiple distinct logical Channels, while different concrete Event types may converge on one logical Channel runtime.
+
+Type/schema registration conflicts are distinct from logical-instance identity. A registry keyed only by concrete Channel Go type is insufficient and must not merge distinct logical Channels. This is an internal design only; the approved `PrepareLog[TEvent, TChannel]` signature and all consumer-facing interfaces remain unchanged.
+
+The exact preparation ordering and mechanism for obtaining/validating candidate Channel identity fields before resolving the Channel runtime remain open.
