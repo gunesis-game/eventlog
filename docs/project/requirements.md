@@ -261,3 +261,13 @@ This provisional decision incorrectly used the initial exposed-field snapshot as
 
 - If a consumer changes the designated identity field on the Event or Channel instances returned by `PrepareLog`, eventlog must detect and handle the identity change internally; consumers must not need to manually coordinate identity transitions through a public API.
 - Define the exact detection, snapshot, occurrence, HEAD/index, Channel-association, and persistence semantics before implementation. This topic remains open for fleshing out.
+
+## Define decision — Channel notification direction (approved 2026-11-24)
+
+- Extend the public Channel capability with a notification Go channel, exposed through an interface-compatible method/accessor (exact name and signature remain to be defined; interfaces cannot contain struct fields).
+- Notifications for successful occurrences carry the actual concrete consumer Event struct instance/snapshot, not a generic channel of many Event types or identifier-only payloads.
+- Error notifications use typed errors supporting `errors.Is` and `errors.As`.
+- Notification delivery must not allow a slow or absent consumer to block persistence or the internal polling scheduler; buffering/delivery policy mechanics remain to be defined.
+- The notification channel is closed when the associated lifecycle shuts down, including initialization failure where a channel has been created and needs closure.
+- Backward compatibility with released implementations is not a design constraint for this early Define phase; design the API for the intended contract.
+- Identity-mutation response (restore, quarantine, both, or another policy) remains open for discussion.
