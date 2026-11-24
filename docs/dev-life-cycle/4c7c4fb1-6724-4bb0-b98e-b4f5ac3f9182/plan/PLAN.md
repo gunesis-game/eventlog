@@ -150,7 +150,7 @@ Ack, delivery token, or callback/sink method is part of the API. Delivery bookke
 
 ## Approved notification public API decision — 2026-11-24
 
-- The consumer-facing notification payload is the concrete Event type `T` only. No public `Notification[T]` wrapper, Event ID, Occurrence ID, delivery token, or consumer-facing Ack API.
+- The notification stream exposes concrete Event values through the common `Event` interface. No public `Notification[T]` wrapper, Event ID, Occurrence ID, delivery token, or consumer-facing Ack API.
 - Notifications are channel-scoped, accessed through the Channel abstraction. Public accessor shape remains to be reconciled with the initialization/ownership mechanism.
 - Delivery identity, occurrence identity, durable backlog, retries, replay bookkeeping, and acknowledgment of internal dispatch are private implementation details.
 - Since the consumer provides no acknowledgment, eventlog cannot claim exactly-once consumer processing. Delivery/recovery semantics must be stated honestly; duplicates may occur in a crash window if internal dispatch is durably recorded after sending.
@@ -159,7 +159,7 @@ Ack, delivery token, or callback/sink method is part of the API. Delivery bookke
 
 ## Approval checkpoint — notification public payload (2026-11-24)
 
-**Approved:** The public notification payload is the concrete Event type `T` only. Remove the proposed public `Notification[T]` wrapper and public identity/occurrence/token metadata, and do not expose consumer-facing Ack. Notifications remain Channel-scoped. Delivery IDs, durable backlog, retry, replay, and dispatch acknowledgment are internal only. With no consumer Ack, eventlog cannot guarantee exactly-once consumer processing; public delivery/recovery guarantees must reflect the crash window and possible duplicates. The accessor and channel initialization/ownership mechanism still require design. This approval resolves the payload-shape open item, not the full notification API.
+**Approved:** The public notification payload is the concrete Event value itself, exposed through the common `Event` interface on one Channel-scoped stream. Remove the proposed public `Notification[T]` wrapper and public identity/occurrence/token metadata, and do not expose consumer-facing Ack. Delivery IDs, durable backlog, retry, replay, and dispatch acknowledgment are internal only. With no consumer Ack, eventlog cannot guarantee exactly-once consumer processing; public delivery/recovery guarantees must reflect the crash window and possible duplicates. The accessor and channel initialization/ownership mechanism still require design. This approval resolves the payload-shape open item, not the full notification API.
 
 
 ## Follow-on Define proposal — API, identity faults, notification source (not approved)
@@ -180,9 +180,9 @@ This proposal resolves remaining design questions with minimal public surface wh
 - **Settled public contract:** consumer-defined Channel types expose `Notifications() <-chan Event`.
   Consumer code receives concrete Event values from this stream.
 - No public helper struct, embedding requirement, wrapper payload, Ack, or callback/sink method is permitted.
-- The receive-only accessor is not itself writable by eventlog. Define must resolve how the library
-  obtains a send-capable channel and initializes it, while preserving the approved accessor and
-  consumer-defined Channel type. Do not implement until this ownership mechanism is settled.
+- The receive-only accessor is not itself writable by eventlog. The approved construction direction is the
+  required `func(chan TEvent) TChannel` factory, with `TEvent` as the common Event interface; eventlog
+  creates and owns the writable channel and supplies it to the consumer-defined Channel constructor.
 - Backlog durability, replay/order, bounded memory, retry, shutdown and delivery failure reporting
   remain design topics. Without consumer Ack, exactly-once processing is not promised.
 
@@ -197,7 +197,7 @@ This proposal resolves remaining design questions with minimal public surface wh
 - CI/quality: Linux and Windows; race detector; parser/recovery fuzzing. Benchmark append throughput, replay throughput, tail latency, compaction cost, and resident memory with stalled consumers. Set numeric thresholds only after baselines.
 
 ### Approval needed before promotion
-Approve/reject pointer-only preparation, shared-instance reuse, object-scoped identity quarantine, notification accessor `Notifications() <-chan Event` and send-side ownership/recovery semantics, diagnostics/shutdown shape, and this acceptance matrix. These are proposals only; active requirements/architecture remain unchanged and implementation remains forbidden until explicit Define exit approval.
+Remaining approvals/decisions include pointer-only preparation, shared-instance reuse, identity-mutation handling, diagnostics/shutdown details, and this acceptance matrix. The common Event notification accessor and factory element type are already settled; implementation remains forbidden until explicit Define exit approval.
 
 
 ### Superseded notification helper sketch
@@ -206,7 +206,7 @@ must not be treated as a viable current design or reintroduced.
 
 
 ## Superseded notification-sink checkpoint
-Earlier sink-method discussion is superseded. The settled public accessor is `Notifications() <-chan TEvent`;
+Earlier sink-method discussion is superseded. The settled public accessor is `Notifications() <-chan Event`;
 do not re-open or re-propose the sink-method decision. The remaining problem is internal send-channel
 ownership/construction, not the consumer-facing API signature.
 
@@ -247,7 +247,7 @@ Do not re-propose nil or primitive identity values. Add UUID-focused golden test
 
 
 ## User correction — notification accessor finalized (2026-11-24)
-- **Approved consumer-facing accessor:** `Notifications() <-chan TEvent` on the consumer-defined Channel type. The consumer receives from a one-way, receive-only stream.
+- **Approved consumer-facing accessor:** `Notifications() <-chan Event` on the Channel interface; The consumer receives from a one-way, receive-only stream.
 - Remove `Notify(event TEvent) error` from the proposed/active API. It is not part of the Channel interface and must not be reconsidered.
 - No public helper struct or embedding requirement. Eventlog must not ask consumers to implement a callback/sink.
 - **Remaining technical blocker:** a receive-only accessor does not expose a writable channel to eventlog. Define a send-side ownership/construction mechanism that preserves this accessor and consumer-owned Channel struct, without inventing a `Notify` callback or requiring public helper embedding. Do not begin implementation until the mechanism is resolved and Define is approved.
@@ -255,7 +255,7 @@ Do not re-propose nil or primitive identity values. Add UUID-focused golden test
 
 ## Notification channel construction decision — 2026-11-24
 
-The internal ownership gap is resolved with a required typed channel-construction factory parameter on public preparation. Go cannot require a named constructor function on a type via interface constraints, but it can compile-time enforce the exact factory signature at the API call site.
+The internal ownership gap is resolved with a required typed channel-construction factory parameter on public preparation. `TEvent` is the common Event interface, so the factory channel is heterogeneous. Go cannot require a named constructor function on a type via interface constraints, but it can compile-time enforce the exact factory signature at the API call site.
 
 ```go
 func PrepareLog[TEvent EventType, TChannel ChannelType](
@@ -282,7 +282,7 @@ func NewOrdersChannel(send chan Event) *OrdersChannel {
 
 **Clarification of the factory type:** `TEvent` in the approved generic API denotes the common `Event` interface, not one individual concrete Event type. Therefore `func(chan TEvent) TChannel` is the common-Event channel factory and can carry heterogeneous concrete Event values. The earlier example using `chan *OrderEvent` is superseded. The remaining design work is to specify how event-specific preparation and registrations converge on the same Channel runtime and Reader progression without changing the consumer-facing Channel API.
 
-**Next Define work:** establish the generic type relationship and internal Channel construction/resolution model against the existing `PrepareLog` contract; ensure multiple event-specific preparations converge on one Channel runtime and one ordered heterogeneous stream. Then reconcile the requirements, architecture, plan and handoff. No implementation authorization is implied.
+**Next Define work:** establish how the approved event-registration barrier is completed without adding a consumer-facing lifecycle method, then finish internal lifecycle/error and identity-mutation details. The common Event type and factory relationship are settled. No implementation authorization is implied.
 
 ## Define catch-up — recovery, Channel convergence and Reader progression (2026-11-24)
 
@@ -299,3 +299,11 @@ These decisions are part of the current design baseline and must be reflected co
 Event type reconstruction uses the project's existing internal registration/codec mechanisms. Unknown persisted Event types are errors and are never silently skipped.
 
 These decisions are recorded from the design discussion and are not permission to start implementation. Remaining Define work is to reconcile the precise `PrepareLog` registration/convergence behavior, internal lifecycle/error boundaries, identity mutation, and the acceptance/benchmark matrix, then obtain explicit approval to exit Define.
+
+## Approved Define decision — Channel event-registration barrier (2026-11-24)
+
+**Approved:** Every concrete Event type and decoder that may appear on a logical Channel must be prepared/registered before heterogeneous historical notification replay starts. This prevents the Reader from encountering a persisted concrete type that has not yet been registered. Unknown persisted Event types must not be silently skipped.
+
+**API constraint:** The consumer-facing API remains unchanged. Do not add `Activate()`, `Start()`, `RegisterEventType()`, `Close()`, acknowledgments, or consumer checkpoints. Eventlog owns Reader activation and shutdown. `PrepareLog` is event-specific; Channel resolution, notification delivery, and runtime lifecycle are Channel-specific. All event-specific preparations for the same Channel must converge on the same runtime Channel and Reader progression.
+
+**Unresolved mechanism:** Sequential `PrepareLog` calls do not provide a completion signal proving that every Event type for a Channel has been registered. No existing completion boundary has yet been established from repository evidence. Determine whether an existing internal boundary can serve or whether an internal coordination mechanism is required. Do not invent a consumer-facing completion method or start implementation until this is resolved.
