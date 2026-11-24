@@ -962,3 +962,13 @@ Consumer changes to the designated identity field on Event or Channel instances 
 - Persisted occurrences remain safe and recoverable through internal replay; notification loss must be detectable and not silent.
 - Buffer capacity, exact loss-detection mechanism, replay contract/API, and delivery details remain open Define decisions.
 - No implementation/build/tests have started; implementation still requires Define completion and explicit approval.
+
+
+## Define decision — guaranteed occurrence notification delivery approved (2026-11-24)
+
+- Approved contract: every successfully persisted occurrence must eventually become visible to the consumer; notifications may not be silently dropped due to buffer capacity.
+- This supersedes the earlier approved drop-on-full policy. Buffer limits must not weaken the delivery guarantee.
+- Eventlog owns buffering, backlog management, and recovery/replay. Consumers are not responsible for sequence numbers, counters, gap detection, or delivery recovery mechanics.
+- Persistence and the internal scheduler must remain non-blocking with respect to a slow/unread consumer; internal backlog/replay is expected to reconcile finite buffering with guaranteed delivery.
+- Exact internal mechanism, backlog persistence/retention, lifecycle/shutdown behavior, and failure semantics remain open Define decisions.
+- No implementation/build/tests have started; implementation still requires Define completion and explicit approval.
