@@ -284,3 +284,19 @@ The Channel stores a receive-only field and returns it through `Notifications() 
 **Correction to the earlier factory proposal:** The earlier example `func(chan TEvent) TChannel` cannot be interpreted as a per-concrete-Event factory for one heterogeneous Channel. It is type-compatible only if `TEvent` denotes the common Event interface. The relationship between `PrepareLog` type parameters, event-specific preparation, shared Channel resolution, and internal writable-channel construction must be reconciled without changing the approved consumer-facing API. Do not implement or publish a changed signature based on assumption.
 
 **Next Define work:** establish the generic type relationship and internal Channel construction/resolution model against the existing `PrepareLog` contract; ensure multiple event-specific preparations converge on one Channel runtime and one ordered heterogeneous stream. Then reconcile the requirements, architecture, plan and handoff. No implementation authorization is implied.
+
+## Define catch-up — recovery, Channel convergence and Reader progression (2026-11-24)
+
+These decisions are part of the current design baseline and must be reflected consistently in requirements and architecture:
+
+1. **Recovery precedes Channel resolution.** Load and validate the existing internal event log/system of record first. Only after recovery succeeds may `PrepareLog` resolve or create a runtime Channel.
+2. **Channel identity is Channel-scoped.** Event-specific preparation must resolve to the same logical runtime Channel when the Channel identity matches. It must not create a separate Channel runtime or notification stream for each concrete Event type.
+3. **One heterogeneous notification stream.** The Channel interface accessor is `Notifications() <-chan Event`, where `Event` is the common interface implemented by concrete Event types. The same Channel may carry `OrderCreated`, `OrderCancelled`, and other concrete Event values.
+4. **One Reader progression per runtime Channel.** Historical replay and live tailing are one continuous progression. Do not create separate historical/live Readers or combine independent typed Readers to synthesize notifications. Typed Readers may filter for typed reads but do not define notification ordering.
+5. **Ordering authority.** Successful append Commit is authoritative. Notification delivery is driven by the Channel's unified Reader progression in committed global-sequence order. No notification may be emitted before successful Commit.
+6. **Backpressure and failures.** Slow consumers may hold up notification delivery but must not stall persistence/append, reorder, or skip committed Events. A delivery failure cannot rollback or delete a committed Event; Reader/delivery progression must remain recoverable. Without consumer acknowledgment, exactly-once consumer processing is not promised.
+7. **Ownership and shutdown.** eventlog owns the writable side, Reader, delivery worker and runtime lifecycle. Shutdown stops new preparation/appends, coordinates outstanding commits, cancels Reader/delivery workers, waits for senders to stop, closes notification streams, then releases storage resources. Consumers do not get a public lifecycle method.
+
+Event type reconstruction uses the project's existing internal registration/codec mechanisms. Unknown persisted Event types are errors and are never silently skipped.
+
+These decisions are recorded from the design discussion and are not permission to start implementation. Remaining Define work is to reconcile the precise `PrepareLog` registration/convergence behavior, internal lifecycle/error boundaries, identity mutation, and the acceptance/benchmark matrix, then obtain explicit approval to exit Define.
