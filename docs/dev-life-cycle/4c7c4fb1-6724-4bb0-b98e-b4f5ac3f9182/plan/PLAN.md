@@ -228,9 +228,9 @@ This is a sketch to validate during final API design, not committed implementati
 
 
 ## Approved canonical identity byte composition — 2026-11-24
-The permanent UUID v5 namespace, Event/Channel domain prefixes, primitive tags, big-endian framing and schema sorting are already approved. This proposal only fills the exact composition gap; it does not alter those constants.
+The permanent UUID v5 namespace, Event/Channel domain prefixes, primitive tags, big-endian framing and schema sorting are already approved. The exact byte composition below was explicitly approved by the user and has been promoted to active requirements/architecture.
 
-Proposed byte layout after the existing domain prefix:
+Approved byte layout after the existing domain prefix:
 1. Format version byte: `0x01` (explicitly redundant with the prefix's v1 marker, to make payload decoding/versioning self-contained).
 2. Type package path: UTF-8, framed with u32 BE byte length.
 3. Concrete type name: UTF-8, framed with u32 BE byte length (separate from package path).
@@ -240,4 +240,15 @@ Proposed byte layout after the existing domain prefix:
 
 Edge cases to explicitly decide/test: identity nil-pointer validity; float negative-zero distinction (raw IEEE currently implies -0 and +0 distinct); string byte-length vs rune count; invalid UTF-8 (Go strings may contain arbitrary bytes, so should reject invalid UTF-8 or define byte-preserving semantics); package/type names for aliases and generic instantiated types; overflow/framing limits.
 
-Suggested golden-vector suite: one vector per permanent primitive tag, nil and non-nil nullable values, named primitives, type/schema variation, Event-vs-Channel domain separation, stable ID when non-identity values change, and sensitivity to identity value/type/schema changes. **User approved this byte layout on 2026-11-24.** Remaining edge-case validation questions are listed in active requirements and are not yet decided.
+Required golden-vector suite: one vector per permanent primitive tag, nil and non-nil nullable values, named primitives, type/schema variation, Event-vs-Channel domain separation, stable ID when non-identity values change, and sensitivity to identity value/type/schema changes. **User approved this byte layout on 2026-11-24.** Remaining edge-case validation questions are listed in active requirements and are not yet decided.
+
+
+## Define edge-case proposal — identity values (not approved)
+Recommendations for the remaining canonical identity edge cases:
+- **Nullable identity:** Permit nil for nullable primitive identity fields and encode with the existing Null tag only. Nil is a distinct identity from any concrete zero/empty value; consumers are responsible for choosing whether nil's logical uniqueness is appropriate.
+- **Floating negative zero:** Preserve raw IEEE bits; `-0` and `+0` are distinct identity values, consistent with the already approved primitive encoding.
+- **UTF-8:** Reject invalid UTF-8 for string identity values and field/type metadata, rather than accepting byte strings that JSON would normalize differently. String length/framing is measured in UTF-8 bytes.
+- **Type names:** Use runtime concrete named type identity (package path and type name). Type aliases resolve to the aliased concrete type. Generic instantiations use the runtime concrete type name as returned by Go reflection; verify behavior with golden tests across supported Go versions.
+- **Framing limits:** Enforce uint32 framing limits for each component and schema count, with an additional documented practical maximum before allocating; define the exact practical cap alongside benchmark/validation work.
+
+These recommendations are intentionally conservative and need explicit approval before becoming active requirements. Add targeted golden tests for each.

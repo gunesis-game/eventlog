@@ -110,3 +110,7 @@ A detailed framing proposal was appended to PLAN (not approved). Existing UUID c
 
 ## Approval checkpoint — canonical identity encoding
 User approved the exact payload byte layout in PLAN. Promoted to active requirements and architecture. Remaining edge cases (nil identity, negative zero, invalid UTF-8 policy, Go type naming, framing limit) remain open and require focused decisions; no implementation yet.
+
+
+## Identity edge cases next for review
+A recommendation-only subsection in the current PLAN addresses nil identity, raw IEEE negative-zero, invalid UTF-8 policy, Go type-name identity, and practical framing limits. These have not been promoted; user review/approval is required. Byte layout itself is already approved and active.
