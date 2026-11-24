@@ -493,3 +493,14 @@ Status: Proposed; awaiting explicit user approval. The proposal is recorded in t
 - Canonical architecture recorded at commit `e3ef12c0edf141d2468898655a2708c6433cb654` in `docs/project/architecture.md`.
 - Active Cycle 1 plan reconciled at commit `68fc10249bf3728b13cd397e6f4d1a9c6a8883d6`; the proposal is now recorded as approved and is no longer pending.
 - D-020 through D-023 preserve the existing consumer-facing API. No Go implementation, build or Go tests have started.
+
+
+| D-024 | Event and Channel identity fields accept `[16]byte` and named types with underlying `[16]byte`; canonical payload is the 16 array bytes in index order; nullable and other underlying types are rejected; UUID tag remains open | Recorded | docs/project/architecture.md, requirements.md and Cycle 1 plan | pending fetch-back |
+
+## D-024 approval and reconciliation — 2026-11-24
+
+- User explicitly approved the UUID identity representation: `[16]byte` and named types whose underlying type is `[16]byte` are accepted for both Event and Channel identity fields.
+- Canonical UUID payload is the 16 bytes in array index order. No UUID string parsing, external UUID dependency, or integer endianness conversion is required.
+- Nullable UUID identities and all other underlying types are rejected.
+- The dedicated UUID identity marker/tag assignment remains open; D-024 does not decide its numeric value or alter the approved canonical framing.
+- Canonical architecture, requirements and Cycle 1 plan have been updated. No implementation, build or Go tests were started; Cycle 1 remains in Define.
