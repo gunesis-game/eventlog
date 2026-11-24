@@ -7,7 +7,6 @@
 - **Registry status:** <pending | in-progress | paused | blocked | cancelled | complete>
 - **Persisted phase:** <assess | define | implement | verify | reconcile | complete>
 - **Last updated:** <UTC ISO-8601 timestamp>
-- **Last progress checkpoint:** <UTC ISO-8601 timestamp; update after every material decision and at least every 15 minutes while actively working>
 
 ## Current repository state
 
@@ -16,24 +15,24 @@
 - **Collaboration state:** <Committed, pushed, awaiting review, etc.>
 - **Relevant environment:** <Only details that affect continuation>
 
-## Completed work
+## Current checkpoint
 
-- <Actual changes completed; link to files or review artifacts>
+- **Completed since the previous checkpoint:** <Actual work completed>
+- **Current state:** <What is established now>
+- **Next action:** <One concrete action>
+- **Acceptance condition:** <How success will be established>
 
 ## Decisions and constraints
 
+- **Durable decision register:** [docs/project/decisions.md](../../../project/decisions.md)
+- **Current specifications:** [Requirements](../../../project/requirements.md) · [Architecture](../../../project/architecture.md)
+- **Pending decisions:** <Decision IDs and status, or None>
 - **Verified facts:** <Facts established by inspection or execution>
 - **Assumptions:** <Provisional assumptions requiring confirmation>
 - **Unknowns:** <Information not established>
 - **Constraints:** <Relevant project constraints>
 
-### Decision register
-
-Record every material decision here. `Approved` is a transient state and must never be treated as `Recorded`. Replace it with `Recorded` only after the canonical artifact and this handoff have been published and fetched back successfully at the verified revision. An approved-but-unrecorded decision is a hard stop: do not ask the next design question, implement dependent work, or advance the phase.
-
-| ID | Decision | State (Proposed / Approved / Recorded) | Canonical artifact | Verified revision / evidence |
-|---|---|---|---|---|
-| <D-001> | <Decision and concise rationale> | <Proposed> | <Path or —> | <Pending approval or —> |
+The decision register and project specifications are authoritative for durable project decisions. This handoff records only the cycle's current progress and continuation state; do not copy the decision register or project specification into this file.
 
 ## Verification evidence
 
@@ -41,16 +40,9 @@ Record every material decision here. `Approved` is a transient state and must ne
 |---|---|---|---|
 | <Check> | <Exact revision> | <Passed / failed / not run> | <Log, report, reason, or limitation> |
 
-## Documentation state
-
-- **Updated:** <Relevant docs updated>
-- **Still required:** <Remaining doc work>
-- **Audit boundary:** <If this cycle performs historical documentation consolidation>
-
 ## Open issues, risks, and blockers
 
 - **Status reason:** <required if blocked/cancelled>
-
 - <Issue/risk/blocker, impact, and required action>
 
 ## Persisted phase checkpoint
@@ -58,12 +50,11 @@ Record every material decision here. `Approved` is a transient state and must ne
 - **Current phase:** <Must match cycle-index.json>
 - **Exit evidence:** <Evidence already satisfying this phase, or what remains>
 - **Next concrete action:** <Single specific next action>
-- **Acceptance condition for next action:** <How success will be established>
 
 ## Uncommitted or unpushed work
 
-- <Exact changes and preservation/recovery notes, or "None">
+- <Exact changes and preservation/recovery notes, or None>
 
 ## Continuation instructions
 
-<What the next contributor/agent should inspect or do first. Validate this handoff against the current repository before relying on it. Contributors coordinate through ordinary Git collaboration; there is no repository-wide execution lock or exclusive owner.>
+<What the next contributor/agent should inspect or do first. Validate this handoff against the current repository before relying on it.>
