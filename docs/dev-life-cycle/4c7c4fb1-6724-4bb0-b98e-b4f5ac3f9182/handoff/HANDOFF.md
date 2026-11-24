@@ -246,7 +246,7 @@ part of the API. The remaining issue is internal writable-channel ownership and 
 - **Next session:** resume this same Cycle 1 from its persisted Define checkpoint, resolve the codec-registry/barrier question, then continue the remaining API/lifecycle, identity-mutation, notification error/retry/backlog, acceptance-matrix and benchmark decisions.
 
 
-## Decision register
+### Decision register
 
 This is the authoritative decision ledger for Cycle 1. Every material user-approved decision must be recorded in its canonical artifact before the next independent decision is introduced. A persisted `Approved` state is a governance failure; use `Recorded` only after the artifact is published and fetched back at the stated revision.
 
