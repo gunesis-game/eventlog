@@ -237,3 +237,11 @@ Logical Event ID identifies the entity, derived from the concrete Go Event type 
 - eventlog's synchronization remains internal and covers its own scheduler, change detection, persistence, and lifecycle coordination.
 - Consumers are responsible for synchronizing their own mutations of returned Event and Channel fields when concurrent access occurs. The 100 ms polling mechanism does not make unsynchronized ordinary Go struct field writes race-safe and must not be documented as doing so.
 - This decision rejects the proposed consumer-shared-lock configuration option and introduces no public API.
+
+## Define decision — canonical Channel identity and mutation (approved 2026-11-24)
+
+Channel logical identity follows the same canonical determination as Event identity: concrete Go type, exposed `Fields()` schema, consumer-designated identity field name/value, canonical encoding, and deterministic UUID v5. Non-identity field changes do not alter logical Channel identity, but update the data snapshot. A Channel-only mutation does not create an Event occurrence; a detected Event change creates a new occurrence using the latest Channel snapshot. Prior occurrences keep their original Channel association. Canonically identical Channel records are deduplicated and created/reused atomically with the first successful occurrence referencing them.
+
+## Define topic — consumer mutation of designated identity fields (principle approved; mechanics open)
+
+When consumers mutate the designated identity field on Event or Channel instances returned from `PrepareLog`, eventlog must detect and manage the identity transition internally, without requiring a public coordination API. Define the exact detection, snapshot, occurrence, HEAD/index, Channel-association, and persistence behavior before implementation.
