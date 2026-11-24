@@ -925,3 +925,13 @@ This earlier provisional decision is replaced by the approved consumer-designate
 - eventlog's synchronization remains internal and covers its own scheduler, change detection, persistence, and lifecycle coordination.
 - Consumers are responsible for synchronizing their own mutations of returned Event and Channel fields when concurrent access occurs. The 100 ms polling mechanism does not make unsynchronized ordinary Go struct field writes race-safe and must not be documented as doing so.
 - This decision rejects the proposed consumer-shared-lock configuration option and introduces no public API.
+
+## Define decision — canonical Channel identity and mutation (approved 2026-11-24)
+
+- Channel identity uses the same canonical determination as Event identity: concrete type, exposed `Fields()` schema, designated identity field name/value, canonical encoding, and deterministic UUID v5.
+- Non-identity Channel-field changes do not alter logical identity; Channel-only changes do not create Event occurrences. New Event occurrences use the latest Channel snapshot, while history associations remain unchanged.
+- Deduplicate canonical Channel records and create/reuse them atomically with the first successful occurrence referencing them.
+
+## Define topic — identity-field mutation on prepared instances (principle approved; details open)
+
+Consumer changes to the designated identity field on Event or Channel instances returned by `PrepareLog` must be handled internally by eventlog. The exact detection and transition semantics (including occurrence creation, HEAD/index updates, channel association, and persistence) remain a Define task. No implementation/build/tests have started.
