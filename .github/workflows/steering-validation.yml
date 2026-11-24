@@ -6,6 +6,7 @@ on:
       - 'steering.md'
       - 'docs/dev-life-cycle/**'
       - 'scripts/validate-steering.py'
+      - 'docs/project/decisions.md'
       - '.github/workflows/steering-validation.yml'
   pull_request:
     paths:
