@@ -274,7 +274,7 @@ This is the authoritative decision ledger for Cycle 1. Every material user-appro
 | D-020 | Detected mutations enqueue immutable snapshots on an internal eventlog-owned queue; workers dequeue and persist; no public API change | Recorded | docs/project/architecture.md | 37da85f14975b31ae9810d0f22454537bb0e6c09 |
 | D-021 | Per-logical-Event FIFO order is preserved; no queued snapshot is dropped; suppress only consecutive unchanged observations; A→B→A remains distinct | Recorded | docs/project/architecture.md | 37da85f14975b31ae9810d0f22454537bb0e6c09 |
 | D-022 | Internal queue is bounded; capacity pressure pauses/delays monitoring, not consumer assignments; queued snapshots remain retained | Recorded | docs/project/architecture.md | 37da85f14975b31ae9810d0f22454537bb0e6c09 |
-| D-023 (Decision 8) | One Log-owned bounded ingress queue; multiple persistence workers may process different logical Events concurrently; each Event remains serial/FIFO; global sequence assigned centrally at commit | Proposed | — | Pending approval |
+| D-023 (Decision 8) | One Log-owned bounded ingress queue; multiple persistence workers may process different logical Events concurrently; each Event remains serial/FIFO; global sequence assigned centrally at commit | Recorded | docs/project/architecture.md | e3ef12c0edf141d2468898655a2708c6433cb654 |
 
 ## Governance correction checkpoint — 2026-11-24T20:02+02:00
 
@@ -485,3 +485,11 @@ The repository adopts the lock-free development governance from `gunesis-game/pr
 ## Proposed D-023 — Decision 8: queue ownership and concurrency
 
 Status: Proposed; awaiting explicit user approval. The proposal is recorded in the Cycle 1 plan. It is not yet part of the approved architecture and does not authorize implementation. The consumer-facing API must remain unchanged.
+
+
+## D-023 approval and reconciliation — 2026-11-24
+
+- User explicitly approved D-023 (Decision 8): one bounded Log-owned ingress queue, dispatch by canonical logical Event identity, FIFO/serial persistence per Event, concurrent persistence across different Events, and centrally assigned global sequence numbers at commit.
+- Canonical architecture recorded at commit `e3ef12c0edf141d2468898655a2708c6433cb654` in `docs/project/architecture.md`.
+- Active Cycle 1 plan reconciled at commit `68fc10249bf3728b13cd397e6f4d1a9c6a8883d6`; the proposal is now recorded as approved and is no longer pending.
+- D-020 through D-023 preserve the existing consumer-facing API. No Go implementation, build or Go tests have started.
