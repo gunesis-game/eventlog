@@ -249,3 +249,11 @@ When consumers mutate the designated identity field on Event or Channel instance
 ## Define decision — Channel notification direction (approved 2026-11-24)
 
 Channel's public capability will include a notification Go channel, exposed by an accessor method (exact signature TBD; Go interfaces cannot declare fields). Occurrence notifications carry the actual concrete consumer Event struct instance rather than identifier-only metadata or a generic payload intended to represent many event types. Notification errors are typed and support `errors.Is`/`errors.As`. Slow or unread notifications must not block persistence or the polling scheduler; buffering/delivery details remain open. The notification channel closes on associated lifecycle shutdown, including failed initialization if allocated. Released-API backward compatibility is not a constraint during this early design phase. Identity-violation response remains open.
+
+
+## Define decision — notification payload snapshots approved (2026-11-24)
+
+- Approved Option A: successful occurrence notifications carry a snapshot of the concrete consumer Event instance as captured at the persistence boundary, not a live mutable pointer.
+- The notification is emitted only after the occurrence has been successfully persisted.
+- This establishes payload immutability/history correspondence; delivery buffering, overflow/backpressure policy, exact accessor/message signatures, and typed persistence-error notification behavior remain open Define decisions.
+- No implementation/build/tests have started; implementation still requires Define completion and explicit approval.
