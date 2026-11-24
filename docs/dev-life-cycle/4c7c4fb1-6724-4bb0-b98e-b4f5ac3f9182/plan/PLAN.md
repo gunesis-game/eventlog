@@ -894,3 +894,11 @@ The user approved the exported sentinel error contract: `ErrConfigNotInitialized
 - This approval does not make unsynchronized concurrent struct-field writes race-safe.
 - Remaining Define work: caller synchronization/snapshot consistency, event-versus-channel change semantics, scheduler shutdown/retry, and internal persistence-error handling.
 - No implementation, build, or Go tests have started.
+
+
+## Latest Define decision — event-field changes append occurrences (approved 2026-11-24)
+
+- User approved that a detected change to selected Event fields creates a new persisted event occurrence.
+- Previous occurrences are immutable and remain in history; polling must never overwrite an earlier occurrence.
+- This approval settles occurrence creation/history retention, not logical identity. Existing identity is derived from Event type plus exposed fields, so whether changed values produce a new logical event ID or remain linked to the prior logical event, and the resulting HEAD/index behavior, still requires explicit reconciliation.
+- No implementation, build, or Go tests have started.
