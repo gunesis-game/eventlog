@@ -38,7 +38,7 @@ Both generic arguments are concrete pointer types constrained by their respectiv
 
 - Runtime process scope, preparation Context scope, shared-worker ownership, and terminal Reader error behavior are approved and recorded as D-026. The exact internal shutdown trigger and ordered graceful cleanup remain unresolved.
 - Channel snapshots now use the same identity-keyed bounded FIFO dispatch mechanism as Event snapshots (D-027); consumer synchronization remains required for concurrent multi-field mutation.
-- Recoverable delivery retry termination is defined at the policy level in D-029: do not skip failed committed occurrences; terminal failure stops the Reader and reports through Errors(), while pending history remains recoverable. Retry limits/backoff/classification remain open. Shutdown-drain failure behavior is still unresolved.
+- Recoverable delivery retry termination is defined at the policy level in D-029: do not skip failed committed occurrences; terminal failure stops the Reader and reports through Errors(), while pending history remains recoverable. Retry limits/backoff/classification remain open. D-030 defines shutdown-drain failure: report lifecycle failure without claiming clean drain, preserve committed undelivered history as recoverable, best-effort reporting through Errors() while retaining first fatal error; exact drain deadline/termination policy remains open.
 - Complete acceptance matrix and benchmark/performance/memory targets.
 - Final consistency review and explicit approval to exit Define.
 
@@ -48,4 +48,4 @@ Both generic arguments are concrete pointer types constrained by their respectiv
 
 ## Next action
 
-Next, define shutdown-drain failure behavior: when internal shutdown cannot drain pending notifications, how should it report the lifecycle failure and preserve recoverable state? D-025 through D-029 are recorded. D-029 settles that delivery retries cannot skip committed occurrences and terminal retry failure stops the Reader while preserving pending history; retry policy parameters remain open. Do not begin implementation until Define is complete and the user explicitly approves exit.
+Next, define the exact shutdown drain deadline/termination policy. D-030 settles that failed drain must report a lifecycle failure, must not claim clean shutdown, and must preserve committed undelivered history as recoverable; reporting through existing Errors() is best-effort and retains the first fatal error. D-025 through D-030 are recorded. Do not begin implementation until Define is complete and the user explicitly approves exit.
