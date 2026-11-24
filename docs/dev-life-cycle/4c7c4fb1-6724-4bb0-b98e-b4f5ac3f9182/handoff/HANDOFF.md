@@ -23,6 +23,9 @@ The previous cleanup was wrong: it optimized for file size and stripped substant
 - Prior lifecycle validation passed on `7243ec1bc8e3950c5376882333849e27b662c624` (workflow run 45316732733). That validator run predates this resume/claim checkpoint; no new validator run or Go tests have been executed.
 - No implementation, build, or Go tests have started.
 
+## Working proposal added (not approved)
+A focused design proposal was added to the Cycle 1 plan: pointer-backed prepared values and stable schemas; explicit one-identity-field selectors; shared preparation lifecycle; typed errors; immutable identity after prepare; post-commit typed notification snapshots; durable disk-backed backlog; receive-only notification accessor; and a test/acceptance matrix. These are recommendations only and have not been promoted to approved requirements/architecture.
+
 ## Remaining Define work
 1. Final Go-valid API/interface/selector signatures, generic constraints, pointer/value and occurrence conventions.
 2. Prepared-value association and internal lifecycle/cancellation/resource/error behavior.
