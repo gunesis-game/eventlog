@@ -4,7 +4,7 @@
 - **Cycle ID:** 4c7c4fb1-6724-4bb0-b98e-b4f5ac3f9182
 - **Sequence / execution order:** 1 / 1
 - **Workflow:** standard
-- **Status / phase:** blocked / define
+- **Status / phase:** in-progress / define
 - **Created:** 2026-11-22
 - **Updated:** 2026-11-24
 
@@ -19,7 +19,7 @@ The complete pre-cleanup plan and handoff checkpoints are preserved verbatim in 
 ## Current approved baseline
 Authoritative durable decisions are consolidated in `docs/project/requirements.md` and `docs/project/architecture.md`.
 
-- **Public API:** sole approved entry point is `PrepareLog[TEvent, TChannel](ctx, newChannel) (TEvent, TChannel, error)`, where `TEvent` is the common `Event` interface and `newChannel` is the required `func(chan TEvent) TChannel` factory. `Notifications() <-chan Event` is the unchanged Channel interface accessor. Consumers receive values, not a Log handle; internal Log owns append/read, persistence, recovery, scheduler and lifecycle.
+- **Public API:** sole approved entry point is `PrepareLog[TEvent, TChannel](ctx, newChannel) (TEvent, TChannel, error)`, where `TEvent` is a concrete type constrained by `Event`, `TChannel` is a concrete type constrained by `Channel`, and `newChannel` is `func(chan Event) TChannel`. The common `Event` interface is the heterogeneous notification payload type. Channel exposes `Notifications() <-chan Event` and `Errors() <-chan error`. The earlier statement that `TEvent` itself is the common interface and that the factory accepts `chan TEvent` is superseded. Consumers receive values, not a Log handle; internal Log owns append/read, persistence, recovery, scheduler and lifecycle.
 - **Configuration:** mandatory, immutable, one-time `Config(options ...Option) error` with required `WithStorageDirectory(path)`. Nil, duplicate, missing, invalid options fail. Relative paths are resolved and lexically cleaned to absolute during Config; Config does not create storage. PrepareLog creates storage. `ErrConfigNotInitialized` and `ErrConfigAlreadySet` are approved.
 - **Fields:** typed explicit primitive selectors; nullable primitive pointers; no nested fields; strict names/types/ranges and validation before writes.
 - **Identity:** deterministic UUID v5 with canonical encoding. Event identity is concrete type + exposed field-name schema + designated identity field name/value, global across channels. Non-identity changes create immutable occurrences under the same logical ID; latest occurrence promotes HEAD. Channel identity is similarly canonical. Identical physical records are deduplicated. Identity-field mutation handling remains open.
@@ -322,3 +322,13 @@ This would provide a deterministic historical-replay barrier without a consumer-
 ## Blocked checkpoint — 2026-11-24T17:17:13Z
 
 Cycle 1 is blocked at Define pending confirmation of the existing Event type/codec registry's initialization and scope. The approved registration barrier requires all persisted concrete Event types to be decodable before historical replay; the proposed registry-driven mechanism is not approved because this repository contains no Go source/codec implementation to verify it. No consumer-facing API additions are permitted. Resume the same Cycle 1 after this dependency is clarified; preserve its ID, sequence, execution order, and Define phase.
+
+
+## Governance reconciliation checkpoint — 2026-11-24T20:02+02:00
+
+- Resumed the existing Cycle 1 at Define; cycle identity, sequence, execution order and phase were preserved.
+- Reconciled approvals made after the previous handoff: `TEvent` is the concrete generic type constrained by `Event`; `TChannel` is constrained by `Channel`; the factory accepts `func(chan Event) TChannel`; the heterogeneous stream uses `Notifications() <-chan Event`; Channel also exposes `Errors() <-chan error`.
+- Approved error behavior: shared Channel-scoped error stream, buffer capacity one, first fatal error retained internally, best-effort non-blocking publication, fatal Reader termination, then notification/error stream closure; recoverable errors may continue only when ordering and completeness remain safe.
+- Approved decoder direction: concrete registration derives from generic `TEvent`; historical replay waits asynchronously until all concrete decoders required by committed Channel history are available; no consumer registration/activation API. Missing/never-registered decoder policy remains an implementation/design detail to verify; no source or codec registry has yet been found.
+- Canonical requirements updated at `4b7bc62c6cf851bf62a86bd7a11286c761063f02`; architecture updated at `d4fe4e197b07385e95159d7090e8110f4805b68f`; both were fetched back and compared exactly.
+- No implementation, build or Go tests were started.
