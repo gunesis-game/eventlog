@@ -972,3 +972,12 @@ Consumer changes to the designated identity field on Event or Channel instances 
 - Persistence and the internal scheduler must remain non-blocking with respect to a slow/unread consumer; internal backlog/replay is expected to reconcile finite buffering with guaranteed delivery.
 - Exact internal mechanism, backlog persistence/retention, lifecycle/shutdown behavior, and failure semantics remain open Define decisions.
 - No implementation/build/tests have started; implementation still requires Define completion and explicit approval.
+
+
+## Define decision — notification shutdown drain approved (2026-11-24)
+
+- During orderly shutdown, pending notifications are not discarded; delivery continues until pending persisted occurrences have been delivered.
+- Keep the consumer notification channel open while draining; close it only after the pending notifications have drained.
+- If process termination/crash interrupts delivery, persisted occurrences are recovered on next initialization and delivered then.
+- This is consistent with guaranteed eventual consumer-visible delivery; exact lifecycle triggers, drain failure semantics, and startup replay ordering remain open Define decisions.
+- No implementation/build/tests have started; implementation still requires Define completion and explicit approval.
