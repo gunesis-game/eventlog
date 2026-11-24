@@ -133,3 +133,25 @@ A read-only accessor should expose a receive-only typed channel. Delivery order 
 | Schema | Stable after preparation | How to detect drift and how errors are surfaced |
 
 These are recommendations for Define, not active requirements. No implementation should begin until these are reviewed and promoted explicitly.
+
+## Identity mutation and notification delivery — concrete proposal (not approved)
+
+### Identity-field mutation: object-scoped quarantine
+**Recommendation:** treat identity mutation as a terminal fault for the affected live object, not for the whole Log.
+- Event identity changes: detect before snapshot/commit; do not create a new logical Event ID or occurrence. Preserve the last committed Event snapshot. Quarantine that Event object; unrelated Events/Channels continue.
+- Channel identity changes: detect before snapshot/commit; do not create a new Channel ID or Channel record. Preserve last committed Channel snapshot and quarantine that Channel object. Events bound to that Channel are blocked from further persistence; unrelated Channels continue.
+- Quarantine is latched until the live object lifecycle is replaced (no implicit auto-clear). No rebind/reset public API is proposed now. Emit one typed fault when quarantined, then avoid repeated error spam; expose ongoing status in diagnostics.
+- Non-identity mutations remain supported: Channel snapshot updates are applied to future occurrences only; prior Event occurrences retain their committed Channel snapshot association.
+
+### Notification delivery: explicit acknowledgment and at-least-once
+**Recommendation:** make the contract at-least-once, not exactly-once. A consumer-visible channel send is not evidence that application processing completed.
+- Notification message carries an immutable Event snapshot, logical Event ID, occurrence ID, and opaque delivery token. Do not expose storage sequence, segment, or file offset.
+- Provide receive-only `Notifications() <-chan Notification` plus a message `Ack() error` (or equivalent library-owned acknowledgment function). Ack commits the acknowledgment in the durable delivery ledger. Consumers must Ack only after their own handling succeeds.
+- Persist pending delivery before exposing notification. Replay unacknowledged deliveries first in original order after restart. A crash after send but before Ack may redeliver; consumers must be idempotent. Once Ack is durably recorded, never redeliver that token.
+- Delivery dispatcher uses a bounded channel; slow consumers cannot block append/polling. Durable backlog supplies backpressure. Define one in-flight notification per channel to simplify order and acknowledgment.
+- A receive-only diagnostics/errors stream reports typed permanent or repeated delivery errors and quarantined-object faults. Error stream must itself be bounded with coalescing/status semantics so it cannot deadlock the log.
+- Shutdown drains only while consumers Ack pending items. If the drain deadline expires, return a typed shutdown error, retain unacked durable backlog for restart, and close notification channels only after dispatcher stop; do not claim drain success. A channel send without Ack is unconfirmed delivery.
+- Delivery/ack ordering is commit order for the channel. Event persistence and delivery enqueue are atomic; notification acknowledgments are separate durable records. The sync policy applies to both occurrence/enqueue and acknowledgment ledger records.
+
+### Explicit trade-off
+This proposal adds Ack/status API surface and delivery-ledger writes, but avoids claiming exactly-once consumer processing (which cannot be guaranteed across the send/process/ack crash window without consumer-side transactional integration). A consumer may see duplicates; loss of unacknowledged delivery is prohibited. Durable acknowledgment may add disk I/O and latency; batching acknowledgments is a possible future optimization, but not part of the initial contract.
