@@ -188,3 +188,12 @@ part of the API. The remaining issue is internal writable-channel ownership and 
 - **Open blocker:** sequential `PrepareLog` calls provide no completion signal proving all concrete Event decoders for the Channel have been registered. No existing completion boundary has yet been established from repository evidence. Resolve internally or through an already-existing lifecycle boundary; do not add a public activation method.
 - **Verification:** lifecycle workflow passed for commit `30bacac14eddb6f51ebed6536fb291606edf6e48` (run 45445928283). This validates registry/lock invariants only, not Go behavior. No source code, build, or Go tests exist/run yet.
 - **Next:** inspect the full existing API/lifecycle specification and settle the registration-completion mechanism, then complete identity-mutation and acceptance/benchmark decisions. No implementation until Define is reconciled and explicitly approved.
+
+## Progress checkpoint — 2026-11-24T17:14:49Z (shutdown and CI correction)
+
+- **Last progress checkpoint:** 2026-11-24T17:14:49Z
+- **Lifecycle:** documented eventlog-owned shutdown ordering: stop new preparations/appends; settle outstanding commits; cancel Reader/delivery workers; drain pending deliveries and wait for senders; close notification streams only after senders stop; release storage resources. Delivery failures do not undo committed Events.
+- **CI correction:** the cleanup step could fail when concurrent workflow runs both deleted the same older run. Updated `.github/workflows/steering-validation.yml` in both `eventlog` and `project-steering-template` to treat HTTP 404 for an already-removed run as benign while preserving failures for other errors.
+- **Verification:** eventlog lifecycle workflow passed on commit `5f690c186aebc0d60f446e534cb954ff1c878db9` (run 45446349192). Both the registry/lock validator and cleanup step passed. Earlier run 45446166033 had a validator pass but cleanup failure due the identified race; it is superseded by the successful fixed workflow run.
+- **Remaining Define blocker:** the approved registration barrier has no established completion signal. Sequential event-specific `PrepareLog` calls alone cannot prove that every decoder for a logical Channel has been registered. Resolve this without adding a consumer-facing lifecycle method.
+- **Next:** finish the internal barrier/completion design, identity-mutation decisions, and acceptance/benchmark matrix; reconcile the plan and project docs. No Go source exists in the repository yet; no build or Go tests have run.
