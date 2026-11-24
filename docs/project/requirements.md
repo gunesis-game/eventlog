@@ -151,3 +151,12 @@ Synchronous preparation failures are returned by `PrepareLog`. Errors discovered
 A fatal Reader error terminates that Channel's Reader. Eventlog reports the fatal error when possible, then closes both notification and error streams. The error stream is closed after the buffered fatal error, if any, so a consumer ranging the stream can observe it. Recoverable conditions may be retried or handled without terminating the Reader only when doing so preserves committed ordering and does not skip data.
 
 No consumer-facing activation, registration, acknowledgement, start, stop, or close method is introduced. Eventlog owns Reader activation, delivery and shutdown. The consumer-facing API must not be expanded beyond the explicitly approved Channel accessors.
+
+
+## Prepared-instance reuse and registry requirements — D-009 / D-010
+
+Compatible repeated preparations must reuse the same live Event and Channel pointers. Event instance reuse is based on canonical Event identity; Channel runtime reuse is based on canonical Channel identity, not merely the concrete Go Channel type. Distinct logical Channels may share one concrete Channel type without being merged. Different concrete Event types associated with the same logical Channel share that Channel's single runtime and Reader progression, while retaining distinct Event instances.
+
+Internal type/schema registration is tracked separately from logical instance identity. The implementation must detect incompatible type/schema registration rather than silently create competing registrations or runtimes. These requirements do not authorize any change to the consumer-facing `PrepareLog[TEvent, TChannel]` API or Channel methods.
+
+The mechanism and ordering used to obtain and validate a candidate Channel's identity fields before runtime resolution remain open Define details.
