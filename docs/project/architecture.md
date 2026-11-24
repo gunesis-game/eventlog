@@ -374,9 +374,6 @@ memory use and platform parity precede numeric performance targets.
   and instantiated generic types; and maximum framing sizes.
 - Exact internal registry-key composition for prepared instances and the precise behavior for distinct
   logical Channels represented by the same concrete Channel Go type.
-- No runtime-shutdown trigger is required: D-034 establishes process-lifetime ownership with no
-  library-managed shutdown or graceful drain at process exit. The preparation Context scope, shared-worker
-  ownership, and terminal per-Channel Reader failure behavior remain approved.
 - Numeric benchmark targets, memory targets, representative measurement environments, repetitions,
   warm-up policy, and statistical acceptance criteria.
 
