@@ -213,9 +213,20 @@ The already-approved namespace, Event/Channel domain prefixes, primitive field t
 
 The UUID identity representation is specified in the UUID identity section below.
 
-Metadata keys and values must be valid UTF-8. Reject invalid UTF-8 before persistence and during recovery; do not replace, normalize, or otherwise transform metadata bytes. Canonically equivalent but byte-distinct Unicode strings remain distinct. The UUID Go representation, byte extraction order, and dedicated tag `0x03` are settled.
+Metadata keys and values must be valid UTF-8. Reject invalid UTF-8 before persistence and during recovery; do not replace, normalize, or otherwise transform metadata bytes. Canonically equivalent but byte-distinct Unicode strings remain distinct.
 
-Still open: maximum framing sizes.
+### Canonical identity framing limits (v1)
+
+The canonical identity encoding has explicit limits, measured in UTF-8 bytes for strings:
+- Type package path: at most 4 KiB.
+- Concrete type name: at most 4 KiB.
+- Each exposed schema field name: at most 4 KiB.
+- Exposed schema field count: at most 1,024.
+- Complete canonical identity input: at most 1 MiB, including the Event/Channel domain prefix, format byte, all framing bytes, and identity value.
+
+The 1 MiB aggregate limit applies in addition to the individual component and field-count limits; a payload that satisfies every individual limit but exceeds the aggregate limit is invalid. Enforce all limits when deriving an identity before persistence and when validating/recovering persisted identity data. Exceeding a limit produces an explicit error; values are never truncated. These limits govern canonical Event/Channel identity encoding only and do not establish limits for unrelated append-log records or metadata values.
+
+The canonical identity framing limits are settled by D-038.
 
 ## Append transaction flow
 
