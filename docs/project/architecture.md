@@ -229,3 +229,11 @@ This provisional rule was incorrect: Event identity is not based on an initial f
 ## Define decision — identity and occurrence are distinct (approved 2026-11-24)
 
 Logical Event ID identifies the entity, derived from the concrete Go Event type name, the exposed `Fields()` field-name schema, and the consumer-designated identity field name/value. Canonically encode these inputs and derive deterministic UUID v5. A change in non-identity data (e.g., Order 501 status from created to paid) keeps the same logical Event ID but constitutes a new event occurrence. Each new occurrence is persisted immutably; previous occurrences remain in history and the newest occurrence becomes HEAD/current state. Physical Event/Channel record data must be deduplicated so identical physical data is stored once and reused.
+
+
+## Define decision — internal-only synchronization (approved 2026-11-24)
+
+- Preserve the existing public API; do not introduce any lock, mutex, synchronization interface, or configuration option for consumer-field mutation.
+- eventlog's synchronization remains internal and covers its own scheduler, change detection, persistence, and lifecycle coordination.
+- Consumers are responsible for synchronizing their own mutations of returned Event and Channel fields when concurrent access occurs. The 100 ms polling mechanism does not make unsynchronized ordinary Go struct field writes race-safe and must not be documented as doing so.
+- This decision rejects the proposed consumer-shared-lock configuration option and introduces no public API.
