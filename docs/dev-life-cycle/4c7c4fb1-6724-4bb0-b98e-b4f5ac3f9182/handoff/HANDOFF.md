@@ -129,7 +129,7 @@ User clarified that the consumer-selected identity field for both Event and Chan
 
 
 ## Documentation ownership review checkpoint — 2026-11-24
-- Cycle 1's execution lock remains active and matches the registry's in-progress Cycle 1 claim; no release/reclaim was needed. Work continued under the existing claim.
+- Cycle 1's cycle remains in-progress and matches the registry's in-progress Cycle 1 claim; no release/reclaim was needed. Work continued under the existing claim.
 - Updated requirements framing to own product behavior, domain rules, constraints and acceptance expectations, avoiding internal design prescription.
 - Updated architecture framing to own technical mechanisms and design; corrected stale UUID identity encoding and notification accessor/open-question text.
 - Updated coding standards and steering guidance to distinguish requirements, architecture, implementation standards, verified commands, and temporary cycle records.
@@ -228,7 +228,7 @@ part of the API. The remaining issue is internal writable-channel ownership and 
 
 - **Last progress checkpoint:** 2026-11-24T17:17:13Z
 - **Registry:** Cycle 1 is `blocked` at `define`; `status_reason` records the dependency on confirming the existing Event type/codec registry.
-- **Execution lock:** released in the same atomic commit as the registry/handoff update. No worker retains ownership while waiting for the user.
+- **Collaboration:** the cycle checkpoint is persisted; contributors may work concurrently while coordinating through Git.
 - **Completed:** governance checkpoint rules propagated; heterogeneous `Notifications() <-chan Event` and common Event semantics recorded; recovery-before-Channel-resolution, Channel convergence, one Reader progression, committed ordering, backpressure, failure recovery, and shutdown rules reconciled into active docs; replay-barrier proposal recorded but not promoted.
 - **Open question:** is the existing Event type/codec registry process-wide and loaded before the first `PrepareLog`, with decoders available for every persisted concrete Event type during recovery?
 - **Resume:** after the registry scope is confirmed, resume this same Cycle 1 at Define. Do not create a new cycle or change the consumer-facing API.
@@ -237,13 +237,13 @@ part of the API. The remaining issue is internal writable-channel ownership and 
 
 - **User request:** carry the project state forward and unlock it so a new session can claim it.
 - **Cycle:** preserve Cycle 1 (`4c7c4fb1-6724-4bb0-b98e-b4f5ac3f9182`), sequence 1 / execution order 1, at Define. It remains `blocked` on the codec-registry clarification; do not create a new cycle or mark this cycle complete.
-- **Execution lock:** verified `docs/dev-life-cycle/execution-lock.json` is `released` with null cycle/worker ownership. It remains released; the next session may claim through the normal governance process.
-- **Resume reading order:** `steering.md`; `docs/dev-life-cycle/README.md`; `docs/dev-life-cycle/cycle-index.json`; `docs/dev-life-cycle/execution-lock.json`; this handoff; `plan/PLAN.md`; then active `docs/project/requirements.md` and `docs/project/architecture.md`. Read the history files only for provenance where needed.
+- **Collaboration:** contributors may continue from the persisted cycle checkpoint; no exclusive ownership is assigned.
+- **Resume reading order:** `steering.md`; `docs/dev-life-cycle/README.md`; `docs/dev-life-cycle/cycle-index.json`; this handoff; `plan/PLAN.md`; then active `docs/project/requirements.md` and `docs/project/architecture.md`. Read the history files only for provenance where needed.
 - **Current approved API:** `PrepareLog[TEvent, TChannel](ctx, newChannel)` with `TEvent` as the common `Event` interface and required `func(chan TEvent) TChannel` factory; consumer Channel exposes `Notifications() <-chan Event`. A single Channel stream can carry heterogeneous concrete Event values. No `Notify` method or public lifecycle/Ack API.
 - **Design checkpoint:** recover and validate the existing system of record before resolving/creating a Channel; event-specific preparations for one logical Channel converge on one Channel runtime and one Reader progression; replay/live handoff is gap-free and ordered by committed sequence; unknown persisted event types fail closed; eventlog owns delivery and shutdown.
 - **Blocking question:** confirm whether the existing Event type/codec registry is process-wide and loaded before the first `PrepareLog`, with decoders available for all concrete Event types encountered during recovery. The registry-driven replay barrier in the plan is a proposal only because no Go/codec source exists to verify it.
 - **Implementation status:** no Go source, `go.mod`, build, or Go tests. Do not implement until Define decisions are reconciled and the user explicitly approves Define exit.
-- **Next session:** claim the released lock for this same Cycle 1 using the prescribed governance flow, resolve the codec-registry/barrier question, then continue the remaining API/lifecycle, identity-mutation, notification error/retry/backlog, acceptance-matrix and benchmark decisions.
+- **Next session:** resume this same Cycle 1 from its persisted Define checkpoint, resolve the codec-registry/barrier question, then continue the remaining API/lifecycle, identity-mutation, notification error/retry/backlog, acceptance-matrix and benchmark decisions.
 
 
 ## Decision register
@@ -263,7 +263,7 @@ This is the authoritative decision ledger for Cycle 1. Every material user-appro
 ## Governance correction checkpoint — 2026-11-24T20:02+02:00
 
 - Cycle 1 resumed at Define under the existing cycle ID and execution order. Lock claim was published and fetched back at commit `8a489bf4e842f758bdf79ff6772ef16b068a6ca8`; registry resumed at commit `f2bde95cf5506a379a5ee8a9efacdbabe2248076`.
-- Governance process deviation: the initial discovery call fetched files in parallel before reading the execution lock first, contrary to the mandatory read-order rule. The lock was then read and found released before the claim. No conflicting active owner was observed. Future sessions must read the lock as the first repository operation.
+- Governance process deviation: the initial discovery call fetched files in parallel before reading the former execution lock first, contrary to the mandatory read-order rule. The lock was then read and found released before the claim. No conflicting active owner was observed. Future sessions must read the lock as the first repository operation.
 - D-001 through D-005 are recorded in canonical requirements/architecture documents with verified revisions; D-006 remains proposed.
 - Plan reconciled and fetched back at `dd2f671d95b11f99b9d0eca2aa64b2a46fce1fc1`.
 - Active requirements reconciled and fetched back at `b580b7c083dea60be61910d402f71d9d969fe590`; active architecture reconciled and fetched back at `5e3dd94b988454a31068f75f5b163ec288909e67`.
@@ -311,7 +311,7 @@ Historical checkpoint statements below that describe `TEvent` as the common inte
 ## Pause after D-006 — 2026-11-24T18:28:01.823Z
 
 - D-006 is Recorded in the decision register and verified in architecture, requirements, and plan.
-- Cycle 1 is paused at Define; the registry and execution lock are updated together in one main-branch commit. No worker retains ownership while awaiting the user's next decision.
+- Cycle 1 is paused at Define; the registry and handoff are updated together in one main-branch commit. No worker retains ownership while awaiting the user's next decision.
 - No implementation, local validator, build, or Go tests were run in this checkpoint.
 - Resume the same Cycle 1 from the persisted cycle checkpoint. The next proposed Define topic is whether generic Event and Channel type arguments must be pointers or may be values.
 
@@ -328,9 +328,9 @@ Historical checkpoint statements below that describe `TEvent` as the common inte
 ## Pause after D-007 — 2026-11-24T18:31:57.733Z
 
 - D-007 is Recorded and verified in the architecture, requirements, Cycle 1 plan and this handoff decision register.
-- Cycle 1 is paused at Define; the registry and execution lock are updated together in the same main-branch commit. No worker retains ownership while awaiting the user's next decision.
+- Cycle 1 is paused at Define; the registry and handoff are updated together in the same main-branch commit. No worker retains ownership while awaiting the user's next decision.
 - No implementation, local lifecycle validator, Go build, or Go tests were run.
-- Next Define topic: choose the enforcement mechanism for the approved pointer-only `TEvent` and `TChannel` requirement, preserving the existing two-parameter `PrepareLog[TEvent, TChannel]` consumer API. Resume through the normal lock-claim protocol.
+- Next Define topic: choose the enforcement mechanism for the approved pointer-only `TEvent` and `TChannel` requirement, preserving the existing two-parameter `PrepareLog[TEvent, TChannel]` consumer API. Resume from the persisted cycle checkpoint.
 
 
 | D-008 | Enforce pointer-only `TEvent` and `TChannel` arguments by runtime reflection inside `PrepareLog`; return an error for either non-pointer type; preserve the two-parameter generic API | Recorded | docs/project/architecture.md, requirements.md and Cycle 1 plan | architecture `0b070a42cfa3e924a6744077259dd9ed6a3c90ae`; requirements `b2ccfeb1a4fa6a9a08d4679f9beeea9286bc2d95`; plan `8748c5d4152ef54af4f7b44a9972e1b7ced03b63` |
@@ -359,8 +359,8 @@ Historical checkpoint statements below that describe `TEvent` as the common inte
 - **Decision register:** D-009 is Recorded against the three fetched-back canonical artifacts.
 - **Remaining details:** exact internal registry key, typed conflict taxonomy, and handling of distinct logical Channels of the same concrete Channel type remain open. No consumer-facing API change.
 - **Lifecycle:** Cycle 1 remains in-progress at Define; cycle remains in-progress at Define.
-- **Verification:** each canonical file was fetched back after publication. The active lock and resumed registry were fetched back. No lifecycle validator, Go build, or Go tests were run; no implementation has started.
-- **Governance note:** this session initially fetched other repository files before reading the execution lock, contrary to the mandatory first-read rule. The lock was then fetched and found released before claim; no conflicting owner was observed. The claim was published and fetched back before the registry was changed. Future continuation must read the lock first.
+- **Verification:** each canonical file was fetched back after publication. The active cycle registry was fetched back. No lifecycle validator, Go build, or Go tests were run; no implementation has started.
+- **Governance note:** this session initially fetched other repository files before reading the execution lock, contrary to the mandatory first-read rule. The cycle registry and handoff are the authoritative progress records. Contributors coordinate through ordinary Git collaboration.
 - **Next:** continue Define with the internal prepared-instance registry key and remaining lifecycle/cancellation/error semantics. Preserve the consumer-facing API and include both generic type arguments in every example.
 
 
@@ -371,7 +371,7 @@ Historical checkpoint statements below that describe `TEvent` as the common inte
 - Completed: D-009 prepared-instance reuse approval recorded; D-008 pointer-only runtime validation restored in the active architecture/requirements baseline. All canonical artifacts were fetched back after publication.
 - Remaining: define the internal prepared-instance registry key and conflict taxonomy; finish initialization/cancellation/resource/error lifecycle; resolve identity mutation and notification retry/backlog/shutdown details; complete acceptance matrix and benchmark plan; reconcile and seek explicit approval to exit Define.
 - No implementation, lifecycle validator, Go build, or Go tests were run.
-- Next: resume this same Cycle 1 through the normal lock-claim protocol and continue Define with the internal prepared-instance registry key. Preserve the approved consumer-facing API and include both generic type arguments in every example.
+- Next: resume this same Cycle 1 from the persisted cycle checkpoint and continue Define with the internal prepared-instance registry key. Preserve the approved consumer-facing API and include both generic type arguments in every example.
 
 
 | D-010 | Separate Event type/schema registration, Event live-instance reuse by canonical Event identity, and Channel runtime reuse by canonical Channel identity; do not key Channel runtimes by concrete Go type alone | Recorded | docs/project/architecture.md, requirements.md and Cycle 1 plan | architecture `f3e7b8ea2dfc742fa297d19eadc20b5422ff8291`; requirements `a2ee2bea0db9357667da144ba21047d13f666b43`; plan `8e10bd9f63da60fefa2bfb76d3b1b5403899871b` |
@@ -455,3 +455,12 @@ The repository adopts the lock-free development governance from `gunesis-game/pr
 - D-017 through D-022 remain approved and recorded in requirements and architecture. The consumer-facing API remains unchanged.
 - The next design work remains the unresolved concurrency question recorded in the current plan; no implementation is authorized until Define is completed and explicitly approved.
 - Historical handoff entries that mention the former lock process describe superseded governance and are not operative instructions.
+
+
+## Current governance and lifecycle state — supersedes older checkpoints
+
+- The repository has adopted the lock-free governance baseline 1.3.0. No execution lock, worker claim, exclusive ownership or single-worker rule exists.
+- Cycle 1 is the sole recorded cycle: sequence 1, execution order 1, standard workflow, `in-progress`, phase `define`.
+- Older handoff entries that describe a blocked or paused state, an active/released lock, or lock-based resume procedures are historical provenance and are superseded by this current checkpoint and the registry.
+- The latest approved project decisions D-017 through D-022 remain recorded in active requirements and architecture. The consumer-facing API remains unchanged.
+- Continue Define with the unresolved concurrency decision. Do not begin implementation until the remaining Define work is reconciled and the user explicitly approves exit from Define.
