@@ -285,7 +285,7 @@ preserves original sequences and must not promote older occurrences because dupl
 
 ## Reader behavior
 
-The internal unified Reader progression is mandatory and channel-scoped: exactly one progression serves each runtime Channel, never all Channels. It begins with committed history, catches concurrent appends during replay, and transitions to live tailing through that same progression without gaps, duplicates introduced by the handoff, or ordering breaks. Occurrences are ordered by internal global sequence. Do not create separate historical and live Readers or combine independent typed Readers to construct the heterogeneous notification stream.
+The internal unified Reader progression is mandatory and channel-scoped: exactly one progression serves each runtime Channel, never all Channels. It follows one continuous committed-sequence path from the earliest committed occurrence still pending delivery through current commits, without a replay/live mode transition, mode-specific cursor, or handoff boundary. When caught up it waits on wake-up hints and rechecks the authoritative committed append source after waiting; hints may coalesce or be missed and never determine completeness. Commits arriving during catch-up are consumed by the same progression. Occurrences are ordered by internal global sequence. Do not create separate historical and live Readers or combine independent typed Readers to construct the heterogeneous notification stream.
 
 Consumers do not provide or receive Channel UUIDs, sequence numbers, cursors or offsets. These remain
 library-owned. Context cancellation and explicit errors are required. Re-appended logical Events are
