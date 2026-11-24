@@ -131,3 +131,21 @@ details, identity mutation behavior, notification delivery/backlog/error/shutdow
 consistency, complete acceptance tests, and measurable performance/memory targets. The common `Event`
 notification element and `Notifications() <-chan Event` accessor are settled. Do not treat
 proposals as approved decisions or begin implementation before explicit Define approval.
+
+
+## Approved notification and asynchronous error contract — 2026-11-24
+
+The consumer-facing Channel contract exposes a receive-only notification stream and a receive-only asynchronous error stream:
+
+```go
+Notifications() <-chan Event
+Errors() <-chan error
+```
+
+A Channel's notification stream carries heterogeneous concrete Event values through the common `Event` interface. The error stream is shared by the logical Channel runtime, not split by concrete Event type.
+
+Synchronous preparation failures are returned by `PrepareLog`. Errors discovered after preparation are reported through `Errors()`. The error stream has capacity one and retains the first fatal error. Error reporting must not block persistence or indefinitely block the Reader. Eventlog makes a non-blocking best effort to publish the retained fatal error; it remains retained internally even if the consumer does not receive it.
+
+A fatal Reader error terminates that Channel's Reader. Eventlog reports the fatal error when possible, then closes both notification and error streams. The error stream is closed after the buffered fatal error, if any, so a consumer ranging the stream can observe it. Recoverable conditions may be retried or handled without terminating the Reader only when doing so preserves committed ordering and does not skip data.
+
+No consumer-facing activation, registration, acknowledgement, start, stop, or close method is introduced. Eventlog owns Reader activation, delivery and shutdown. The consumer-facing API must not be expanded beyond the explicitly approved Channel accessors.
