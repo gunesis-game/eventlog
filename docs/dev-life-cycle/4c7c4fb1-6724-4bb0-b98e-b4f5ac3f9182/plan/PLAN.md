@@ -19,7 +19,7 @@ The complete pre-cleanup plan and handoff checkpoints are preserved verbatim in 
 ## Current approved baseline
 Authoritative durable decisions are consolidated in `docs/project/requirements.md` and `docs/project/architecture.md`.
 
-- **Public API:** sole approved entry point is `PrepareLog[TEvent, TChannel](ctx, newChannel) (TEvent, TChannel, error)`, where `TEvent` is a concrete type constrained by `Event`, `TChannel` is a concrete type constrained by `Channel`, and `newChannel` is `func(chan Event) TChannel`. The common `Event` interface is the heterogeneous notification payload type. Channel exposes `Notifications() <-chan Event` and `Errors() <-chan error`. The earlier statement that `TEvent` itself is the common interface and that the factory accepts `chan TEvent` is superseded. Consumers receive values, not a Log handle; internal Log owns append/read, persistence, recovery, scheduler and lifecycle.
+- **Public API:** sole approved entry point is `PrepareLog[TEvent, TChannel](ctx, newChannel) (TEvent, TChannel, error)`, where `TEvent` is a concrete pointer type constrained by `Event`, `TChannel` is a concrete pointer type constrained by `Channel`, and `newChannel` is `func(chan Event) TChannel`. The common `Event` interface is the heterogeneous notification payload type. Channel exposes `Notifications() <-chan Event` and `Errors() <-chan error`. The earlier statement that `TEvent` itself is the common interface and that the factory accepts `chan TEvent` is superseded. Consumers receive values, not a Log handle; internal Log owns append/read, persistence, recovery, scheduler and lifecycle.
 - **Configuration:** mandatory, immutable, one-time `Config(options ...Option) error` with required `WithStorageDirectory(path)`. Nil, duplicate, missing, invalid options fail. Relative paths are resolved and lexically cleaned to absolute during Config; Config does not create storage. PrepareLog creates storage. `ErrConfigNotInitialized` and `ErrConfigAlreadySet` are approved.
 - **Fields:** typed explicit primitive selectors; nullable primitive pointers; no nested fields; strict names/types/ranges and validation before writes.
 - **Identity:** deterministic UUID v5 with canonical encoding. Event identity is concrete type + exposed field-name schema + designated identity field name/value, global across channels. Non-identity changes create immutable occurrences under the same logical ID; latest occurrence promotes HEAD. Channel identity is similarly canonical. Identical physical records are deduplicated. Identity-field mutation handling remains open.
@@ -32,12 +32,19 @@ Authoritative durable decisions are consolidated in `docs/project/requirements.m
 - **Platforms:** standard library and local filesystem; Linux/Windows parity; macOS excluded.
 
 ## Open Define decisions
-1. Field selector signatures, pointer/value convention and occurrence result shape; the `PrepareLog` generic constraints, factory type and Channel notification/error accessors are approved.
+1. Field selector signatures, field-value reconstruction convention and occurrence result shape; the `PrepareLog` generic constraints, pointer-only `TEvent`/`TChannel` instantiations, factory type and Channel notification/error accessors are approved. The exact mechanism for enforcing pointer-only type arguments remains open.
 2. Prepared-value association, internal lifecycle, cancellation, reader/resource cleanup and terminal errors.
 3. Identity-field mutation response and precise Channel change semantics.
 4. Backlog durability/replay boundary, recoverable retry termination, and shutdown drain failure.
 5. Snapshot consistency and consumer synchronization requirements.
 6. Benchmark scenarios, memory/performance targets and complete acceptance matrix.
+
+### Approved D-007 — pointer-only generic type arguments (2026-11-24)
+
+Both `TEvent` and `TChannel` supplied to `PrepareLog[TEvent, TChannel]` must be pointer types.
+For example, use `PrepareLog[*OrderCreated, *OrdersChannel](ctx, newOrdersChannel)`.
+The exact enforcement mechanism is not decided here and remains an implementation/design question;
+this approval does not alter the consumer-facing API.
 
 ### Approved D-006 — missing required decoder (2026-11-24)
 
