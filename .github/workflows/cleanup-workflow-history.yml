@@ -1,0 +1,33 @@
+name: Workflow history cleanup
+
+on:
+  workflow_run:
+    workflows:
+      - Steering state validation
+    types:
+      - completed
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout trusted repository policy
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+
+      - name: Retain this cleanup workflow's own history
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 scripts/cleanup-workflow-runs.py
+
+      - name: Apply retention to the completed validation workflow
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TARGET_WORKFLOW_ID: ${{ github.event.workflow_run.workflow_id }}
+          TARGET_RUN_ID: ${{ github.event.workflow_run.id }}
+        run: python3 scripts/cleanup-workflow-runs.py
