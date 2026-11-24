@@ -252,3 +252,23 @@ Do not re-propose nil or primitive identity values. Add UUID-focused golden test
 - Remove `Notify(event TEvent) error` from the proposed/active API. It is not part of the Channel interface and must not be reconsidered.
 - No public helper struct or embedding requirement. Eventlog must not ask consumers to implement a callback/sink.
 - **Remaining technical blocker:** a receive-only accessor does not expose a writable channel to eventlog. Define a send-side ownership/construction mechanism that preserves this accessor and consumer-owned Channel struct, without inventing a `Notify` callback or requiring public helper embedding. Do not begin implementation until the mechanism is resolved and Define is approved.
+
+
+## Notification channel construction decision — 2026-11-24
+
+The internal ownership gap is resolved with a required typed channel-construction factory parameter on public preparation. Go cannot require a named constructor function on a type via interface constraints, but it can compile-time enforce the exact factory signature at the API call site.
+
+```go
+func PrepareLog[TEvent EventType, TChannel ChannelType](
+    ctx context.Context,
+    newChannel func(chan TEvent) TChannel,
+) (TEvent, TChannel, error)
+```
+Consumer passes their constructor, e.g. `NewOrdersChannel`, which must have the exact compatible signature:
+
+```go
+func NewOrdersChannel(send chan *OrderEvent) *OrdersChannel {
+    return &OrdersChannel{notifications: send}
+}
+```
+The Channel stores a receive-only field and returns it through `Notifications() <-chan *OrderEvent`. eventlog creates the bidirectional channel, retains send-side ownership, and supplies it to the constructor; the consumer does not send or close the channel. The required factory parameter ensures a constructor of the expected type is provided for each PrepareLog call. No `Notify` sink/callback, public helper/embedding, or notification wrapper payload is introduced. This is the approved construction direction; delivery/backlog/recovery/shutdown semantics remain separately open.
