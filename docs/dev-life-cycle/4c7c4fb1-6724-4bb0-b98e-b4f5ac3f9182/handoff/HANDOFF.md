@@ -1,10 +1,20 @@
 # Cycle 1 — Session handoff checkpoint (2026-11-24)
 
+## Latest session checkpoint — execution lock reclaimed
+
+- The previous released lock was structurally invalid: it retained non-null owner fields despite `status: released`. Repaired it to the schema-valid released shape in lock-only commit `9ab19931586cca2be42fcabe4b77d6fb59143656`.
+- Claimed Cycle 1 with a separate lock-only commit `33603d1e87fad469555837a30e6b146f849d6cd6`.
+- Re-fetched shared `main` and confirmed that exact claim commit is the remote head and `execution-lock.json` is active for this cycle, workflow `standard`, worker `ChatGPT-GPT-6`.
+- GitHub Actions Steering state validation run `45301455577` is in progress for the exact claim commit; no passing result has been observed yet.
+- Registry remains `in-progress`, phase `define`, matching the active lock. No registry or project-source changes were made in the claim commit.
+- No implementation, build, or Go tests have started.
+- Continue Define from the exported error contract proposal below. The proposal is not approved yet.
+
 **Cycle ID:** `4c7c4fb1-6724-4bb0-b98e-b4f5ac3f9182`
 **Workflow:** Standard
 **Phase:** Define
-**Cycle status:** In progress (paused for session handoff)
-**Execution lock:** Released. Next session must re-fetch `docs/dev-life-cycle/execution-lock.json` and claim it with a lock-only commit before editing project files.
+**Cycle status:** In progress
+**Execution lock:** Active and confirmed on shared `main` at claim commit `33603d1e87fad469555837a30e6b146f849d6cd6`.
 
 ## Current approved public API
 
