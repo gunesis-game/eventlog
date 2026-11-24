@@ -79,8 +79,10 @@ configuration is not inferred from Context or environment.
   and runtime lifecycle are Channel-specific. Concrete Event registration is derived internally from the
   concrete `TEvent` generic argument. Historical notification replay waits asynchronously until every
   decoder required by committed history for that logical Channel is available; the first `PrepareLog` call
-  must not block in a way that prevents subsequent registrations. No consumer-facing registration or
-  activation method is added. The exact timeout/terminal policy for a decoder that never registers remains open.
+  must not block in a way that prevents subsequent registrations. If a required decoder has not registered,
+  the Channel Reader waits indefinitely: there is no arbitrary timeout, and absence alone does not produce
+  a fatal Channel error. Replay proceeds when the decoder registers. No consumer-facing registration or
+  activation method is added.
 - **Compactor:** Produces replacement segments/index without modifying reader-pinned files,
   validates/checksums and syncs them, finalizes, atomically switches manifest/index, and deletes old
   generations only after the last reader releases its pin.
@@ -308,7 +310,7 @@ memory use and platform parity precede numeric performance targets.
   terminal-error semantics.
 - Identity-field mutation detection and transition mechanics, snapshot consistency,
   occurrence/HEAD/index and Channel association effects.
-- Decoder absence/timeout policy; internal writable-channel ownership; backlog durability/retention and replay boundary; retry termination for recoverable failures; scheduler interaction and shutdown drain failure.
+- Internal writable-channel ownership; backlog durability/retention and replay boundary; retry termination for recoverable failures; scheduler interaction and shutdown drain failure.
 - Consumer synchronization/snapshot consistency details.
 - Benchmarks, memory/performance targets, and measurable acceptance criteria.
 
@@ -354,6 +356,6 @@ The error stream is one-way, shared by the logical Channel runtime, and has buff
 
 Concrete Event type registration is derived internally from the concrete `TEvent` generic argument supplied to `PrepareLog`; consumers do not call a separate registration API. Decoder registrations are maintained in an internal registry and notify waiting Channel runtimes when available.
 
-Historical notification replay must not begin until every concrete Event decoder required by the committed history for that logical Channel is available. The runtime may wait asynchronously for missing registrations; it must not block the first `PrepareLog` call in a way that prevents subsequent Event types from being prepared. Unknown or undecodable persisted Event types must fail closed and must never be silently skipped. The precise timeout/absence policy and the existing codec implementation's availability remain to be verified before implementation.
+Historical notification replay must not begin until every concrete Event decoder required by the committed history for that logical Channel is available. The runtime waits asynchronously and indefinitely for a required decoder that has not yet registered; there is no arbitrary timeout, and decoder absence alone does not produce a fatal Channel error. The first `PrepareLog` call must not block in a way that prevents subsequent Event types from being prepared. Once the missing decoder registers, replay may proceed. Unknown or undecodable persisted Event types must fail closed and must never be silently skipped. The existing codec implementation's availability remains to be verified before implementation.
 
 No public `RegisterEventType`, `Activate`, `Start`, `Close`, Ack, or checkpoint method is permitted. The public Channel surface remains the two accessors above.
