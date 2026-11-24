@@ -85,9 +85,7 @@ is part of the API.
 - **Recovery/index manager:** Validates manifest, segment generation, records, sequences, transaction
   Commit IDs/count/checksums and derived index. Incomplete trailing transaction truncates to its start;
   index is rebuilt from segment source if missing/inconsistent and atomically replaced.
-- **Reader/tailer:** One unified Reader progression serves each runtime Channel, streams committed
-  history, catches concurrent appends, and transitions to live tailing without gaps or duplicates. Global
-  sequence/cursor/offset management is internal; consumers do not provide or receive storage cursors.
+- **Reader/tailer:** One unified Reader progression serves each runtime Channel and continuously follows the committed global sequence, with no explicit replay-to-live boundary or separate Reader modes. It reads committed history in sequence order and, when caught up, waits for a wake-up hint indicating possible new commits. Wake-ups are not authoritative: after every wake (and after entering the wait), the Reader rechecks the committed append source so a missed or coalesced signal cannot lose an occurrence. A commit during catch-up is naturally consumed by the same progression. Global sequence/cursor/offset management is internal; consumers do not provide or receive storage cursors.
   Cancellation and errors are explicit. Concrete Event values are reconstructed through the project's
   existing internal event-type registration/codec mechanisms. Unknown persisted Event types and decode
   failures are errors, never silently skipped. Typed Readers may filter concrete Event types for typed
