@@ -1,10 +1,76 @@
+# Cycle 1 — Session handoff checkpoint (2026-11-24)
+
+**Cycle ID:** `4c7c4fb1-6724-4bb0-b98e-b4f5ac3f9182`
+**Workflow:** Standard
+**Phase:** Define
+**Cycle status:** In progress (paused for session handoff)
+**Execution lock:** Released. Next session must re-fetch `docs/dev-life-cycle/execution-lock.json` and claim it with a lock-only commit before editing project files.
+
+## Current approved public API
+
+The only approved preparation entry point remains:
+
+```go
+event, channel, err := eventlog.PrepareLog[MyEvent, MyChannel](ctx)
+```
+
+The generic arguments select consumer-defined event and channel types. The package owns the internal Log and all persistence, append/read, recovery, synchronization, and lifecycle machinery. Consumers do not receive a Log handle or manage its lifecycle.
+
+## Approved configuration contract
+
+The user has approved the following direction and rules:
+
+- Configuration is process-level initialization state, not context-bound state or mutable runtime state.
+- A separate package-level `eventlog.Config(...)` call is required before `PrepareLog`.
+- Proposed public shape: `Config(options ...Option) error`, with `WithStorageDirectory(path string) Option`. Option application is package-controlled through an unexported method.
+- Storage-directory option is mandatory. Calling `Config()` without it fails.
+- Nil options and duplicate settings fail. There is no last-option-wins behavior.
+- Failed configuration validation leaves the runtime unconfigured and allows retry.
+- A successful Config validates, captures, and freezes configuration exactly once. A second Config call, or one after initialization has begun, fails and cannot mutate the active configuration.
+- `PrepareLog` before successful Config fails with a configuration-not-initialized error. There is no default directory and no environment-variable fallback.
+- Relative storage paths are accepted, resolved to absolute paths during Config, lexically cleaned using `filepath.Clean` semantics, and frozen. Symlinks are not resolved.
+- Config does not require the directory to exist and does not create it. PrepareLog creates a missing directory. An existing non-directory target or a directory-creation failure is an error.
+- Concurrent PrepareLog calls wait for the first shared initialization attempt. Each waiter can cancel its own wait through its context. If initialization fails, frozen configuration remains set and a later PrepareLog call may retry.
+- `context.Context` is used for cancellation/deadlines, not as a configuration carrier.
+
+## Next unresolved Define decision
+
+The next discussion item is the exported error contract. A proposal was made but **not yet approved**:
+
+```go
+var (
+    ErrConfigNotInitialized = errors.New("eventlog: configuration not initialized")
+    ErrConfigAlreadySet     = errors.New("eventlog: configuration already set")
+)
+```
+
+Proposed semantics: PrepareLog without Config returns ErrConfigNotInitialized; repeated/late Config returns ErrConfigAlreadySet; invalid options return descriptive validation errors; filesystem failures wrap underlying errors for errors.Is/errors.As; context cancellation/deadline errors remain discoverable. Resume by asking the user to approve or revise this proposal. Do not treat it as an accepted decision yet.
+
+## Remaining Define work
+
+1. Finalize the exported error taxonomy and wrapping contract.
+2. Continue the internal initialization lifecycle and concurrency contract details.
+3. Reconcile all active requirements, architecture, plan, and handoff text; older contradictory checkpoint notes below are historical and superseded by the current approved decisions above.
+4. Finish the remaining API, lifecycle, cancellation, resource, benchmark, and acceptance criteria.
+5. Complete the Define consistency review and obtain explicit user approval before implementation.
+
+## Repository and verification state
+
+- Latest lock release is a lock-only commit: `87da7743911d31420eee2a203c71ae27b05b0a59`.
+- The lock was released at `2026-11-24T00:56:00Z` for the next session to claim.
+- Cycle registry remains `in-progress`, current phase `define`; the cycle is paused, not completed or cancelled.
+- No source implementation, build, or Go tests have started.
+- Next session: re-fetch shared `main`, verify lock is released, claim it with a lock-only commit, then continue Define from the error-contract decision above.
+
+---
+
 # Cycle 1 — Current Handoff
 
 **Cycle ID:** 4c7c4fb1-6724-4bb0-b98e-b4f5ac3f9182  
 **Workflow:** Standard  
 **Phase:** Define  
-**Status:** In progress  
-**Execution lock:** Active; claimed and confirmed on shared `main` in commit `7e2d3eebfd0c706ca19dd37e565ebec3bfe5693b`.
+**Status:** Paused for session handoff  
+**Execution lock:** Released for next session; lock-only release commit `87da7743911d31420eee2a203c71ae27b05b0a59`.
 
 ## Latest checkpoint — 2026-11-24 — configuration direction
 
