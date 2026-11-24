@@ -32,7 +32,7 @@ are historical and are not current public API requirements.
 - **Ownership/concurrency:** Single process owns the log; multiple goroutines may use the API, with internally coordinated writes. Multi-process/distributed writers are out of scope.
 - **Consumer contracts:** Consumer-defined Channel and Event structs are supplied as generic type arguments to the public API. They implement the library-owned `Channel` and `Event` interfaces. Field selection is supplied as a selector callback to `Append`; selectors are part of the Append call contract, not hidden solely inside `Fields()` or inferred by serializing the whole struct. The exact selector callback body and interface method signatures must be transcribed from the agreed contract before implementation.
 - **Append/channel lifecycle:** the public contract is generic over consumer Channel and Event types, with field selection supplied through the Append selector callback. The earlier `Append(channel, event)` call shape is superseded. Append validates the selected channel/event fields before writing; a new channel is created and persisted atomically with its first event. No standalone channel-creation API or channel-only records exist. Exact callback/value-input shape remains open.
-- **Event identity/history:** Event identity is global and derived from event type plus exposed fields, excluding channel. Repeated appends are separate occurrences. One occurrence belongs to one channel; the same logical event may retain associations across appends. Latest occurrence defines HEAD/current channel and ordering.
+- **Event identity/history (current approved rule):** Event identity is global and independent of channel. Derive the initial logical ID from Event type plus the initial exposed-field snapshot, then retain it for the lifetime of the prepared Event value. Later field changes create new immutable occurrences under that same ID. One occurrence belongs to one channel; history is retained; latest occurrence defines HEAD/current channel and ordering. This supersedes older current-field-derived identity notes.
 - **Fields/API direction:** `Fields` is heterogeneous and primitive-only. `FieldOf` handles non-nullable fields; `FieldOfNullable` handles nullable primitives. Selectors are supplied through the third callback argument of Append; selector reflection resolves direct field pointers on a zero-valued typed probe and requires a unique match. Validation is at Append and atomic. Duplicate/empty names are rejected; names are case-sensitive and not trimmed; canonical order is bytewise UTF-8. The exact callback body and consolidated public signatures/error contract remain to be captured precisely.
 - **Primitive allowlist:** string, bool, signed/unsigned integer types (including byte/rune aliases), float32/float64, named types over supported primitives; excludes uintptr and complex. Nullable primitive pointers are supported. Non-finite floats are rejected. Integer bounds are checked by Go exactly.
 - **Identity:** UUID v5 with fixed namespace and separate event/channel domain prefixes. Canonical encoding is order-independent: fields sorted bytewise UTF-8, explicit type tags, uint32 big-endian framing, exact primitive widths/bits, and package path plus Go type name. Channel identity includes channel type and all channel fields; event identity includes event type and fields only.
@@ -265,7 +265,7 @@ The following dated notes are retained for decision history. They do not overrid
 
 - User confirmed Go package path and struct type name may define the type identity used for deterministic IDs. Renaming/moving a type therefore changes its identity; document this as a persisted compatibility consideration.
 - **Channel ID:** deterministic UUID derived from channel type identity plus canonical representation of all fields returned by `Channel.Fields()`. Channel fields participate in identity; channel ID is independent of event ID.
-- **Event ID:** deterministic UUID derived from event type identity plus canonical representation of all fields returned by `Event.Fields()`. Channel ID is explicitly excluded from event ID calculation.
+- **Event ID (superseded historical rule):** older notes derived the UUID from the current Event type and fields. The current approved rule derives the initial UUID from Event type plus the initial exposed-field snapshot, then persists and reuses that ID for all later occurrences of the same prepared Event value, even as its fields change. Channel remains excluded.
 - **Append API direction:** retain `log.Append(channel, event)`; channel and event are supplied together. The channel's deterministic ID is resolved internally.
 - **Duplicate event semantics:** event identity is global across channels. Re-appending an existing event promotes that one logical event to the HEAD of the entire log, rather than creating a second logical event. The event may be associated with multiple channels; the latest example explicitly chose association with both channels.
 - **Ordering/storage distinction:** logical order is global and independent of physical segment placement. User proposed segment splitting/reorganization followed by scavenging to remove obsolete physical copies. A logical promotion operation persisted in segments, followed by asynchronous physical compaction/scavenging, was discussed as a possible implementation; not yet finalized.
@@ -457,8 +457,8 @@ Approved by the user on 2026-11-23:
 - Fixed UUID v5 namespace: `26612f1d-f648-483a-9cfe-59c18f113891`.
 - Event identity domain prefix: UTF-8 `eventlog\\x00event\\x00v1\\x00`.
 - Channel identity domain prefix: UTF-8 `eventlog\\x00channel\\x00v1\\x00`.
-- Identity uses package path, type name, and canonical fields; variable-length components must be framed length-prefixed to avoid ambiguity.
-- Channel IDs derive from channel type + canonical fields. Event IDs derive from event type + canonical fields, excluding channel association.
+- Initial identity uses package path, type name, and canonical initial fields; variable-length components must be framed length-prefixed to avoid ambiguity. Once assigned, the Event ID is stable across later field changes.
+- Channel IDs derive from channel type + canonical fields. Initial Event IDs derive from event type + canonical initial fields, excluding channel association; the assigned ID is thereafter stable across field mutations for that prepared Event value.
 - UUID v5 (SHA-1) yields standard UUID IDs; domain prefixes keep event/channel identity domains separate.
 - Exact framing details for variable components (including length-width choice) remain to be specified; the namespace and prefixes are fixed.
 
@@ -902,3 +902,13 @@ The user approved the exported sentinel error contract: `ErrConfigNotInitialized
 - Previous occurrences are immutable and remain in history; polling must never overwrite an earlier occurrence.
 - This approval settles occurrence creation/history retention, not logical identity. Existing identity is derived from Event type plus exposed fields, so whether changed values produce a new logical event ID or remain linked to the prior logical event, and the resulting HEAD/index behavior, still requires explicit reconciliation.
 - No implementation, build, or Go tests have started.
+
+
+## Latest Define decision — stable Event identity across field changes (approved 2026-11-24)
+
+- User approved retaining the same logical Event ID when selected Event fields change.
+- The initial ID is derived from the Event type and initial selected-field snapshot. The prepared Event value retains that ID for its lifetime; later snapshots do not recalculate it.
+- Every detected selected-field change creates a new immutable physical occurrence under the same logical ID. The previous occurrence remains in history; the newest occurrence becomes HEAD and determines current channel and ordering.
+- Channel identity remains separate and is not part of Event identity.
+- This supersedes the older rule that derived Event ID from the current exposed-field values for every occurrence.
+- Define must specify how the internal Event-value-to-ID association is established and survives recovery, while preserving the no-new-public-operational-API constraint.
