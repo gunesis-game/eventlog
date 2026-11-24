@@ -1,5 +1,12 @@
 # Cycle 1 — Current handoff (2026-11-24)
 
+## Current approved baseline (authoritative)
+
+- `PrepareLog[TEvent, TChannel](ctx, newChannel)` uses concrete `TEvent Event`, concrete `TChannel Channel`, and `newChannel func(chan Event) TChannel`.
+- Channel accessors are `Notifications() <-chan Event` and `Errors() <-chan error`.
+- Historical replay waits asynchronously for all decoders required by committed Channel history; no public registration or activation method.
+- Error stream: shared per Channel, capacity one, first fatal error retained, best-effort non-blocking delivery; fatal Reader termination closes streams after reporting.
+
 ## State
 - **Cycle:** 4c7c4fb1-6724-4bb0-b98e-b4f5ac3f9182 (sequence 1, execution order 1)
 - **Workflow / phase:** standard / define
@@ -273,3 +280,6 @@ This is the authoritative decision ledger for Cycle 1. Every material user-appro
 - The initial lock-read-order deviation is retained above for transparency.
 - No implementation, build or Go tests were started.
 - Next: verify the latest lifecycle workflow, run a full contradictory-wording audit, and continue Define only after all approved decisions are reconciled.
+
+
+Historical checkpoint statements below that describe `TEvent` as the common interface, use `func(chan TEvent) TChannel`, omit `Errors()`, or state that Cycle 1 is blocked are superseded by the current approved baseline and decision register above. They are retained only as provenance.
