@@ -50,6 +50,11 @@ from replay into live tailing. It is not tied to an event-sourcing framework or 
   Configuration does not create the storage directory; preparation creates it and reports failures.
 - Concurrent preparation shares initialization safely. Each caller's Context controls its own wait or
   operation; configuration is not inferred from Context or environment variables.
+- The generic `TEvent` and `TChannel` arguments to `PrepareLog[TEvent, TChannel]` must be pointer types;
+  non-pointer arguments are rejected during preparation. Repeating a compatible preparation for the same
+  concrete Event/Channel type pair and exposed field schemas returns the same live Event and Channel
+  pointer instances. Incompatible reuse of an already prepared type/schema registration fails explicitly
+  rather than creating competing live instances.
 - Existing event-log storage is loaded and recovered as the system of record before eventlog resolves or
   creates any runtime Channel. A Channel is resolved by its stable Channel identity; event-specific
   preparation must reuse that Channel runtime rather than create a parallel Channel stream.
