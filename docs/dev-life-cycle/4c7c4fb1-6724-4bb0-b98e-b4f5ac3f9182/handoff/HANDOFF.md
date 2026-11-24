@@ -178,3 +178,13 @@ part of the API. The remaining issue is internal writable-channel ownership and 
 - **Ownership/shutdown:** eventlog owns the send side, Reader, delivery worker and lifecycle. Consumers do not gain public lifecycle methods. Shutdown ordering is recorded in the Cycle 1 plan.
 - **Decoding:** reconstruct concrete Event types through the existing internal registration/codec mechanisms; unknown persisted Event types fail rather than being silently skipped.
 - **Next:** finish precise PrepareLog registration/convergence semantics, lifecycle/error boundaries, identity mutation behavior, acceptance matrix and benchmark plan. Then reconcile all docs and seek explicit approval to exit Define. No implementation/build/Go tests started.
+
+## Progress checkpoint — 2026-11-24T17:12:58Z (registration barrier)
+
+- **Last progress checkpoint:** 2026-11-24T17:12:58Z
+- **Approved:** all concrete Event types/decoders for a logical Channel must be prepared/registered before heterogeneous historical notification replay begins. Unknown persisted types must never be silently skipped.
+- **API constraint:** no consumer-facing `Activate()`, `Start()`, `RegisterEventType()`, `Close()`, Ack, or checkpoint method. `Notifications() <-chan Event` remains unchanged. Eventlog owns Reader activation and shutdown.
+- **Lifecycle distinction:** `PrepareLog` is event-specific; Channel resolution, notification delivery, and runtime lifecycle are Channel-specific. All event-specific preparations for the same Channel converge on one runtime Channel and Reader progression.
+- **Open blocker:** sequential `PrepareLog` calls provide no completion signal proving all concrete Event decoders for the Channel have been registered. No existing completion boundary has yet been established from repository evidence. Resolve internally or through an already-existing lifecycle boundary; do not add a public activation method.
+- **Verification:** lifecycle workflow passed for commit `30bacac14eddb6f51ebed6536fb291606edf6e48` (run 45445928283). This validates registry/lock invariants only, not Go behavior. No source code, build, or Go tests exist/run yet.
+- **Next:** inspect the full existing API/lifecycle specification and settle the registration-completion mechanism, then complete identity-mutation and acceptance/benchmark decisions. No implementation until Define is reconciled and explicitly approved.
