@@ -2,7 +2,7 @@
 
 This directory contains the durable execution state for ordinary development work. Use of this mechanism is mandatory for ordinary project work; the narrowly scoped governance-maintenance exemption is defined below.
 
-The mechanism is deliberately project-agnostic: project-specific objectives, architecture, commands, quality gates, branch-protection details, and deployment constraints belong in the repository's own documentation and configuration. This repository uses main as its working branch.
+The mechanism is deliberately project-agnostic: project-specific objectives, architecture, commands, quality gates, repository access and protection details, and deployment constraints belong in the repository's own documentation and configuration. This repository uses main as its working branch.
 
 ## Governance maintenance
 
@@ -172,7 +172,7 @@ The lifecycle mechanism is mandatory for the whole ordinary task, including desi
 **After each material user approval:**
 - Treat the approval as a hard stop on design progression.
 - Integrate the approved outcome into its owning project specification and record its provenance in docs/project/decisions.md. Do not copy the decision text into both requirements and architecture.
-- Publish and fetch the specification and decision ledger. Verify their exact contents and revisions, and verify that the recorded revision is present in the shared target branch.
+- Publish and fetch the specification and decision ledger. Verify their exact contents and revisions, and verify that the recorded revision is present in the shared `main` branch.
 - Update the current handoff only with the resulting progress, verification, blockers, and next action. The handoff does not maintain a second decision register.
 - Only after the specification and decision ledger are verified may the next independent design question, dependent implementation, or phase transition begin.
 - If any write or verification fails, do not continue the design. Leave the decision Proposed in the ledger, record the exact blocker and recovery action in the handoff, and report it.
@@ -275,11 +275,7 @@ Before stopping or handing off, update the current cycle checkpoint. A session e
 The first-use bootstrap (replacing the root README from `README.template.md`, filling `docs/project/`, choosing product licensing, and updating `TEMPLATE_VERSION`) is setup work, not a development cycle. Complete it before the first ordinary implementation cycle. Product requirements, architecture, coding standards, verified commands, and durable project decisions belong in docs/project/requirements.md, architecture.md, coding-standards.md, commands.md, and decisions.md. Coding standards must align with and defer structural and naming decisions to architecture.md; cycle plans and handoffs are temporary progress records.
 
 
-## Branch-policy adaptation
-
-This template defaults to direct work on `main`. A derived repository that requires pull requests or another branch policy must make an explicit governance change to `steering.md` and reconcile its review and verification rules. Do not merely change the branch instruction or bypass branch protection; contributors coordinate through ordinary Git collaboration and review.
-
 
 ## Validator
 
-Run `python3 scripts/validate-steering.py` locally. The included GitHub Actions workflow runs the same standard-library validator when lifecycle files, the project decision ledger, or the validator change, on pushes, pull requests, or manual dispatch. It checks registry structure, statuses, uniqueness, timestamp relationships, micro-cycle rules, and the single project decision register. Decisions may be Proposed or Recorded; an Approved-but-unrecorded decision fails validation. Recorded decisions must identify an existing specification and a verified commit/revision. JSON Schemas remain the structural contract; the validator covers cross-record and decision-ledger invariants that JSON Schema cannot express. A green validator is necessary but does not replace cycle-file existence checks, implementation review, tests, or lifecycle gates.
+Run `python3 scripts/validate-steering.py` locally. The included GitHub Actions workflow runs the same standard-library validator when lifecycle files, the project decision ledger, or the validator change, on pushes to `main` or manual dispatch. It checks registry structure, statuses, uniqueness, timestamp relationships, micro-cycle rules, and the single project decision register. Decisions may be Proposed or Recorded; an Approved-but-unrecorded decision fails validation. Recorded decisions must identify an existing specification and a verified commit/revision. JSON Schemas remain the structural contract; the validator covers cross-record and decision-ledger invariants that JSON Schema cannot express. A green validator is necessary but does not replace cycle-file existence checks, implementation review, tests, or lifecycle gates.
