@@ -469,3 +469,12 @@ Channel's public API will expose a notification Go channel through an accessor (
 - Persistence and scheduler remain non-blocking relative to a slow/unread consumer; internal backlog/replay must reconcile finite buffering with guaranteed delivery.
 - Internal mechanism, backlog persistence/retention, shutdown/lifecycle, and failure semantics remain open Define questions.
 - No implementation/build/tests have started; implementation still requires Define completion and explicit approval.
+
+
+## Define decision — notification shutdown drain approved (2026-11-24)
+
+- Approved: orderly shutdown drains pending notifications instead of discarding them.
+- Keep the notification channel open while draining; close it after all pending persisted occurrences are delivered.
+- Crash/interrupted delivery is recovered from persistence on the next initialization.
+- Exact lifecycle triggers, drain failure semantics, and startup replay ordering remain open Define decisions.
+- No implementation/build/tests have started; implementation still requires Define completion and explicit approval.
