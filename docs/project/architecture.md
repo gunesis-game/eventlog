@@ -15,9 +15,7 @@ supports concurrent goroutine use but does not coordinate multiple processes or 
 Consumer Event/Channel domain semantics remain outside the library; the consumer explicitly selects
 persisted fields.
 
-The only approved public preparation API is `event, channel, err := eventlog.PrepareLog[MyEvent,
-MyChannel](ctx)`, declaration shape `func PrepareLog[TEvent EventType, TChannel ChannelType](ctx
-context.Context) (TEvent, TChannel, error)`. Event and Channel constraints require `Fields() Fields`.
+The public preparation API is `event, channel, err := eventlog.PrepareLog[TEvent, TChannel](ctx, newChannel)`, where `newChannel` is a required typed factory `func(chan TEvent) TChannel`. eventlog creates and owns the writable notification channel, then passes it to the consumer's constructor; consumers expose only `Notifications() <-chan TEvent`. This enforces the factory signature at the call site, although Go cannot enforce that a type has a named constructor function. Event and Channel constraints require `Fields() Fields`.
 Consumers receive values, not a Log handle; internal Log owns append/read/next, persistence, recovery,
 change manager, synchronization and lifecycle. No public Log handle or
 Append/Read/Next/Close/Flush/Compact API is approved.
