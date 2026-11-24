@@ -15,7 +15,7 @@ supports concurrent goroutine use but does not coordinate multiple processes or 
 Consumer Event/Channel domain semantics remain outside the library; the consumer explicitly selects
 persisted fields.
 
-The public preparation entry point remains `PrepareLog[TEvent, TChannel]`; its approved consumer-facing contract must not be changed without explicit approval. The Channel interface defines `Notifications() <-chan Event`, where `Event` is the common interface implemented by concrete Event types. A single Channel notification stream is heterogeneous and may carry multiple concrete Event types in commit order. The previously documented factory `func(chan TEvent) TChannel` only works if its channel element type is the common Event interface; it is incompatible if `TEvent` is one concrete Event type. Therefore, the factory's exact relationship to `TEvent` and the internal send-side construction mechanism remain an explicit Define item. Do not treat the concrete-event factory example as an approved public contract or solve this by changing the consumer-facing Channel API. Event and Channel constraints require `Fields() Fields`.
+The public preparation entry point remains `PrepareLog[TEvent, TChannel]`; its approved consumer-facing contract must not be changed without explicit approval. In this approved API, `TEvent` denotes the common `Event` interface implemented by concrete Event types, not one individual concrete Event type. The Channel interface defines `Notifications() <-chan Event`. A single consumer-defined Channel notification stream is heterogeneous and may carry multiple concrete Event types (for example, `OrderCreated` and `OrderCancelled`) in commit order. Accordingly, a factory `func(chan TEvent) TChannel` is compatible because its channel element is the common Event interface. The earlier concrete-event factory example is superseded. Event and Channel constraints require `Fields() Fields`.
 Consumers receive values, not a Log handle; internal Log owns append/read/next, persistence, recovery,
 change manager, synchronization and lifecycle. No public Log handle or
 Append/Read/Next/Close/Flush/Compact API is approved.
@@ -78,7 +78,7 @@ configuration is not inferred from Context or environment.
 - **Change manager/scheduler:** One managed scheduler per prepared Log/change manager polls selected
   Event/Channel fields every 100 ms; no per-field goroutines. Cadence is internal/test-only. Consumer
   synchronizes its own mutations. Detected changes route to internal persistence.
-- **Notification dispatcher/backlog:** The Channel interface exposes `Notifications() <-chan Event`, where `Event` is the common interface implemented by all concrete Event types. One Channel owns one heterogeneous stream and may carry multiple concrete Event implementations in commit order. No `Notify` callback/sink method, public helper struct, or consumer embedding requirement is permitted. eventlog delivers immutable concrete Event snapshots after commit without blocking persistence/scheduler on slow consumers. Internal durable backlog/replay and error handling remain required. The internal writable-channel construction path must preserve this exact receive-only consumer API. The earlier `func(chan TEvent) TChannel` factory is valid only if `TEvent` is the common Event interface; it is not valid as a per-concrete-Event factory for a heterogeneous Channel. Resolve that generic relationship before treating the factory signature as final. Retry, recovery, drain, and lifecycle failure semantics must be specified honestly; exactly-once consumer processing is not guaranteed without consumer acknowledgment or transactional integration.
+- **Notification dispatcher/backlog:** The Channel interface exposes `Notifications() <-chan Event`, where `Event` is the common interface implemented by all concrete Event types. One Channel owns one heterogeneous stream and may carry multiple concrete Event implementations in commit order. No `Notify` callback/sink method, public helper struct, or consumer embedding requirement is permitted. eventlog delivers immutable concrete Event snapshots after commit without blocking persistence/scheduler on slow consumers. Internal durable backlog/replay and error handling remain required. The internal writable-channel construction path preserves this exact receive-only consumer API. `TEvent` in the approved generic preparation API is the common Event interface, so the typed factory channel can carry heterogeneous concrete Event implementations. Retry, recovery, drain, and lifecycle failure semantics must be specified honestly; exactly-once consumer processing is not guaranteed without consumer acknowledgment or transactional integration.
 
 ## Record model and identity
 
@@ -182,7 +182,7 @@ atomicity is distinct from power-loss durability before sync.
 
 A missing storage structure is initialized automatically during PrepareLog. The first active segment is a
 zero-byte NDJSON file; no header record is written. Existing storage is recovered before it becomes
-available.
+available. Runtime Channel resolution or creation is not attempted until this recovery has completed successfully.
 
 Recovery order:
 1.  Acquire exclusive single-process ownership.
@@ -210,20 +210,16 @@ preserves original sequences and must not promote older occurrences because dupl
 
 ## Reader behavior
 
-The internal unified reader is mandatory and channel-scoped: each reader targets exactly one
-consumer-provided Channel value, never all channels. It begins with committed history, catches concurrent
-appends during replay, and transitions to live tailing without gaps or duplicates. Occurrences are
-ordered by internal global sequence.
+The internal unified Reader progression is mandatory and channel-scoped: exactly one progression serves each runtime Channel, never all Channels. It begins with committed history, catches concurrent appends during replay, and transitions to live tailing through that same progression without gaps, duplicates introduced by the handoff, or ordering breaks. Occurrences are ordered by internal global sequence. Do not create separate historical and live Readers or combine independent typed Readers to construct the heterogeneous notification stream.
 
 Consumers do not provide or receive Channel UUIDs, sequence numbers, cursors or offsets. These remain
 library-owned. Context cancellation and explicit errors are required. Re-appended logical Events are
-separate occurrences. A Channel may contain multiple concrete Event types; an internal typed reader
-reconstructs matching Event values and filters nonmatching types while advancing. Corruption and
-matching-type decode failures remain errors. Eventlog allocates/reconstructs values without consumer
-registration, prototype or custom decoder.
+separate occurrences. A Channel may contain multiple concrete Event types. The unified notification Reader reconstructs each
+committed Event through the existing internal type registration/codec mechanism. Typed Readers may filter
+for a requested concrete type while advancing, but they are not separate notification sources. Corruption,
+unknown persisted Event types, and decode failures are errors, never silently skipped.
 
-The reader stays internal under the currently approved public API; public signatures, pointer/value
-convention, occurrence wrapper, close and resource semantics remain open.
+The reader stays internal under the currently approved public API. The common `Event` interface and `Notifications() <-chan Event` accessor are settled; pointer/value convention, occurrence wrapper, and close/resource semantics remain open.
 
 ## Durability, segment management and compaction
 
@@ -298,8 +294,9 @@ memory use and platform parity precede numeric performance targets.
 
 ## Approved notification public API decision — 2026-11-24
 
-- The consumer-facing notification payload is the concrete Event type `T` only. No public `Notification[T]` wrapper, Event ID, Occurrence ID, delivery token, or consumer-facing Ack API.
-- Notifications are channel-scoped. Consumer-defined Channel types implement the notification method required by the Channel interface. Exact signature, accessor and ownership mechanism remain unresolved.
+- The notification stream element type is the common `Event` interface, implemented by each concrete Event type. A Channel stream may therefore carry heterogeneous concrete Event values.
+- The Channel interface accessor is `Notifications() <-chan Event`. No public `Notification[T]` wrapper, Event ID, Occurrence ID, delivery token, or consumer-facing Ack API.
+- Notifications are channel-scoped. Consumer-defined Channel types implement the Channel interface; the accessor signature is settled.
 - Delivery identity, occurrence identity, durable backlog, retries, replay bookkeeping, and acknowledgment of internal dispatch are private implementation details.
 - Since the consumer provides no acknowledgment, eventlog cannot claim exactly-once consumer processing. Delivery/recovery semantics must be stated honestly; duplicates may occur in a crash window if internal dispatch is durably recorded after sending.
-- The consumer-facing notification method is implemented by consumer-defined Channel types; its exact signature/accessor shape remains unresolved and must not be assumed.
+- The consumer-facing notification accessor is implemented by consumer-defined Channel types as `Notifications() <-chan Event`; this is settled and must not be reopened.
