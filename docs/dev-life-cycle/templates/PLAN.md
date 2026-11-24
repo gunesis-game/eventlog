@@ -16,7 +16,7 @@
 
 ## Problem and context
 
-<Describe the observed problem or opportunity. Link to relevant project documentation, code, issues, and decisions. Separate verified facts from assumptions and unknowns.>
+<Describe the observed problem or opportunity. Link to relevant project documentation, code, issues, and the project decision register. Separate verified facts from assumptions and unknowns.>
 
 ## Scope
 
@@ -31,11 +31,11 @@
 - **Constraints:** <Established project constraints>
 - **Dependencies:** <Required work, systems, or decisions>
 - **Risks:** <Risk and mitigation>
-- **Open decisions:** <Decision owner and when it is needed>
+- **Open decisions:** <Decision IDs from docs/project/decisions.md, owner, and when needed>
 
 ## Design and implementation approach
 
-<Describe the bounded approach and relevant alternatives/trade-offs. Do not duplicate permanent architecture documentation here.>
+<Describe the bounded approach and relevant alternatives/trade-offs. Do not duplicate permanent requirements, decisions, or architecture documentation here.>
 
 ## Ordered tasks
 
@@ -62,9 +62,9 @@
 - **Next concrete action:** <One specific action>
 - **Last updated:** <UTC ISO-8601 timestamp>
 
-## Progress and decisions
+## Progress
 
-<Update this section as work proceeds. Record material decisions and rationale, completed tasks, and changes to scope. Keep the registry phase synchronized with this checkpoint.>
+<Keep this section concise. Record completed work, current state, blockers, and the next action. The handoff is the detailed current checkpoint; the project decision register is maintained separately.>
 
 ## Completion review
 
