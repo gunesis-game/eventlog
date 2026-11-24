@@ -48,4 +48,4 @@ Both generic arguments are concrete pointer types constrained by their respectiv
 
 ## Next action
 
-Define notification delivery failure semantics, beginning with the distinction between recoverable delivery backpressure and terminal Reader errors: how the internal Reader advances, how committed-but-not-yet-delivered notifications are retained, and when the Channel error stream terminates. Do not begin implementation until Define is complete and the user explicitly approves exit.
+Next, define the internal lifecycle/cancellation and resource cleanup model: how preparation, append workers, Channel Readers, delivery workers, and storage ownership stop or fail, with clear terminal-error handling. D-025 is recorded and verified. Do not begin implementation until Define is complete and the user explicitly approves exit.
