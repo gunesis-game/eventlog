@@ -201,7 +201,9 @@ The already-approved namespace, Event/Channel domain prefixes, primitive field t
 
 The UUID identity representation is specified in the UUID identity section below.
 
-Still open: metadata UTF-8 policy; canonical naming of aliases/generic instantiated types; and maximum framing sizes. The UUID Go representation, byte extraction order, and dedicated tag `0x03` are settled.
+Metadata keys and values must be valid UTF-8. Reject invalid UTF-8 before persistence and during recovery; do not replace, normalize, or otherwise transform metadata bytes. Canonically equivalent but byte-distinct Unicode strings remain distinct. The UUID Go representation, byte extraction order, and dedicated tag `0x03` are settled.
+
+Still open: canonical naming of aliases/generic instantiated types and maximum framing sizes.
 
 ## Append transaction flow
 
@@ -370,8 +372,7 @@ memory use and platform parity precede numeric performance targets.
 
 ## Unresolved architectural details
 
-- The dedicated UUID identity marker/tag assignment; metadata UTF-8 policy; canonical naming of aliases
-  and instantiated generic types; and maximum framing sizes.
+- Canonical naming of aliases and instantiated generic types; maximum framing sizes.
 - Exact internal registry-key composition for prepared instances and the precise behavior for distinct
   logical Channels represented by the same concrete Channel Go type.
 - Numeric benchmark targets, memory targets, representative measurement environments, repetitions,
