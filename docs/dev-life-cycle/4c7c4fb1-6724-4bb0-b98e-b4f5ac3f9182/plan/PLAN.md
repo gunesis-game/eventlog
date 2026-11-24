@@ -225,3 +225,19 @@ This is a sketch to validate during final API design, not committed implementati
 ## User correction — consumer-defined Channel notification method (2026-11-24)
 
 **Supersedes the embedded `eventlog.Notifications[T]` helper proposal above.** The public API must not introduce a library-provided notification helper struct or require consumers to embed one. The consumer defines their own Channel struct, and the Channel interface requires a notification method/function implemented by that consumer-defined type. eventlog uses that method for notification delivery/access. Exact method signature and internal delivery mechanics remain to be designed; do not assume or promote an embedded helper. This user-confirmed requirement takes precedence over the earlier proposal.
+
+
+## Define proposal — canonical identity byte composition (not approved)
+The permanent UUID v5 namespace, Event/Channel domain prefixes, primitive tags, big-endian framing and schema sorting are already approved. This proposal only fills the exact composition gap; it does not alter those constants.
+
+Proposed byte layout after the existing domain prefix:
+1. Format version byte: `0x01` (explicitly redundant with the prefix's v1 marker, to make payload decoding/versioning self-contained).
+2. Type package path: UTF-8, framed with u32 BE byte length.
+3. Concrete type name: UTF-8, framed with u32 BE byte length (separate from package path).
+4. Schema field count: u32 BE; each field name UTF-8 framed with u32 BE length, sorted bytewise by UTF-8 bytes.
+5. Identity field name: UTF-8 framed with u32 BE length.
+6. Identity value: existing permanent primitive tag followed by canonical payload bytes. Nullable nil uses Null tag only. Named primitive types use underlying primitive tag. The identity field must be included in the exposed schema; the value must match its declared field type.
+
+Edge cases to explicitly decide/test: identity nil-pointer validity; float negative-zero distinction (raw IEEE currently implies -0 and +0 distinct); string byte-length vs rune count; invalid UTF-8 (Go strings may contain arbitrary bytes, so should reject invalid UTF-8 or define byte-preserving semantics); package/type names for aliases and generic instantiated types; overflow/framing limits.
+
+Suggested golden-vector suite: one vector per permanent primitive tag, nil and non-nil nullable values, named primitives, type/schema variation, Event-vs-Channel domain separation, stable ID when non-identity values change, and sensitivity to identity value/type/schema changes. Keep this as a proposal pending user approval.

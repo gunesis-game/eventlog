@@ -102,3 +102,7 @@ User approved the public payload simplification: consumers receive only `T Event
 ## Notification contract alignment checkpoint (2026-11-24)
 - Updated active requirements and architecture: consumer-defined Channel types implement the notification method required by the public Channel interface; no public helper struct/embedding. Signature remains TBD.
 - API shape alignment only; buffering/backpressure, dispatch, persistence/recovery, retry and shutdown details remain Define-open.
+
+
+## Next Define topic — canonical identity byte layout proposal
+A detailed framing proposal was appended to PLAN (not approved). Existing UUID constants and primitive tags are unchanged. Review the proposed payload composition and edge cases (nil identity, -0, UTF-8, type naming, framing overflow) before promoting to requirements/architecture. No implementation work.
