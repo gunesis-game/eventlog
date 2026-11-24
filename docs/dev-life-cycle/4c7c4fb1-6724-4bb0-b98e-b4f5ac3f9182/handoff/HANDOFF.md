@@ -263,7 +263,7 @@ This is the authoritative decision ledger for Cycle 1. Every material user-appro
 - Cycle 1 resumed at Define under the existing cycle ID and execution order. Lock claim was published and fetched back at commit `8a489bf4e842f758bdf79ff6772ef16b068a6ca8`; registry resumed at commit `f2bde95cf5506a379a5ee8a9efacdbabe2248076`.
 - Governance process deviation: the initial discovery call fetched files in parallel before reading the execution lock first, contrary to the mandatory read-order rule. The lock was then read and found released before the claim. No conflicting active owner was observed. Future sessions must read the lock as the first repository operation.
 - D-001 through D-005 are recorded in canonical requirements/architecture documents with verified revisions; D-006 remains proposed.
-- Plan reconciled and fetched back at `3ab3f6aeecbc70732232bb884ff87c4e70086b2c`.
+- Plan reconciled and fetched back at `dd2f671d95b11f99b9d0eca2aa64b2a46fce1fc1`.
 - Active requirements reconciled and fetched back at `b580b7c083dea60be61910d402f71d9d969fe590`; active architecture reconciled and fetched back at `5e3dd94b988454a31068f75f5b163ec288909e67`.
 - Eventlog steering, lifecycle README, handoff template, validator and CI path filters now adopt the template v1.1.0 approval-to-artifact gate. The validator rejects persisted Approved decisions and requires Recorded decisions to identify an existing canonical artifact plus a commit hash.
 - No implementation, build or Go tests were started.
@@ -283,3 +283,14 @@ This is the authoritative decision ledger for Cycle 1. Every material user-appro
 
 
 Historical checkpoint statements below that describe `TEvent` as the common interface, use `func(chan TEvent) TChannel`, omit `Errors()`, or state that Cycle 1 is blocked are superseded by the current approved baseline and decision register above. They are retained only as provenance.
+
+
+## Pause checkpoint — 2026-11-24T20:06:00+02:00
+
+- Current approved API, notification/error contract and deferred decoder-registration direction are recorded in active requirements and architecture; decision register D-001 through D-005 points to verified canonical revisions. D-006 (decoder never registers: timeout/terminal policy) remains Proposed.
+- Reconciled plan baseline and explicitly marked old generic/API/blocked-state statements as superseded. Plan revision: `dd2f671d95b11f99b9d0eca2aa64b2a46fce1fc1`.
+- Propagated template v1.1.0 approval-to-artifact governance to eventlog `steering.md`, lifecycle README, handoff template, validator, and workflow path filters.
+- CI passed on `d7c5f766965a68901f0a1a98e693ff62814a05ff` (run 45456358070). This validates the registry, lock, and decision-register format; it does not execute Go tests or verify implementation behavior.
+- The initial read-order deviation was disclosed and retained above. No implementation, build, or Go tests were started.
+- **Next action:** complete a line-by-line audit for remaining contradictory historical statements and ensure all approved decisions are recorded; then continue Define with D-006 only after confirming the persisted state.
+- This session is pausing Cycle 1 at Define. The registry will be set to paused and the execution lock released before stopping.
