@@ -85,7 +85,7 @@ from replay into live tailing. It is not tied to an event-sourcing framework or 
 ### Change detection and notifications
 - eventlog detects changes to selected Event and Channel fields on a managed cadence. Consumer-owned
   concurrent mutations still require consumer synchronization.
-- Consumer-defined Channel types expose the receive-only notification accessor `Notifications() <-chan TEvent`. eventlog delivers concrete Event values as immutable snapshots after successful persistence. No `Notify(event TEvent) error` callback/sink method is part of the Channel interface. Channel construction and eventlog's internal send-side ownership remain to be resolved without changing this accessor contract.
+- Consumer-defined Channel types expose the receive-only notification accessor `Notifications() <-chan TEvent`. eventlog delivers concrete Event values as immutable snapshots after successful persistence. No `Notify(event TEvent) error` callback/sink method is part of the Channel interface. `PrepareLog` requires a typed factory `func(chan TEvent) TChannel`, supplied by the consumer and compile-time checked at the call site; eventlog creates and owns the writable channel and passes it to that constructor. The consumer Channel stores/exposes only its receive-only view.
 - Notifications are channel-scoped, ordered, and lossless across buffer pressure or recovery. Slow
   consumers must not stall persistence. Pending deliveries are recovered and delivered before newer ones.
 - Shutdown drains pending notifications before closing the consumer channel; lifecycle failure is reported.
