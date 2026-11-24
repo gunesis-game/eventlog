@@ -251,3 +251,12 @@ Required golden-vector suite: one vector per permanent primitive tag, nil and no
 - **Framing limits:** Enforce uint32 framing limits and a documented practical maximum before allocation; define the exact cap with benchmarks.
 
 Do not re-propose nil or primitive identity values. Add UUID-focused golden tests and metadata/type/framing tests.
+
+
+## Documentation ownership review checkpoint — 2026-11-24
+- Corrected `requirements.md` to focus on product behavior, observable guarantees, constraints and acceptance expectations. Implementation/storage mechanisms were removed from its body as prescriptions; technical open questions now refer to architecture and Cycle 1.
+- Clarified the owner boundary in `architecture.md`, `coding-standards.md`, and `steering.md`: architecture owns approved technical design; coding standards own implementation conventions; steering gives general documentation governance; plans/handoffs are temporary checkpoints.
+- Preserved technical details in architecture rather than treating this as a size-reduction task.
+- Reconciled outdated UUID-only identity encoding and notification accessor language in architecture with current approved decisions.
+- No implementation or Go build/tests were started. Connector-only access means local branch/working-tree checks and schema-validator execution were unavailable.
+- Next: fetch back all updated documents, check cross-document contradictions, and continue the remaining Define work. No Define exit or implementation authorization is implied.
