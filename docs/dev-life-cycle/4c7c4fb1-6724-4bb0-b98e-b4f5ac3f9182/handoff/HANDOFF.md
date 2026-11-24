@@ -340,3 +340,23 @@ Generic arguments select consumer Event and Channel types only. `context.Context
 ### Resume instructions
 
 The next session must re-fetch shared `main` and verify `docs/dev-life-cycle/execution-lock.json` is still released. It must then claim Cycle 1 with a lock-only commit before editing project documents. Continue from the polling and Fields decisions above. Do not start implementation until Define is complete and the user explicitly approves implementation.
+
+
+## Latest session checkpoint — polling cadence and scheduler approved (2026-11-24)
+
+- User agreed to the proposed **100 ms default polling interval**.
+- Use one managed polling scheduler owned by the internal Log/change manager to inspect all selected event and channel fields; do not create one goroutine per field.
+- The interval may be adjusted internally for implementation and focused tests. Do not add a public polling configuration option or operational API.
+- The scheduler compares selected-field snapshots and sends detected changes through the internal persistence path.
+- This approval does not make unsynchronized concurrent writes to ordinary consumer-owned Go struct fields race-safe.
+- Remaining Define decisions: caller synchronization/snapshot consistency, event-field versus channel-field change semantics, scheduler shutdown/retry, and internal persistence-error handling.
+- Cycle 1 remains in-progress, phase define. The execution lock is active under ChatGPT-GPT-6. No implementation, build, or Go tests have started.
+
+### Next Define tasks
+
+1. Define caller synchronization and snapshot consistency while polling consumer-owned values; explicitly prohibit claims that polling makes data races safe.
+2. Define event-field changes versus channel-field changes: occurrence creation, channel identity/association, ordering, and persistence semantics.
+3. Specify scheduler shutdown/retry and how persistence errors are retained or surfaced internally without expanding the public API.
+4. Finalize initialization, cancellation, reader/resource, terminal error, benchmark, and acceptance criteria.
+5. Reconcile requirements, architecture, plan, and handoff; remove stale active contradictions while retaining historical decisions only when clearly marked superseded.
+6. Complete Define consistency review and obtain explicit user approval before implementation.
