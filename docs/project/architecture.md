@@ -15,7 +15,7 @@ supports concurrent goroutine use but does not coordinate multiple processes or 
 Consumer Event/Channel domain semantics remain outside the library; the consumer explicitly selects
 persisted fields.
 
-The public preparation entry point is `PrepareLog[TEvent, TChannel]`. `TEvent` is a concrete Event type constrained by the common `Event` interface; `TChannel` is a concrete Channel type constrained by `Channel`. The required factory is `func(chan Event) TChannel`, so the single Channel notification stream can carry heterogeneous concrete Event values. The Channel interface exposes `Notifications() <-chan Event` and `Errors() <-chan error`. These approved contracts must not be expanded or changed without explicit user approval.
+The public preparation entry point is `PrepareLog[TEvent, TChannel]`. `TEvent` is a concrete Event type constrained by the common `Event` interface; `TChannel` is a concrete Channel type constrained by `Channel`. Both generic type arguments must be pointer types (for example, `*OrderCreated` and `*OrdersChannel`). The required factory is `func(chan Event) TChannel`, so the single Channel notification stream can carry heterogeneous concrete Event values. The Channel interface exposes `Notifications() <-chan Event` and `Errors() <-chan error`. These approved contracts must not be expanded or changed without explicit user approval.
 Consumers receive values, not a Log handle; internal Log owns append/read/next, persistence, recovery,
 change manager, synchronization and lifecycle. No public Log handle or
 Append/Read/Next/Close/Flush/Compact API is approved.
@@ -34,7 +34,7 @@ configuration is not inferred from Context or environment.
 
 - **Public API:** The only approved public entry point is package-level generic `PrepareLog[TEvent,
   TChannel](ctx, newChannel)`, returning `(TEvent, TChannel, error)`. `TEvent` is a concrete type constrained
-  by `Event`; `TChannel` is a concrete type constrained by `Channel`; `newChannel` is the required
+  by `Event` and must be a pointer type; `TChannel` is a concrete type constrained by `Channel` and must be a pointer type; `newChannel` is the required
   `func(chan Event) TChannel` factory. The Channel interface exposes `Notifications() <-chan Event` and
   `Errors() <-chan error`; the notification stream carries heterogeneous concrete Event values.
   Consumers receive event and channel values, not a Log handle. The package owns the internal `Log`
@@ -302,7 +302,7 @@ memory use and platform parity precede numeric performance targets.
 
 ## Unresolved architectural details
 
-- Field selector signatures, pointer/value reconstruction convention and occurrence shape; the generic constraints, factory type and notification/error accessors are approved.
+- Field selector signatures, field-value reconstruction convention and occurrence shape; the generic constraints, pointer-only `TEvent`/`TChannel` instantiations, factory type and notification/error accessors are approved. The exact mechanism for enforcing pointer-only type arguments remains open.
 - UUID Go type/representation, canonical byte order and identity-tag assignment; metadata UTF-8 policy;
   canonical naming of aliases/generic instantiated types; and maximum framing sizes. The field-schema
   framing layout is approved, but these validation details remain open.
