@@ -874,3 +874,7 @@ The storage-directory option accepts a non-empty path, including a relative path
 ## Define decision — Config option application and validation (2026-11-24)
 
 The public configuration shape is `Config(options ...Option) error`, with exported option constructors and an unexported option application method so consumers cannot implement arbitrary mutations of internal configuration. `WithStorageDirectory(path)` is the required storage setting. Config accepts multiple distinct options, rejects nil options, rejects duplicate settings rather than applying last-option-wins, and fails if the storage-directory option is absent. Validation is completed before immutable configuration is published; a failed attempt leaves the runtime unconfigured and retryable.
+
+## Define decision — storage directory validation (approved 2026-11-24)
+
+`Config` rejects empty or whitespace-only storage paths. It accepts relative paths, resolves them to an absolute path at configuration time, lexically cleans the absolute result, and freezes that cleaned absolute path in immutable runtime configuration. Cleaning is equivalent to `filepath.Clean`; it removes redundant path elements but does not resolve symlinks. Config does not require the directory to exist and does not create it. During `PrepareLog`, initialization creates the directory when absent. If the target exists but is not a directory, or creation fails, initialization returns an error.
