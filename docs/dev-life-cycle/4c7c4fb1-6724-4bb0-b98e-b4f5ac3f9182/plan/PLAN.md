@@ -406,3 +406,22 @@ A successful concrete Event decoder registration remains available for the lifet
 ## Approved D-016 — conflicting Event decoder registrations
 
 Decoder registration is keyed by concrete Event Go type plus exposed field-name schema. Re-registering that type with the same schema reuses the existing registration. Re-registering it with a different schema returns a typed schema-conflict error and cannot replace/mutate the existing registration or affect Readers already using it. No consumer-facing API change.
+
+
+## Approved D-017 through D-022 — field selection and internal mutation pipeline
+
+These approvals are part of the active Define baseline and are recorded in `docs/project/requirements.md` and `docs/project/architecture.md`:
+
+- **D-017 — Typed field selectors:** `FieldOf` and `FieldOfNullable` use typed selector callbacks to select direct fields. Named primitive types are supported; nullable pointer state preserves nil separately from a pointer to zero. No consumer API change.
+- **D-018 — Reconstruction and snapshot isolation:** Historical Event occurrences are reconstructed into fresh concrete Event pointers. Notification snapshots are immutable and isolated from the live prepared Event, persistence state and other notifications. Historical Channel snapshots are separate from the live Channel pointer.
+- **D-019 — Immutable Event identity:** The designated identity of a prepared Event instance cannot change. A detected mutation is rejected and reported through the existing Channel error stream; it cannot create a new logical Event or alter history.
+- **D-020 — Internal mutation queue:** Detected selected-field changes become immutable snapshots in an eventlog-owned internal queue. Persistence workers dequeue and persist them. Notifications are eligible only after commit. No public queue, callback, lock or method is introduced.
+- **D-021 — Per-Event FIFO and duplicate suppression:** Preserve FIFO enqueue order for each logical Event and never silently drop or replace an enqueued snapshot. Suppress only consecutive unchanged observed states; A→B→A remains distinct when observed. Global sequence numbers are assigned centrally at commit.
+- **D-022 — Bounded queue and backpressure:** The internal queue is bounded. Capacity pressure pauses/delays internal monitoring rather than blocking consumer field assignments. Already-enqueued snapshots remain retained; intermediate mutations while monitoring is paused may be missed.
+
+All six decisions preserve the existing consumer-facing API, including `PrepareLog[TEvent, TChannel]`, `Fields() Fields`, `Notifications() <-chan Event`, and `Errors() <-chan error`.
+
+## Governance adoption — lock-free template baseline 1.3.0
+
+Eventlog adopts the lock-free governance baseline from `gunesis-game/project-steering-template` 1.3.0. There is no repository-wide execution lock, worker claim, exclusive ownership or single-worker restriction. Multiple contributors and cycles may proceed concurrently; the registry and handoff record progress, while contributors coordinate through ordinary Git collaboration, review and conflict resolution. The existing Cycle 1 ID, sequence, execution order and Define phase are preserved.
+
