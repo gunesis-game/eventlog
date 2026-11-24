@@ -35,9 +35,17 @@ Authoritative durable decisions are consolidated in `docs/project/requirements.m
 1. Field selector signatures, pointer/value convention and occurrence result shape; the `PrepareLog` generic constraints, factory type and Channel notification/error accessors are approved.
 2. Prepared-value association, internal lifecycle, cancellation, reader/resource cleanup and terminal errors.
 3. Identity-field mutation response and precise Channel change semantics.
-4. Decoder absence/timeout policy, backlog durability/replay boundary, recoverable retry termination, and shutdown drain failure.
+4. Backlog durability/replay boundary, recoverable retry termination, and shutdown drain failure.
 5. Snapshot consistency and consumer synchronization requirements.
 6. Benchmark scenarios, memory/performance targets and complete acceptance matrix.
+
+### Approved D-006 — missing required decoder (2026-11-24)
+
+When committed Channel history requires a concrete Event decoder that has not yet registered, the
+Channel Reader waits asynchronously and indefinitely. There is no arbitrary timeout, and decoder
+absence alone does not produce a fatal Channel error. Replay proceeds when the missing decoder registers.
+Unknown or undecodable persisted Event types still fail closed; they are not silently skipped. This
+decision does not add or change any consumer-facing API.
 
 ## Tasks and exit criteria
 - [x] Purpose, ownership, scope, constraints and platform requirements.
@@ -47,7 +55,7 @@ Authoritative durable decisions are consolidated in `docs/project/requirements.m
 - [x] Segments, manifest, index and compaction.
 - [x] Configuration contract and errors.
 - [x] Poll cadence, Event identity/occurrence distinction, notification direction.
-- [ ] Finalize remaining lifecycle, decoder-absence and error details.
+- [ ] Finalize remaining lifecycle and notification error details.
 - [ ] Complete acceptance matrix and benchmark plan.
 - [ ] Reconcile current documentation and obtain explicit approval to exit Define.
 
