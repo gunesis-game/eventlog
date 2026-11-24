@@ -68,9 +68,9 @@ def validate_decision_register(path):
             try:
                 subprocess.run(["git", "cat-file", "-e", f"{revision}^{{commit}}"], cwd=ROOT, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                 subprocess.run(["git", "merge-base", "--is-ancestor", revision, "HEAD"], cwd=ROOT, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                subprocess.run(["git", "cat-file", "-e", f"{revision}:{artifact}"], cwd=ROOT, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                subprocess.run(["git", "cat-file", "-e", f"{revision}:{artifact_path.as_posix()}"], cwd=ROOT, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             except (subprocess.CalledProcessError, FileNotFoundError):
-                fail(f"{path.relative_to(ROOT)}: {decision_id} revision {revision} is not a verified ancestor containing {artifact}")
+                fail(f"{path.relative_to(ROOT)}: {decision_id} revision {revision} is not a verified ancestor containing {artifact_path.as_posix()}")
             if not (ROOT / artifact_path).is_file():
                 fail(f"{path.relative_to(ROOT)}: {decision_id} references missing canonical artifact {artifact}")
 def validate_registry(data):
