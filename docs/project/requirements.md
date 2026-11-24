@@ -17,7 +17,7 @@ eventlog is a lightweight, embedded, disk-backed append-only event log for gener
 - Only explicitly returned fields are persisted. The library must not inspect or persist the consumer's full struct, and no automatic redaction layer is required.
 - Every event occurrence is associated with exactly one channel.
 - Channel identity is based on its consumer type and exposed fields. Channels are created implicitly and atomically with the first successful append that uses them. A channel without an event must not be persisted; no standalone channel-creation API is provided.
-- Logical event identity is global and based on event type and exposed fields, not channel. Repeated appends create distinct occurrences and retain associations/history; the latest occurrence determines the event's current channel/HEAD and ordering.
+- Logical event identity is global and independent of channel. The initial identity is derived from the event type and initial exposed-field snapshot; once assigned to a prepared Event value, its logical event ID remains stable as exposed fields change. Each detected field change creates a new immutable occurrence under that same ID. Repeated appends/updates retain occurrence history and channel associations; the latest occurrence determines HEAD, current channel, and ordering.
 
 ### Fields and validation
 - Fields are heterogeneous, typed primitive values.
@@ -225,3 +225,8 @@ Internal change detection uses a 100 ms polling interval by default. One managed
 ## Define decision — polled event-field changes preserve occurrence history (approved 2026-11-24)
 
 When the internal polling manager detects a change to selected Event fields, it must persist a new event occurrence through the normal internal persistence path. It must never mutate or overwrite the prior persisted occurrence; earlier occurrences remain available in history. This approval establishes occurrence creation and history retention only. It does not yet settle whether a changed field set retains the prior logical event ID or derives a new ID under the existing event-identity rule (event type plus exposed fields), nor the exact HEAD/index transition. Those identity and ordering details must be reconciled before implementation.
+
+
+## Define decision — logical Event ID remains stable across field changes (approved 2026-11-24)
+
+A logical Event receives its ID from its event type and initial exposed-field snapshot. Once assigned to the prepared consumer Event value, that ID is stable for the value's lifetime and is persisted with every subsequent occurrence. Changes to exposed fields create new immutable physical occurrences under that same ID; they do not recalculate or replace that ID. The newest occurrence becomes the logical Event's HEAD and determines its current channel and ordering. Channel identity remains independent. This supersedes the earlier rule that derived the logical Event ID from the current exposed-field values on every occurrence. The initial-ID assignment and association must be managed internally; no new public operational API is introduced.
