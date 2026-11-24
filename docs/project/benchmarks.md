@@ -150,16 +150,16 @@ Use consumer-defined concrete Event and Channel types. Include the complete publ
 
 ## Benchmark execution strategy
 
-The approved execution strategy is designed around the resource limits of free GitHub-hosted runners for a public repository. It avoids requiring self-hosted runners, paid performance hardware, scheduled benchmark jobs, or expensive benchmark execution on every pull request.
+The approved execution strategy is designed around the resource limits of free GitHub-hosted runners for a public repository. It avoids requiring self-hosted runners, paid performance hardware, scheduled benchmark jobs, or expensive benchmark execution on every push to `main`.
 
 There are two execution paths:
 
-1. **Pull-request smoke suite:** Run a small, fast, representative subset on Linux for early detection of obvious performance regressions.
+1. **Main-branch smoke suite:** Run a small, fast, representative subset on Linux for early detection of obvious performance regressions.
 2. **Manual benchmark runs:** Run the full approved benchmark matrix or selected extended workloads only when explicitly requested. This includes Windows coverage and resource-intensive investigations such as very large histories, sustained-load tests, high concurrency, slow-consumer/backpressure stress, and interruption/recovery workloads.
 
 There are no scheduled benchmark runs.
 
-### Approved pull-request smoke suite
+### Approved main-branch smoke suite
 
 The PR smoke suite contains one representative benchmark scenario from each of the eight layers:
 
@@ -183,9 +183,9 @@ Resource constraints for this suite:
 - No strict timing-based pass/fail thresholds initially. The smoke suite is an early-warning signal, not a statistically strong performance gate.
 - Correctness tests remain mandatory and independent of benchmark results; benchmark success cannot substitute for acceptance tests.
 
-The full benchmark matrix is not required on every pull request. Linux and Windows remain first-class correctness and benchmark platforms, but Windows benchmark runs are manual. Keep platform results separate and do not treat their absolute timings as directly comparable without accounting for runner and environment differences.
+The full benchmark matrix is not required on every push to `main`. Linux and Windows remain first-class correctness and benchmark platforms, but Windows benchmark runs are manual. Keep platform results separate and do not treat their absolute timings as directly comparable without accounting for runner and environment differences.
 
-Performance benchmark results are informational and diagnostic. There are no hard performance thresholds in CI, and performance measurements must not fail a pull request based on timing, throughput, or resource-use values. Correctness and acceptance tests remain independently enforceable and may fail CI for correctness defects. The exact manual workload sizes, repetition counts, and any future performance regression gates remain to be established against actual free-runner limits and observed measurement noise. Benchmark execution must remain bounded and must not consume disproportionate CI capacity.
+Performance benchmark results are informational and diagnostic. There are no hard performance thresholds in CI, and performance measurements must not fail a CI run based on timing, throughput, or resource-use values. Correctness and acceptance tests remain independently enforceable and may fail CI for correctness defects. The exact manual workload sizes, repetition counts, and any future performance regression gates remain to be established against actual free-runner limits and observed measurement noise. Benchmark execution must remain bounded and must not consume disproportionate CI capacity.
 
 ## GitHub Actions run-history retention
 
