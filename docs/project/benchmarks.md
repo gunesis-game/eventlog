@@ -152,18 +152,40 @@ Use consumer-defined concrete Event and Channel types. Include the complete publ
 
 The approved execution strategy is designed around the resource limits of free GitHub-hosted runners for a public repository. It avoids requiring self-hosted runners, paid performance hardware, scheduled benchmark jobs, or expensive benchmark execution on every pull request.
 
-Two execution paths are used:
+There are two execution paths:
 
-1. **Pull-request smoke suite:** Run a small, fast, representative subset on Linux for early detection of obvious performance regressions. This is not a statistically strong performance gate.
+1. **Pull-request smoke suite:** Run a small, fast, representative subset on Linux for early detection of obvious performance regressions.
 2. **Manual benchmark runs:** Run the full approved benchmark matrix or selected extended workloads only when explicitly requested. This includes Windows coverage and resource-intensive investigations such as very large histories, sustained-load tests, high concurrency, slow-consumer/backpressure stress, and interruption/recovery workloads.
 
 There are no scheduled benchmark runs.
 
-The pull-request suite should cover representative operations across all eight benchmark layers: storage reads/writes; record encoding/decoding and transaction commit; metadata loading; Event append/retrieval; Reader replay; successful notification; runtime initialization/preparation; and end-to-end append/receive.
+### Approved pull-request smoke suite
 
-Linux and Windows remain first-class correctness and benchmark platforms, but the full matrix is not required on every pull request. Keep platform results separate and do not treat their absolute timings as directly comparable without accounting for runner and environment differences.
+The PR smoke suite contains one representative benchmark scenario from each of the eight layers:
 
-The exact manual workload sizes, repetition counts, and any performance regression gates remain to be established against actual free-runner limits and observed measurement noise. Benchmark execution must remain bounded and must not consume disproportionate CI capacity.
+| Layer | Scenario | Workload |
+|---|---|---|
+| 1. Disk and storage | B-D03 | Small append operations |
+| 2. Persistence format and transactions | B-T01 | Commit a single-record transaction |
+| 3. Metadata and recovery | B-M01 | Load valid metadata |
+| 4. Core event-log behavior | B-L01 | Append individual Events |
+| 5. Channel and Reader | B-R01 | Initial replay of committed history |
+| 6. Notification delivery | B-N01 | Successful notification delivery |
+| 7. Runtime lifecycle | B-RT03 | Concurrent PrepareLog calls |
+| 8. Public API and end-to-end | B-API03 | Append and receive an Event |
+
+Resource constraints for this suite:
+
+- Linux only.
+- One benchmark execution per scenario initially; no repeated statistical sampling in the PR path.
+- Small, fixed, bounded datasets and short benchmark durations.
+- No large-history, sustained-load, or high-concurrency stress workloads.
+- No strict timing-based pass/fail thresholds initially. The smoke suite is an early-warning signal, not a statistically strong performance gate.
+- Correctness tests remain mandatory and independent of benchmark results; benchmark success cannot substitute for acceptance tests.
+
+The full benchmark matrix is not required on every pull request. Linux and Windows remain first-class correctness and benchmark platforms, but Windows benchmark runs are manual. Keep platform results separate and do not treat their absolute timings as directly comparable without accounting for runner and environment differences.
+
+The exact manual workload sizes, repetition counts, and any future performance regression gates remain to be established against actual free-runner limits and observed measurement noise. Benchmark execution must remain bounded and must not consume disproportionate CI capacity.
 
 ## Remaining Define work
 
