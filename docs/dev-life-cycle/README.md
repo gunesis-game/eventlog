@@ -311,3 +311,22 @@ The handoff's last-progress checkpoint timestamp must reflect the actual latest 
 ### Recovery of an abandoned active lock
 
 If the lock remains active after the prior worker has terminated, do not infer termination from age or silence. Obtain explicit confirmation from the user or responsible repository owner that the previous worker is no longer working. Then preserve the cycle ID, sequence, execution order, phase, and history; record the confirmation and recovery rationale in the handoff; set the cycle to `paused` or `blocked` as appropriate; release and publish the old lock; fetch and verify both lock and registry; only then may a new worker claim the cycle. If the prior handoff is unavailable, record that limitation and the evidence used; never fabricate a checkpoint.
+
+
+## Mandatory approval-to-artifact gate (template v1.1.0)
+
+The current standard-cycle handoff is the authoritative decision ledger. Record every material user-approved requirement, architecture, interface, or implementation decision there; do not create a parallel tracker.
+
+Decision states:
+- **Proposed:** user approval is outstanding.
+- **Approved:** user explicitly approved it. This is transient only and must not remain in a persisted checkpoint.
+- **Recorded:** the canonical artifact has been updated, reviewed for consistency, published to the shared repository, fetched back, and verified at the stated revision. The handoff row names the canonical path and verified commit.
+
+After approval, perform these steps in the same work unit:
+1. Identify the canonical artifact using the document-ownership rules in `steering.md`.
+2. Update it with the approved decision and rationale. Distinguish intended design from implemented behavior.
+3. Review the exact diff for contradictions, compatibility, public API scope and accidental changes.
+4. Publish the update, fetch it back from the shared branch, and verify the exact content/revision.
+5. Update and publish the handoff decision register as `Recorded`, naming the canonical artifact and verified revision; fetch back and verify the handoff too.
+
+Do not ask the next independent design question, begin dependent implementation, or advance phase until the decision is Recorded. If any step fails, stop. Persist the decision as Approved in the working checkpoint, identify the exact failure and next action, and do not claim it is recorded. Chat acknowledgement, local edits, an unpushed commit, or a write response without fetch-back verification are not recording evidence.
