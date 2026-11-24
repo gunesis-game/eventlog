@@ -6,7 +6,7 @@
 - **Registry:** blocked at Define
 - **Execution lock:** released at 2026-11-24T17:17:13Z after blocked checkpoint
 - **Implementation:** none; no build or Go tests started.
-- **Latest checkpoint:** see the current blocked checkpoint at the end of this handoff; earlier checkpoints and history remain preserved.
+- **Latest checkpoint:** 2026-11-24T19:19:00+02:00 — session handoff confirmed; Cycle 1 remains blocked at Define and the execution lock is released for the next session. Earlier checkpoints and history remain preserved.
 
 ## Correction after user review
 The previous cleanup was wrong: it optimized for file size and stripped substantive requirements/design from active project docs, leaving the archive as the place to find them. The user explicitly said this was not simply moving content and that architecture must retain the complete design. This pass restores and curates the active docs. Active specifications must remain complete and topic-oriented; archives are provenance only.
@@ -224,3 +224,15 @@ part of the API. The remaining issue is internal writable-channel ownership and 
 - **Completed:** governance checkpoint rules propagated; heterogeneous `Notifications() <-chan Event` and common Event semantics recorded; recovery-before-Channel-resolution, Channel convergence, one Reader progression, committed ordering, backpressure, failure recovery, and shutdown rules reconciled into active docs; replay-barrier proposal recorded but not promoted.
 - **Open question:** is the existing Event type/codec registry process-wide and loaded before the first `PrepareLog`, with decoders available for every persisted concrete Event type during recovery?
 - **Resume:** after the registry scope is confirmed, resume this same Cycle 1 at Define. Do not create a new cycle or change the consumer-facing API.
+
+## Session handoff — 2026-11-24T19:19:00+02:00
+
+- **User request:** carry the project state forward and unlock it so a new session can claim it.
+- **Cycle:** preserve Cycle 1 (`4c7c4fb1-6724-4bb0-b98e-b4f5ac3f9182`), sequence 1 / execution order 1, at Define. It remains `blocked` on the codec-registry clarification; do not create a new cycle or mark this cycle complete.
+- **Execution lock:** verified `docs/dev-life-cycle/execution-lock.json` is `released` with null cycle/worker ownership. It remains released; the next session may claim through the normal governance process.
+- **Resume reading order:** `steering.md`; `docs/dev-life-cycle/README.md`; `docs/dev-life-cycle/cycle-index.json`; `docs/dev-life-cycle/execution-lock.json`; this handoff; `plan/PLAN.md`; then active `docs/project/requirements.md` and `docs/project/architecture.md`. Read the history files only for provenance where needed.
+- **Current approved API:** `PrepareLog[TEvent, TChannel](ctx, newChannel)` with `TEvent` as the common `Event` interface and required `func(chan TEvent) TChannel` factory; consumer Channel exposes `Notifications() <-chan Event`. A single Channel stream can carry heterogeneous concrete Event values. No `Notify` method or public lifecycle/Ack API.
+- **Design checkpoint:** recover and validate the existing system of record before resolving/creating a Channel; event-specific preparations for one logical Channel converge on one Channel runtime and one Reader progression; replay/live handoff is gap-free and ordered by committed sequence; unknown persisted event types fail closed; eventlog owns delivery and shutdown.
+- **Blocking question:** confirm whether the existing Event type/codec registry is process-wide and loaded before the first `PrepareLog`, with decoders available for all concrete Event types encountered during recovery. The registry-driven replay barrier in the plan is a proposal only because no Go/codec source exists to verify it.
+- **Implementation status:** no Go source, `go.mod`, build, or Go tests. Do not implement until Define decisions are reconciled and the user explicitly approves Define exit.
+- **Next session:** claim the released lock for this same Cycle 1 using the prescribed governance flow, resolve the codec-registry/barrier question, then continue the remaining API/lifecycle, identity-mutation, notification error/retry/backlog, acceptance-matrix and benchmark decisions.
