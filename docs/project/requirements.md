@@ -62,16 +62,17 @@ eventlog is a lightweight, embedded, disk-backed append-only event log for gener
 - No distributed coordination, multi-process writers, broker/database functionality, custom codecs, or domain-specific behavior.
 - Correctness, recovery, predictable memory use, and cross-platform parity are prioritized. Numeric performance targets await benchmarks.
 
-## Define details still open
-- Final Go-valid public interface/selector signatures, generic constraints, pointer/value conventions, and occurrence representation.
-- Internal prepared-value association, lifecycle, cancellation, reader/resource close, and terminal-error semantics.
-- Identity-field mutation transition details, snapshot consistency, and persistence/index effects.
-- Notification accessor/message/error API, backlog durability/retention/replay boundary, retry termination, ordering, and drain-failure behavior.
-- Benchmarks, performance/memory acceptance targets, and detailed acceptance matrix.
-
 ## Approved runtime configuration contract (integrated decisions)
 
 Configuration is mandatory, separate from generic type selection and Context. The public shape is `Config(options ...Option) error`, requiring `WithStorageDirectory(path)`. Config validates the complete option set before publishing immutable runtime state: nil options, duplicate settings, missing storage-directory option, empty/whitespace path, and invalid values fail. Failed validation is retryable. Successful Config is one-time; repeated or late calls match `ErrConfigAlreadySet` and cannot replace settings. `ErrConfigNotInitialized` is exported and PrepareLog before successful Config matches it. Relative paths are resolved against the working directory, made absolute and lexically cleaned at Config time; symlinks are not resolved. Config does not create or require the storage directory; PrepareLog creates it and errors if an existing target is not a directory or creation fails. Config and first initialization are coordinated as a state machine: concurrent PrepareLog callers wait on one initialization attempt and each waiter honors its Context; failure permits retry with frozen settings. Context is for cancellation/deadline only; no configuration is inferred from it or environment variables.
+
+## Canonical identity encoding and permanent type tags
+
+Identity encoding is separate from JSON and architecture-independent. It begins with a fixed encoding-format version and the identity-domain prefix. Type identity is UTF-8 package path plus concrete struct type name. Inputs include an explicit field count and fields sorted bytewise by UTF-8 name. Every variable-length component and count uses unsigned 32-bit big-endian framing; a field encodes length-prefixed name, one-byte primitive tag, and length-prefixed value. Oversized components fail before encoding. Event and Channel use separate UUID v5 domains.
+
+Permanent v1 one-byte primitive tags: Null `0x00` (no payload); String `0x01` (UTF-8); Bool `0x02` (one byte 0/1); int `0x10` (8-byte signed BE); int8 `0x11` (1-byte signed); int16 `0x12` (2-byte signed BE); int32 `0x13` (4-byte signed BE); int64 `0x14` (8-byte signed BE); uint `0x20` (8-byte unsigned BE); uint8 `0x21` (1-byte unsigned); uint16 `0x22` (2-byte unsigned BE); uint32 `0x23` (4-byte unsigned BE); uint64 `0x24` (8-byte unsigned BE); float32 `0x30` (4 raw IEEE bytes); float64 `0x31` (8 raw IEEE bytes). Go int/uint identity payloads are fixed 64-bit independent of architecture. Named primitives use underlying tags. Nullable nil uses Null, non-nil uses primitive tag. Unknown tags fail recovery; tag assignments are permanent and reserved ranges remain unused.
+
+UUID v5 namespace is `26612f1d-f648-483a-9cfe-59c18f113891`; Event prefix is UTF-8 `eventlog\\x00event\\x00v1\\x00`, Channel prefix `eventlog\\x00channel\\x00v1\\x00`. Later identity decisions supersede earlier full-initial-field identity proposals: logical identity is type + exposed field-name schema + designated identity field name/value, and remains stable across non-identity changes. Canonical encoding/dedup of physical records is separate from logical identity.
 
 ## Approved change detection and notification contract
 
@@ -90,11 +91,13 @@ The index is derived and generation-bound. It records Event IDs, Channel associa
 Open/recovery order: exclusive ownership; validate manifest and generation; validate segments, schema and sequences; validate commit boundaries/count/checksums; truncate incomplete trailing transaction from transaction start; rebuild/replace index as needed; clean temporary/orphan artifacts only after authoritative sources validate; then open for append and internal readers. Existing directory with missing/corrupt manifest may be recovered only if exactly one complete generation is unambiguous; otherwise fail closed.
 
 Compaction is reader-safe and generation-pinned: build replacement segments/index without altering pinned data; validate and sync; finalize; atomically switch manifest/index; new readers use the new generation while existing readers continue on pinned generation; delete old files only after last pin releases.
-## Canonical identity encoding and permanent type tags
 
-Identity encoding is separate from JSON and architecture-independent. It begins with a fixed encoding-format version and the identity-domain prefix. Type identity is UTF-8 package path plus concrete struct type name. Inputs include an explicit field count and fields sorted bytewise by UTF-8 name. Every variable-length component and count uses unsigned 32-bit big-endian framing; a field encodes length-prefixed name, one-byte primitive tag, and length-prefixed value. Oversized components fail before encoding. Event and Channel use separate UUID v5 domains.
+## Define details still open
 
-Permanent v1 one-byte primitive tags: Null `0x00` (no payload); String `0x01` (UTF-8); Bool `0x02` (one byte 0/1); int `0x10` (8-byte signed BE); int8 `0x11` (1-byte signed); int16 `0x12` (2-byte signed BE); int32 `0x13` (4-byte signed BE); int64 `0x14` (8-byte signed BE); uint `0x20` (8-byte unsigned BE); uint8 `0x21` (1-byte unsigned); uint16 `0x22` (2-byte unsigned BE); uint32 `0x23` (4-byte unsigned BE); uint64 `0x24` (8-byte unsigned BE); float32 `0x30` (4 raw IEEE bytes); float64 `0x31` (8 raw IEEE bytes). Go int/uint identity payloads are fixed 64-bit independent of architecture. Named primitives use underlying tags. Nullable nil uses Null, non-nil uses primitive tag. Unknown tags fail recovery; tag assignments are permanent and reserved ranges remain unused.
-
-UUID v5 namespace is `26612f1d-f648-483a-9cfe-59c18f113891`; Event prefix is UTF-8 `eventlog\\x00event\\x00v1\\x00`, Channel prefix `eventlog\\x00channel\\x00v1\\x00`. Later identity decisions supersede earlier full-initial-field identity proposals: logical identity is type + exposed field-name schema + designated identity field name/value, and remains stable across non-identity changes. Canonical encoding/dedup of physical records is separate from logical identity.
+- Final Go-valid public interface/selector signatures, generic constraints, pointer/value conventions, reconstruction behavior, and occurrence representation.
+- Internal prepared-value association, lifecycle, cancellation, reader/resource close, and terminal-error semantics.
+- Identity-field mutation transition details, snapshot consistency, and persistence/index effects.
+- Notification accessor/message/error API, backlog durability/retention/replay boundary, retry termination, ordering, and drain-failure behavior.
+- Consumer synchronization and snapshot consistency details.
+- Benchmarks, performance/memory acceptance targets, and detailed acceptance test matrix.
 

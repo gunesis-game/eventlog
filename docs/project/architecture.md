@@ -20,64 +20,67 @@ eventlog is an embedded Go library using local filesystem storage. A single proc
 
 ## Record model and identity
 
-The persisted envelope has three kinds: `channel`, `event`, and `commit`. Each record has a `schema_version: 1` and a global sequence number; there is no log header.
+The record envelope supports three kinds: `channel`, `event`, and `commit`. Each record carries `schema_version: 1` and a global sequence number. The envelope is versioned JSON; no log header exists.
 
-- **Channel identity:** concrete Channel type, exposed field-name schema, and consumer-designated identity field name/value, canonically encoded and UUID v5. Non-identity changes retain logical identity but update snapshots; Channel-only changes do not create Event occurrences. New occurrences use latest Channel snapshot; previous associations remain immutable. Identical physical Channel records deduplicate.
-- **Logical Event identity:** global and independent of Channel. Derive UUID v5 from concrete Event type, exposed field-name schema, and consumer-designated identity field name/value, canonically encoded. Non-identity changes retain logical ID but create new immutable occurrences.
-- **Occurrence:** every append or detected selected-field change produces a new immutable physical occurrence associated with one channel. Field changes retain the Event's original logical ID; earlier occurrences remain in history. Latest occurrence defines HEAD/current channel and ordering.
-- **Transaction ID:** sequence of the first transaction record.
-- **Transaction order:** channel record if new, then event occurrence, then commit marker. Existing-channel append writes event then commit.
-- **Sequence accounting:** commit marker consumes a global sequence but is excluded from transaction-record count and checksum.
+- **Channel identity:** concrete Channel type, exposed field-name schema, and designated identity field name/value, canonically encoded and UUID v5. Non-identity changes retain logical identity but update the Channel snapshot. A Channel-only mutation does not create an Event occurrence; the next Event occurrence uses the latest Channel snapshot. Earlier occurrences keep their original Channel association. Identical physical Channel records are deduplicated.
+- **Event identity:** global and independent of Channel. It is based on concrete Go Event type, exposed field-name schema, and designated identity field name/value, canonical encoding and UUID v5. Non-identity data changes keep logical ID and create new physical occurrences.
+- **Occurrence/HEAD:** each append or detected selected Event-field change creates an immutable physical occurrence associated with one Channel. Older occurrences remain in history. Highest-sequence occurrence determines HEAD/current Channel association and ordering. Logical promotion is not a separate record.
+- **Transaction ID:** the global sequence of the first transaction record. Transaction order is Channel record when new, Event occurrence, then Commit; existing-channel transactions contain Event then Commit.
+- **Sequence:** global across records and segments; Commit consumes a sequence but is excluded from transaction record count and checksum.
 
 ## Typed field encoding
 
-Persisted values use explicit type-tagged JSON objects with strict allowed properties. Strings and bools use native JSON values; integers use decimal strings to avoid precision loss; float32 and float64 use lowercase hex of their raw IEEE bit patterns (8 and 16 digits respectively), preserving width and signed zero; null is type-only. Schema validates shapes; Go validates exact integer bounds. Non-finite floats are rejected. Named primitive types persist according to their underlying supported primitive.
+Persisted values use strict type-tagged JSON objects. Strings and bools are native JSON; integers are decimal strings to avoid parser precision loss; float32/float64 are lowercase raw IEEE bit-pattern hex (8/16 digits) preserving width and signed zero; null is type-only. JSON Schema validates representation; Go validates exact integer bounds and non-finite float rejection. Named primitive types use underlying kinds.
 
-Canonical identity encoding is separate from JSON serialization: fields are sorted bytewise UTF-8, encoded with explicit type tags and uint32 big-endian framing, and values retain exact primitive widths/bits. Event and channel identity use distinct UUID v5 domain prefixes.
+Canonical identity encoding is separate from JSON and architecture-independent: fixed encoding-format version, domain prefix, UTF-8 package path and concrete type name, field schema and designated identity input, canonical field-name ordering, explicit primitive tags, exact widths/bits, and uint32 big-endian framing. The namespace/domain and tag protocol are detailed below.
 
 ## Append transaction flow
 
-1. Resolve and validate channel/event fields and stable identities before writing.
-2. Determine whether the channel record is needed.
-3. Assign consecutive global record sequence numbers to transaction records and commit marker.
-4. Serialize channel (when new) and event occurrence as NDJSON records, each newline-terminated.
-5. Compute SHA-256 over the exact serialized transaction-record bytes including newline terminators; exclude commit marker and its newline.
-6. Persist the commit marker last. It contains transaction ID (first transaction-record sequence), transaction-record count (excluding marker), and checksum.
-7. Update the derived index using segment-first persistence and atomic index replacement. Append is recoverably atomic, but not guaranteed power-loss durable until sync.
+1. Resolve selector bindings, Event/Channel field values, schema, designated identity, and validate all fields before writing.
+2. Determine whether Channel record is new/reusable.
+3. Assign consecutive global sequence numbers to transaction records and Commit.
+4. Serialize Channel record (when new) and Event occurrence as exact newline-terminated NDJSON.
+5. Compute SHA-256 over exact transaction record bytes including each newline; exclude Commit bytes and its newline.
+6. Write Commit marker last. It contains transaction ID (first transaction record sequence), transaction-record count (Channel/Event records only), and checksum.
+7. Persist transaction on segment source; atomically update derived index metadata/HEAD/associations. Notify dispatcher only after successful commit.
+
+Validation failure leaves the log unchanged. New Channel and Event are fully atomic: no partial Channel or Event is persisted on invalid fields. Write interruption/crash must not expose partial append; recovery truncates incomplete transaction from its start. Partial Commit is treated as incomplete transaction. Append returns an internal error; no consumer-facing Append API is approved. Recoverable atomicity is distinct from power-loss durability before sync.
 
 ## Open and recovery flow
 
-- A missing log/storage structure is initialized automatically; the initial log is zero bytes and has no header.
-- Validate complete records and schema version. A complete malformed record is corruption; do not skip it.
-- Expose only transactions whose commit marker validates transaction ID, count and checksum.
-- An incomplete trailing transaction or partial commit marker is truncated from transaction start.
-- Treat segments as authoritative. Validate the index and rebuild it from validated committed segment records if absent/inconsistent; atomically replace the rebuilt index.
-- Unsupported schema versions are explicitly rejected.
-- Recovery cleanup of compaction temp artifacts must wait until finalized source segments validate.
+A missing storage structure is initialized automatically during PrepareLog; a new active segment starts as a zero-byte NDJSON file, with no header record. Existing storage is recovered before it becomes available.
+
+- Validate the manifest and selected generation; validate complete records/schema, segment sequence continuity, transaction boundaries, Commit IDs/count/checksums. A complete newline-terminated malformed record, unknown kind/tag, unsupported schema, duplicate/invalid sequence, missing Channel reference, or invalid fields is corruption; never silently skip it.
+- Expose only fully committed transactions. An incomplete trailing transaction or partial Commit marker is truncated from transaction start.
+- Segments are authoritative. Validate the index; if missing, stale, or inconsistent, rebuild from validated committed segment records and atomically replace it. Index never overrides segments.
+- Existing storage with missing/corrupt manifest can be recovered only if exactly one complete generation is unambiguous; otherwise fail closed. Do not choose a generation by filename.
+- Recovery ignores temporary compaction files. Cleanup waits until finalized authoritative source segments validate.
+
+Duplicate reconciliation: identical physical copies at the same sequence are deduplicated. Same sequence with different content is corruption. Channel records with same ID and identical data may deduplicate; conflicting data for one ID is corruption. Same logical Event ID at distinct sequences represents valid history and is retained; highest sequence determines HEAD, latest association and ordering. Compaction preserves original sequences and must not promote older occurrences because duplicate copies.
 
 ## Reader behavior
 
-The unified reader is mandatory channel-scoped: each reader targets exactly one consumer-provided `Channel` value. It starts with committed history, catches concurrent appends while replaying, then switches to waiting for new occurrences without a gap or duplicate. Delivery is ordered by the internal global sequence. Consumers neither provide nor receive storage cursors, sequence numbers, or offsets; those remain library-owned. Context cancellation and explicit errors are required. Re-appends are distinct occurrences. A channel may contain multiple concrete Event types. `Read[T]` filters the channel stream, returning only T occurrences in order and advancing past nonmatching types; malformed records and failures decoding matching T values remain errors. eventlog allocates and reconstructs matching values internally.
+The internal unified reader is mandatory and channel-scoped: each reader targets exactly one consumer-provided Channel value, never all channels. It begins with committed history, catches concurrent appends during replay, and transitions to live tailing without gaps or duplicates. Occurrences are ordered by internal global sequence.
+
+Consumers do not provide or receive Channel UUIDs, sequence numbers, cursors or offsets. These remain library-owned. Context cancellation and explicit errors are required. Re-appended logical Events are separate occurrences. A Channel may contain multiple concrete Event types; an internal typed reader reconstructs matching Event values and filters nonmatching types while advancing. Corruption and matching-type decode failures remain errors. Eventlog allocates/reconstructs values without consumer registration, prototype or custom decoder.
+
+The reader stays internal under the currently approved public API; public signatures, pointer/value convention, occurrence wrapper, close and resource semantics remain open.
 
 ## Durability, segment management and compaction
 
-Automatic sync is every 1 second or 1 MiB, whichever comes first. Flush and Close are explicit sync boundaries. A successful Append before sync is not promised to survive power loss.
+Automatic sync occurs every 1 second or 1 MiB of pending writes, whichever first. Flush and Close are durability boundaries; Close flushes and syncs. Append before sync is not promised to survive power loss.
 
-Segments are fixed-target-size and rotated only at transaction boundaries. Oversized transactions may use their own segment. Segment data is authoritative; the local index is rebuildable and contains event IDs, channel associations, latest occurrence/HEAD, global sequence positions and segment offsets.
+The storage directory contains versioned `manifest.json`, generation-bound rebuildable `index.json`, and `segments/`. Segment IDs monotonically increase and are never reused (including compaction), and are distinct from global record sequences. Finalized segments are immutable; only active segment is writable. Rotate only at transaction boundaries against a fixed target size; oversized transaction may occupy its own segment.
 
-Compaction ordering: write temporary replacements → validate/checksum → sync → rename/finalize replacements → atomically replace index → remove old segments. Temporary compaction artifacts must not be cleaned until finalized source segments validate. Reader-safe compaction is generation-pinned: existing readers hold the generation they opened; new readers use the manifest-switched generation. Old generation files are removed only after the last reader releases them.
+The manifest identifies active finalized segment set/generation and next segment ID, and contains no event payloads. Manifest replacement is the atomic generation-switch/compaction commit point: write temporary manifest, validate, sync, atomically replace. Old files remain until switch is finalized. Orphans are recovery candidates, not authoritative. Ambiguous complete generations fail rather than guessing.
+
+The index is derived, generation-bound and rebuildable. It contains Event IDs, Channel associations, HEAD/latest occurrence, global sequence, segment ID and byte offsets. Missing/stale/inconsistent index rebuilds from validated authoritative segments and is atomically replaced.
+
+Compaction protocol: build replacement segments and index without modifying reader-pinned files → validate/checksum → sync → finalize/rename → atomically switch manifest/index → retain old generation while readers pin it → delete after last pin releases. Temporary files are ignored during recovery and cleaned only after finalized source segments validate.
 
 ## Portability and dependencies
 
 Use only Go standard library dependencies and local filesystem storage. Linux and Windows are equal-priority supported platforms; macOS is excluded. If platform behavior differs or is unreliable, core functionality must use a strategy that works on both platforms. Correctness, recovery, predictable memory use and platform parity precede numeric performance targets.
-
-## Unresolved architectural details
-
-- Exact public API signatures and detailed error semantics beyond the approved configuration sentinels.
-- Whether a public Occurrence wrapper is needed; eventlog owns concrete Event reconstruction.
-- Reader cancellation, close, and resource-lifecycle semantics.
-- Benchmarks and memory/performance targets.
-
 ## Current public preparation/configuration decision
 
 The only approved public preparation call is `event, channel, err := eventlog.PrepareLog[MyEvent, MyChannel](ctx)`, with declaration shape `func PrepareLog[TEvent EventType, TChannel ChannelType](ctx context.Context) (TEvent, TChannel, error)`. Consumers receive values, not a Log handle. Internal Log owns append/read/next, persistence, recovery, change manager and lifecycle. No public Log, append/read/next/close/flush/compact API is approved. Event/Channel constraints currently require `Fields() Fields`.
@@ -97,6 +100,7 @@ The index contains Event IDs, Channel associations, occurrence/HEAD, global sequ
 Recovery order: exclusive process ownership; validate manifest/generation; validate segments, schemas and sequences; validate transaction markers/count/checksum; truncate incomplete trailing transaction to its start; validate or rebuild index; safe cleanup only after authoritative source validation; then initialize append and readers. Missing/corrupt manifest may recover only if one complete generation is unambiguous; otherwise error.
 
 Compaction is generation-pinned and reader-safe: build replacements without modifying pinned files; validate/checksum/sync/finalize; atomically switch manifest/index; new readers use new generation; existing readers keep old pinned generation; delete old files only when the final pin releases.
+
 ## Canonical encoding, type tags, and UUID protocol
 
 Canonical identity encoding is distinct from JSON. It starts with an encoding-format version and domain prefix; UTF-8 package path and concrete type name; uint32 BE field count; then sorted field entries. Field names sort bytewise UTF-8. Each field is length-prefixed name, one-byte primitive tag, and length-prefixed payload. All variable component lengths/counts use uint32 BE; oversized components fail. Multi-byte numeric payloads use big-endian; int/uint are fixed 64-bit regardless of architecture; floats use raw IEEE bits preserving width and signed zero; nullable nil has Null tag; strings are UTF-8. Named primitives use underlying tags.
@@ -112,6 +116,12 @@ Recovery deduplicates same-sequence identical physical copies; same sequence wit
 ## Selector resolution and append atomicity
 
 `FieldOf` selects non-nullable primitive fields. `FieldOfNullable` selects nullable primitives and returns pointer-to-pointer (e.g. `func(e *User) **string`); nil is explicit Null. Field names are inferred, not passed as strings. Resolve selectors by invoking them on a zero-valued probe and comparing returned pointers with candidate direct-field addresses; exactly one match is required. This does not inspect source and may not catch conditional selectors that resolve to a field on the probe. Validate all Event and Channel fields before writing; validation failure leaves log unchanged. New Channel and Event records commit together. Write interruption/partial Commit rolls back from transaction start during recovery.
+
+## Commit marker specifics
+
+Commit is a first-class versioned record with its own global sequence. Transaction ID equals the first transaction record sequence; count includes only Channel/Event transaction records, not Commit. SHA-256 covers exact serialized transaction-record bytes including terminating newlines; Commit bytes/newline are excluded. Write order is Channel (if new), Event, Commit. Recovery exposes records only after marker validation. Partial Commit rolls back whole transaction. Append has an internal error result; no consumer-facing Append API is approved.
+
+
 
 ## Commit marker specifics
 
