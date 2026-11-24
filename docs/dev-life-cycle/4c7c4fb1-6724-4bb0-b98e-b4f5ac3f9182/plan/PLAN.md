@@ -21,6 +21,7 @@ This cycle establishes the library's product and technical baseline: public cont
 - [Requirements](../../../project/requirements.md) define product behavior and acceptance expectations.
 - [Architecture](../../../project/architecture.md) defines the approved technical design.
 - [Project decisions](../../../project/decisions.md) is the durable decision register and provenance record.
+- [Acceptance matrix](../../../project/acceptance.md) defines the agreed bottom-up scenarios and pass conditions.
 
 The specifications contain curated current rules. This plan tracks cycle scope and unresolved work; it does not reproduce the decision ledger or append approval/checkpoint narratives.
 
@@ -40,7 +41,7 @@ Approved project decisions are recorded in the project decision register and int
 1. Finalize internal runtime lifecycle, cancellation, reader/resource cleanup, and terminal-error behavior.
 2. Resolve remaining Channel mutation and snapshot-consistency details.
 3. Finalize internal backlog/replay boundaries, retry termination, and shutdown-drain failure behavior. Retry policy is approved as D-032; bounded notification backlog with Reader backpressure is approved as D-033.
-4. Complete the acceptance matrix, benchmark scenarios, and measurable performance/memory targets.
+4. Define benchmark scenarios and measurable performance/memory targets; the bottom-up acceptance matrix is agreed and recorded in [acceptance.md](../../../project/acceptance.md).
 5. Reconcile requirements, architecture, and decisions; then request explicit approval to exit Define.
 
 ## Acceptance criteria
@@ -49,7 +50,8 @@ Approved project decisions are recorded in the project decision register and int
 - [x] Public preparation and Channel notification/error contracts are approved.
 - [x] Configuration, field selection, identity, persistence, recovery, Reader, and queue design decisions are recorded.
 - [ ] Remaining lifecycle, delivery failure, and snapshot-consistency questions are resolved or explicitly deferred.
-- [ ] Acceptance matrix and benchmark plan are complete.
+- [x] Bottom-up acceptance matrix and scenario pass conditions are agreed and recorded.
+- [ ] Benchmark workloads and measurable performance/memory targets are defined.
 - [ ] Requirements and architecture are coherent, internally consistent, and implementation-ready.
 - [ ] User explicitly approves exit from Define before implementation begins.
 
