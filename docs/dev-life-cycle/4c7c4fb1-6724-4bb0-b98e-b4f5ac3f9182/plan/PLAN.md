@@ -65,3 +65,41 @@ Authoritative durable decisions are consolidated in `docs/project/requirements.m
 - No implementation, build or Go tests were started.
 
 **Next:** continue Define on remaining API/lifecycle/identity-mutation/notification details, acceptance matrix and benchmarks; do not start implementation until Define is reconciled and explicitly approved.
+## Resume design proposal — not yet approved (2026-11-24)
+
+This section records recommendations to discuss and validate. It does not change the approved requirements or architecture baseline.
+
+### API and mutability
+- Prefer Event and Channel values returned as pointers to consumer structs, even though the public generic return values remain `TEvent` and `TChannel`. Change detection requires stable mutable instances; pointer receiver `Fields()` methods are natural.
+- Require each concrete type's `Fields()` definition to be deterministic and stable for its lifetime. Field schema changes after preparation should be rejected, not dynamically reinterpreted.
+- Keep identity designation explicit and exactly one identity field per Event/Channel. Selectors must resolve to direct fields; no reflection-based nested traversal or silent fallback.
+- Avoid exposing internal `Log`, cursors, append/read methods, or storage sequence metadata. Keep the currently approved `PrepareLog` entry point.
+
+### Lifecycle
+- Treat preparation as process-wide, single-owner state tied to the configured directory. Repeated preparation of the same concrete Event/Channel types should be idempotent; conflicting type/schema combinations should return a typed error.
+- Context cancellation should cancel the caller's wait/operation, but not leave shared initialization half-complete. Shared initialization should have library-owned cancellation and a terminal state; the precise retry rule needs a testable state table.
+- Define typed errors for initialization, validation, identity mutation, storage corruption, and shutdown/delivery failure. Use `errors.Is` for stable sentinel categories and `errors.As` for detail types.
+
+### Identity mutation
+- Recommend identity fields be immutable after preparation. If polling detects a changed identity value, do not silently change the logical UUID or append under a new ID; report a typed identity-mutation error and retain the last valid persisted snapshot.
+- Non-identity Event field changes create new immutable occurrences. Non-identity Channel changes update the latest Channel snapshot but do not independently create Event occurrences. These existing semantics remain.
+
+### Notifications and memory
+- Keep notification messages as typed occurrence snapshots, captured after successful commit; snapshots should be independent of consumer-owned mutable structs.
+- Delivery should be ordered and lossless, but do not rely on an unbounded in-memory queue. Prefer a disk-backed durable backlog with a defined acknowledgment/replay boundary.
+- The accessor should be read-only from the consumer perspective (receive-only channel). The consumer may not close or send on it.
+- Retry policy should distinguish transient errors from permanent errors; permanent delivery errors must be surfaced through a lifecycle error channel/status, not silently discard pending occurrences. Exact API and termination policy remain open.
+
+### Acceptance-test outline
+- API compile-time contract and pointer receiver/value reconstruction behavior.
+- Config validation matrix (nil, duplicate, missing, invalid path, repeated call, concurrent Config/PrepareLog).
+- Field-selector resolution (wrong type, nullable/nonnullable mismatch, duplicate names/selectors, conditional selectors, nested fields, bounds, NaN/Inf).
+- UUID golden vectors for every primitive tag, named types, nullable Null vs zero, identity stable across non-identity changes, Event/Channel domains separated.
+- Append transaction fault injection at each write/commit/sync point; crash recovery truncation and malformed complete record fail-closed.
+- Reader replay/live race test proving no gap/duplicate, channel isolation, mixed Event-type filtering, cancellation, and ordering.
+- Change detection timing with deterministic test clock; concurrent consumer mutation synchronization documented/tested.
+- Notification backlog/restart replay, slow consumer, order, no-loss, shutdown drain, and permanent-error handling.
+- Segment rotation, manifest atomic switch, index rebuild, duplicate reconciliation, compaction with pinned readers, and generation cleanup.
+- Linux/Windows CI, race detector, fuzz tests for record/schema/recovery parsing, and benchmarks (append, replay, tail latency, compaction, memory under stalled consumer). Numeric performance thresholds should be set only after baseline measurements.
+
+**Next:** review this proposal with the user; accept/reject each recommendation explicitly before promoting any to active requirements/architecture.
