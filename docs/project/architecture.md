@@ -63,8 +63,7 @@ not block subsequent Event-type preparations. Unknown or undecodable persisted E
 No additional consumer-facing registration, activation, acknowledgement, start, stop, or close operation
 is part of the API.
 
-## Logical components
-
+## Internal components
 
 
 - **Identity encoder:** Canonically encodes type identity, exposed field-name schema, and designated
