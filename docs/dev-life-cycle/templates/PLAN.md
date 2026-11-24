@@ -16,7 +16,7 @@
 
 ## Problem and context
 
-<Describe the observed problem or opportunity. Link to relevant project documentation, code, issues, and the project decision register. Separate verified facts from assumptions and unknowns.>
+<Describe the observed problem or opportunity. Link to relevant project documentation, code, issues, and decisions. Separate verified facts from assumptions and unknowns.>
 
 ## Scope
 
@@ -31,11 +31,44 @@
 - **Constraints:** <Established project constraints>
 - **Dependencies:** <Required work, systems, or decisions>
 - **Risks:** <Risk and mitigation>
-- **Open decisions:** <Decision IDs from docs/project/decisions.md, owner, and when needed>
+- **Open decisions:** <Decision owner and when it is needed>
+
+## Applicable engineering standards and strategies
+
+- **Coding standard:** <Path and verified revision; note relevant conventions or justified exceptions>
+
+- **Testing strategy:** <Path, verified revision, decision ID; identify fast/integration/full suites relevant to this cycle>
+- **Performance strategy:** <Path, verified revision, decision ID; identify applicable workloads/checks or approved inapplicability>
+- **Git workflow:** <Path, verified revision, decision ID; branch/integration and evidence model>
+
+## Authoritative-state reconciliation
+
+Complete this when assessing or redefining the remaining work, and refresh it before recommending a phase transition.
+
+- **Repository revision inspected:** <Full commit SHA>
+- **Canonical requirements sections reviewed:** <Paths and headings, or N/A with reason>
+- **Canonical architecture sections reviewed:** <Paths and headings, or N/A with reason>
+- **Decision entries checked:** <Decision IDs, states, owning specification paths, and verified revisions>
+- **Unresolved/open-questions lists checked against detailed specifications:** <Yes/no and findings>
+
+| Candidate item | Classification (resolved / unresolved / explicitly deferred / contradictory) | Canonical specification / decision IDs | Evidence or conflict; required action |
+|---|---|---|---|
+| <Item> | <Classification> | <Paths and IDs> | <Evidence and next action> |
+
+Do not copy decision outcomes here. Link to the owning specification and decision IDs. A stale plan entry or unresolved-items list is not evidence that work remains open.
 
 ## Design and implementation approach
 
-<Describe the bounded approach and relevant alternatives/trade-offs. Do not duplicate permanent requirements, decisions, or architecture documentation here.>
+<Describe the bounded approach and relevant alternatives/trade-offs. Do not duplicate permanent architecture documentation here.>
+
+## Architecture impact and test selection
+
+- **Changed components:** <Components>
+- **Affected dependants/consumers:** <Direct and downstream dependants>
+- **Affected contracts/boundaries:** <Interfaces and integrations>
+- **Fast-feedback suites:** <Focused tests selected from testing-strategy.md and why>
+- **Integration suites:** <Affected boundary/system tests and trigger rationale>
+- **Full-verification gate:** <Complete required suite and workflows required before leaving Implement>
 
 ## Ordered tasks
 
@@ -51,9 +84,20 @@
 
 ## Verification strategy
 
-- **Local checks:** <Project-specific commands/tools, or unavailable>
-- **CI/integration checks:** <Project-specific workflows and required evidence>
+- **Local checks:** <Verified project-specific commands/tools, or unavailable>
+- **Fast feedback:** <Suites, trigger and expected evidence>
+- **Integration feedback:** <Suites and trigger>
+- **Full verification:** <All required suites and checks; mandatory implementation exit gate>
+- **Performance:** <Applicable workloads, benchmark commands, targets or informational-only policy>
+- **CI evidence:** <Workflow names, exact-SHA procedure, required jobs/reports/artifacts>
 - **Manual review:** <Relevant behavior, risks, interfaces, or user-facing checks>
+
+## Git workflow
+
+- **Branch/integration model:** <Approved project model>
+- **Commit/publish checkpoints:** <Approved procedure>
+- **Review/status requirements:** <Required checks and approvals>
+- **Failure/recovery:** <How failed checks or publication are handled>
 
 ## Persisted phase checkpoint
 
@@ -64,13 +108,15 @@
 
 ## Progress
 
-<Keep this section concise. Record completed work, current state, blockers, and the next action. The handoff is the detailed current checkpoint; the project decision register is maintained separately.>
+<Update completed tasks, progress, and scope changes. Link durable decisions by ID in docs/project/decisions.md. Keep the registry phase synchronized with this checkpoint.>
 
 ## Completion review
 
 - [ ] Acceptance criteria verified or exceptions explicitly accepted
+- [ ] Full required verification gate passed for the final implementation SHA
+- [ ] Applicable performance checks completed and recorded
 - [ ] Final diff reviewed
-- [ ] Required verification results recorded
+- [ ] Required workflow results and exact revisions recorded
 - [ ] Documentation reconciled
 - [ ] Handoff updated
 - [ ] Registry status, phase, and completion timestamp updated consistently

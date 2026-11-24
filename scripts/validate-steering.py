@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Validate the persisted development-cycle registry and project decision ledger using Python stdlib."""
+"""Validate the persisted development-cycle registry using Python stdlib."""
 from __future__ import annotations
 import json, re, sys, subprocess
 from datetime import datetime
 from pathlib import Path
+from urllib.parse import unquote, urlsplit
 from uuid import UUID
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -72,6 +73,8 @@ def validate_decision_register(path):
                 fail(f"{path.relative_to(ROOT)}: {decision_id} revision {revision} is not a verified ancestor containing {artifact_path.as_posix()}")
             if not (ROOT / artifact_path).is_file():
                 fail(f"{path.relative_to(ROOT)}: {decision_id} references missing canonical artifact {artifact}")
+
+
 def validate_registry(data):
     if not isinstance(data, dict) or set(data)!={"schema_version","docs_reviewed_through_execution_order","cycles"} or data.get("schema_version") != 3: fail("registry: exact root keys and schema_version 3 required")
     watermark = data.get("docs_reviewed_through_execution_order")
@@ -124,6 +127,31 @@ def validate_registry(data):
             if st=="in-progress":
                 if ph!="implement" or completed is not None or c.get("verification_evidence") is not None or c.get("outcome") is not None: fail(f"{label}: invalid active micro-cycle state")
             elif ph!="complete" or completed is None or not c.get("verification_evidence") or not c.get("outcome"): fail(f"{label}: completed micro-cycle evidence missing")
+    active=[c["id"] for c in cycles if c["status"]=="in-progress"]
+    if len(active)>1: fail(f"registry: at most one cycle may be in-progress (found {len(active)}); pause, block, cancel, or complete the others")
+
+REQUIRED_ENGINEERING_DOCS = {
+    "docs/standards/README.md": ("# Engineering Standards", "Coding Standard", "Testing Standard", "Performance Engineering Standard", "Git Workflow Standard"),
+    "docs/standards/coding.md": ("# Coding Standard", "## Architectural Alignment", "## Consistency and Maintenance"),
+    "docs/standards/testing.md": ("# Testing Standard", "## Architecture-aware test partitioning", "## Feedback tiers and gates"),
+    "docs/standards/performance-engineering.md": ("# Performance Engineering Standard", "## Workload design", "## Evidence and retention", "Do not use hard performance thresholds as CI gates"),
+    "docs/standards/git-workflow.md": ("# Git Workflow Standard", "## GitHub MCP repository protocol", "## Evidence integrity", "## Workflow-run retention and scheduling", "four most recent completed success/failure runs", "always delete every run whose conclusion is", "trusted `workflow_run` completion events"),
+    "docs/project/testing-strategy.md": ("# Project Testing Strategy", "## Architecture and test ownership", "## Test suites and tiers"),
+    "docs/project/performance-strategy.md": ("# Project Performance Strategy", "## Workload catalogue", "## Baselines, reporting and retention"),
+    "docs/project/git-workflow.md": ("# Project Git Workflow", "## Branch and integration model", "## Repository interaction and evidence", "Working branch: main only", "direct commits to main", "GitHub MCP", "## Workflow-run retention"),
+}
+
+def validate_engineering_docs():
+    for relative_path, required_markers in REQUIRED_ENGINEERING_DOCS.items():
+        path = ROOT / relative_path
+        try:
+            content = path.read_text(encoding="utf-8")
+        except OSError as e:
+            fail(f"{relative_path}: required engineering document missing/unreadable: {e}")
+        for marker in required_markers:
+            if marker not in content:
+                fail(f"{relative_path}: required section missing: {marker}")
+
 
 def validate_governance():
     """Validate canonical standards, project companions, version metadata, and local links."""
@@ -190,6 +218,124 @@ def validate_governance():
             if not resolved.exists():
                 fail(f"{source.relative_to(ROOT)}: broken local link {raw_target}")
 
+
+def validate_standard_ownership():
+    standards_dir = ROOT / "docs/standards"
+    required = {"README.md", "coding.md", "testing.md", "performance-engineering.md", "git-workflow.md"}
+    present = {p.name for p in standards_dir.glob("*.md")}
+    missing = required - present
+    if missing:
+        fail(f"docs/standards: missing canonical standards: {', '.join(sorted(missing))}")
+    project_dir = ROOT / "docs/project"
+    forbidden = {"coding-standards.md", "coding-standard.md", "testing-standard.md",
+                 "performance-standard.md", "performance-engineering-standard.md", "git-workflow-standard.md"}
+    misplaced = sorted(p.name for p in project_dir.glob("*.md") if p.name in forbidden)
+    if misplaced:
+        fail(f"generic standards must live under docs/standards/, not docs/project/: {', '.join(misplaced)}")
+    for path in ROOT.rglob("*.md"):
+        content = path.read_text(encoding="utf-8")
+        if "docs/project/coding-standards.md" in content or "../project/coding-standards.md" in content:
+            fail(f"{path.relative_to(ROOT)}: obsolete coding-standard reference")
+
+def validate_markdown_links():
+    link_pattern = re.compile(r"(?<!)\[[^\]]*\]\(([^)]+)\)")
+    for source in ROOT.rglob("*.md"):
+        content = source.read_text(encoding="utf-8")
+        for match in link_pattern.finditer(content):
+            target = match.group(1).strip().split()[0].strip("<>")
+            if not target or target.startswith(("#", "//")):
+                continue
+            parsed = urlsplit(target)
+            if parsed.scheme or parsed.netloc:
+                continue
+            path_text = unquote(parsed.path)
+            if not path_text:
+                continue
+            candidate = (ROOT / path_text.lstrip("/")) if path_text.startswith("/") else (source.parent / path_text)
+            candidate = candidate.resolve()
+            if candidate.is_dir():
+                candidate = candidate / "README.md"
+            if not candidate.is_file():
+                fail(f"{source.relative_to(ROOT)}: broken local Markdown link: {target}")
+
+def validate_governance_adoption():
+    steering = (ROOT / "steering.md").read_text(encoding="utf-8")
+    lifecycle = (ROOT / "docs/dev-life-cycle/README.md").read_text(encoding="utf-8")
+    canonical_exemption = "Changes limited to steering/lifecycle governance, generic engineering standards under `docs/standards/`, project-strategy templates under `docs/project/` (testing, performance, and Git workflow), the project decision-ledger template, the validator/workflow, or template release metadata/changelog—and intended to amend or repair those governance or adoption rules—are exempt from creating, selecting, resuming, or completing a development cycle."
+    if canonical_exemption not in steering or canonical_exemption not in lifecycle:
+        fail("steering.md and lifecycle README must contain the same governance-maintenance exemption")
+    required_refs = {
+        "README.md": ("docs/standards/README.md", "docs/standards/coding.md", "docs/dev-life-cycle/README.md"),
+        "steering.md": ("docs/standards/coding.md", "docs/standards/testing.md", "docs/standards/performance-engineering.md", "docs/standards/git-workflow.md", "docs/project/testing-strategy.md", "docs/project/performance-strategy.md", "docs/project/git-workflow.md"),
+        "docs/dev-life-cycle/README.md": ("docs/standards/coding.md", "docs/standards/testing.md", "docs/standards/performance-engineering.md", "docs/standards/git-workflow.md", "docs/project/testing-strategy.md", "docs/project/performance-strategy.md", "docs/project/git-workflow.md"),
+    }
+    for relative_path, references in required_refs.items():
+        content = (ROOT / relative_path).read_text(encoding="utf-8")
+        for reference in references:
+            if reference not in content:
+                fail(f"{relative_path}: missing adoption/reference link to {reference}")
+
+
+def validate_reconciliation_protocol():
+    # The lifecycle README is the single source of truth; steering.md only links to it.
+    required_markers = (
+        "Reconcile authoritative project state before reporting remaining work",
+        "complete relevant current requirements and architecture sections",
+        "Classify every candidate item as",
+        "A decision marked `Recorded` is not sufficient by itself",
+        "An unresolved-items list is an index of questions",
+        "Do not advance dependent work or recommend a phase transition while a material contradiction remains",
+    )
+    lifecycle = (ROOT / "docs/dev-life-cycle/README.md").read_text(encoding="utf-8")
+    for marker in required_markers:
+        if marker not in lifecycle:
+            fail(f"docs/dev-life-cycle/README.md: required authoritative-state reconciliation rule missing: {marker}")
+    steering = (ROOT / "steering.md").read_text(encoding="utf-8")
+    if "docs/dev-life-cycle/README.md#reconcile-authoritative-project-state-before-reporting-remaining-work" not in steering:
+        fail("steering.md: must link to the canonical reconciliation protocol in the lifecycle README")
+    for duplicated in ("Classify every candidate item as", "An unresolved-items list is an index of questions"):
+        if duplicated in steering:
+            fail(f"steering.md: reconciliation protocol must not be duplicated; link to the lifecycle README instead ({duplicated!r})")
+
+
+def validate_approval_gate_single_source():
+    # The lifecycle README owns the approval-to-artifact gate; steering.md only links to it.
+    lifecycle = (ROOT / "docs/dev-life-cycle/README.md").read_text(encoding="utf-8")
+    for marker in ("### Decision approval-to-artifact gate", "is not evidence of recording"):
+        if marker not in lifecycle:
+            fail(f"docs/dev-life-cycle/README.md: required approval-to-artifact rule missing: {marker}")
+    steering = (ROOT / "steering.md").read_text(encoding="utf-8")
+    if "docs/dev-life-cycle/README.md#decision-approval-to-artifact-gate" not in steering:
+        fail("steering.md: must link to the canonical approval-to-artifact gate in the lifecycle README")
+    for duplicated in ("immediately perform the following", "Keep the decision in `Proposed` until the user approves it"):
+        if duplicated in steering:
+            fail(f"steering.md: approval-to-artifact gate must not be duplicated; link to the lifecycle README instead ({duplicated!r})")
+
+
+
+
+def validate_cycle_templates():
+    expectations = {
+        "docs/dev-life-cycle/templates/PLAN.md": (
+            "Applicable engineering standards and strategies", "Coding standard:",
+            "## Authoritative-state reconciliation",
+            "Classification (resolved / unresolved / explicitly deferred / contradictory)",
+        ),
+        "docs/dev-life-cycle/templates/HANDOFF.md": (
+            "Applicable coding standard:", "Approved Git workflow:",
+            "## Remaining-work reconciliation",
+            "Classification (unresolved / explicitly deferred / contradictory)",
+        ),
+    }
+    for relative_path, markers in expectations.items():
+        content = (ROOT / relative_path).read_text(encoding="utf-8")
+        for marker in markers:
+            if marker not in content:
+                fail(f"{relative_path}: required template field missing: {marker}")
+
+
+
+
 def validate_workflows():
     """Require main-only, event-driven workflows with shared startup retention."""
     workflow_dir = ROOT / ".github/workflows"
@@ -210,13 +356,23 @@ def validate_workflows():
         if re.search(r"(?m)^  push\s*:", content) and "branches:\n      - main" not in content:
             fail(f"{relative}: push triggers must be restricted to main")
 
+
 def main():
     validate_decision_register(ROOT / "docs/project/decisions.md")
     registry=read_json(REGISTRY)
     validate_registry(registry)
+    validate_engineering_docs()
     validate_governance()
+    validate_standard_ownership()
+    validate_markdown_links()
+    validate_governance_adoption()
+    validate_reconciliation_protocol()
+    validate_approval_gate_single_source()
+    validate_cycle_templates()
     validate_workflows()
     print("Development-cycle registry, decision ledger, and repository governance: valid")
+
+
 if __name__=="__main__":
     try: main()
     except ValueError as e:

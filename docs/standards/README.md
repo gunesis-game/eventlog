@@ -1,6 +1,6 @@
 # Engineering Standards
 
-This directory is the single canonical home for the repository's reusable engineering standards. Keep all cross-project standards together here.
+This directory is the single canonical home for the template's generic engineering standards. Keep all cross-project standards together here.
 
 | Standard | Governs | Project-specific companion |
 |---|---|---|
