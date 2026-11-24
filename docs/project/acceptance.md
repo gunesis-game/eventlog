@@ -186,8 +186,7 @@ End-to-end tests use actual consumer-defined Event and Channel types, not only i
 
 ## Separate Define work
 
-The acceptance scenarios above are agreed. The following are not yet specified by this matrix and remain separate Define work:
-- Benchmark workloads and representative data shapes.
-- Measurable performance targets and thresholds.
+The acceptance scenarios above are agreed. Benchmark workload scenarios are separately defined in [Benchmark strategy](benchmarks.md) and are also agreed. The following remain separate Define work:
+- Measurable performance targets and thresholds for the approved benchmark workloads.
 - Measurable memory targets and measurement methodology.
-- Final consistency review across requirements, architecture, and decision records.
+- Final consistency review across requirements, architecture, decision records, acceptance tests, and benchmark strategy.
