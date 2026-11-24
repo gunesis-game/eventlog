@@ -207,3 +207,11 @@ Generic arguments select consumer Event and Channel types only. `context.Context
 - Each waiting caller may cancel its own wait through its context. If initialization fails, the immutable configuration remains set and a later `PrepareLog` may retry.
 - This decision does not approve a specific exported error taxonomy or exact Config option signatures; those remain Define work.
 - Execution lock remains active. No source implementation, build, or Go tests have started.
+
+## Latest checkpoint — storage path resolution decision (2026-11-24)
+
+- User confirmed the configured storage path must be absolute at configuration time.
+- Relative inputs such as `./data/events` are accepted and resolved against the process working directory during successful `Config(...)`; the resulting absolute path is frozen in immutable runtime configuration.
+- A later working-directory change cannot redirect storage. Empty or whitespace-only paths are invalid.
+- Exact path cleaning, symlink behavior, filesystem existence/permission validation, and whether Config may inspect the filesystem remain open. Path resolution does not create or initialize storage; that remains part of `PrepareLog`.
+- Execution lock remains active. No source implementation, build, or Go tests have started.
