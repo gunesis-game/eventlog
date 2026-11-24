@@ -4,6 +4,9 @@ on:
   push:
     paths:
       - 'docs/dev-life-cycle/**'
+      - 'docs/project/requirements.md'
+      - 'docs/project/architecture.md'
+      - 'steering.md'
       - 'scripts/validate-steering.py'
       - '.github/workflows/steering-validation.yml'
   pull_request:
