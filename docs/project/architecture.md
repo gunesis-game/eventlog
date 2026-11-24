@@ -76,8 +76,7 @@ configuration is not inferred from Context or environment.
 - **Change manager/scheduler:** One managed scheduler per prepared Log/change manager polls selected
   Event/Channel fields every 100 ms; no per-field goroutines. Cadence is internal/test-only. Consumer
   synchronizes its own mutations. Detected changes route to internal persistence.
-- **Notification dispatcher/backlog:** Channel exposes a notification Go channel through an accessor
-  (signature TBD). Messages contain immutable concrete Event snapshots captured at the persistence
+- **Notification dispatcher/backlog:** Consumer-defined Channel types implement the notification method required by the public Channel interface; eventlog uses that method to deliver notifications. No public helper struct or embedding requirement is permitted. The exact method signature remains TBD. Messages contain immutable concrete Event snapshots captured at the persistence
   boundary and are sent only after commit. Every persisted occurrence must eventually be consumer-visible
   without blocking persistence/scheduler on slow consumers. Internal backlog handles finite buffers;
   recovered backlog is first, ordered, and cannot be overtaken by live items. Orderly shutdown drains

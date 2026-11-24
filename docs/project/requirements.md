@@ -144,7 +144,7 @@ The internal change manager polls selected Event and Channel fields at 100 ms us
 per prepared Log/change manager—not a goroutine per field. Cadence is internal/test-only. Polling does
 not make consumer-owned field mutations race-safe; consumers synchronize their own concurrent accesses.
 
-Channel has a notification Go channel exposed through an accessor (signature TBD). Occurrence messages
+Consumer-defined Channel types implement the notification method required by the public Channel interface; eventlog uses that method to deliver notifications. No public helper struct or embedding requirement is permitted. The exact method signature is TBD. Occurrence messages
 carry the actual concrete Event value as an immutable snapshot captured at the persistence boundary.
 Messages are emitted only after persistence succeeds. Every persisted occurrence must eventually be
 visible; buffer capacity cannot cause loss. Persistence and scheduler work must not block on slow/unread

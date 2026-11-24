@@ -97,3 +97,8 @@ User approved the public payload simplification: consumers receive only `T Event
 - Removed the prior embedded-helper proposal from the current notification design section; it is superseded and must not be considered a valid option.
 - Required API shape is consumer-defined Channel struct implementing the notification function/method required by the Channel interface. Exact signature remains pending and should not be guessed.
 - Continue with API/lifecycle and identity mutation edge cases, then complete notification method signature/ownership/backpressure/recovery, acceptance matrix, reconcile requirements+architecture, and request Define exit approval.
+
+
+## Notification contract alignment checkpoint (2026-11-24)
+- Updated active requirements and architecture: consumer-defined Channel types implement the notification method required by the public Channel interface; no public helper struct/embedding. Signature remains TBD.
+- API shape alignment only; buffering/backpressure, dispatch, persistence/recovery, retry and shutdown details remain Define-open.
