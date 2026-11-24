@@ -85,3 +85,9 @@ User approved the public payload simplification: consumers receive only `T Event
 ## API feasibility note — 2026-11-24
 - Added a Go type-constraint sketch for the embedded notification helper. The helper can promote a package-private initialization method to the consumer's Channel type; a type-parameterized Channel constraint ties its notification stream to Event type. Pointer-only generic arguments still require runtime validation.
 - No source code, build or tests started; note remains a design proposal.
+
+
+## User correction checkpoint (2026-11-24)
+- User explicitly rejected a public notification-helper struct. Channel interface must require a notification method/function implemented by consumer-defined Channel structs; consumer defines its own Channel type. eventlog uses that method for notifications.
+- This supersedes the embedded `eventlog.Notifications[T]` helper proposal. Signature and internal delivery mechanism remain open for Define.
+- Avoid re-proposing a library-owned public helper or embedding pattern. Update active requirements/architecture only after final method signature and semantics are resolved.

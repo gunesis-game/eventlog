@@ -219,3 +219,8 @@ func PrepareLog[TEvent EventType, TChannel ChannelType[TEvent]](ctx context.Cont
 ```
 The unexported initialization method is promoted from the embedded helper, so external consumers can satisfy the constraint by embedding `eventlog.Notifications[TEvent]`; they cannot forge the initialization method. The helper is zero-value-safe, initialized before PrepareLog returns, and its channel is never closed/sent by consumer code. Runtime pointer-kind and typed-nil checks are still required because Go constraints do not cleanly enforce pointer-only type arguments.
 This is a sketch to validate during final API design, not committed implementation or an approved contract.
+
+
+## User correction — consumer-defined Channel notification method (2026-11-24)
+
+**Supersedes the embedded `eventlog.Notifications[T]` helper proposal above.** The public API must not introduce a library-provided notification helper struct or require consumers to embed one. The consumer defines their own Channel struct, and the Channel interface requires a notification method/function implemented by that consumer-defined type. eventlog uses that method for notification delivery/access. Exact method signature and internal delivery mechanics remain to be designed; do not assume or promote an embedded helper. This user-confirmed requirement takes precedence over the earlier proposal.
