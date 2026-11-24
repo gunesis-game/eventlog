@@ -3,9 +3,7 @@
 **Status:** Current technical design baseline; remaining open details are listed below. This active document owns approved technical design:
 components, responsibilities, boundaries, interfaces, algorithms, data/storage representations, lifecycle,
 and design trade-offs. Requirements are owned by [requirements.md](requirements.md); this document must
-trace to and satisfy them rather than redefine product behavior. Approved decisions are integrated by
-topic; historical checkpoints are provenance only. Proposals and unresolved alternatives must be clearly
-labeled and never presented as approved. It describes intended design, not implementation or verification
+trace to and satisfy them rather than redefine product behavior. Approved decisions are integrated by topic; their concise provenance is recorded in [decisions.md](decisions.md). Proposals and unresolved alternatives must be clearly labeled and never presented as approved. It describes intended design, not implementation or verification
 evidence.
 
 ## System boundary
