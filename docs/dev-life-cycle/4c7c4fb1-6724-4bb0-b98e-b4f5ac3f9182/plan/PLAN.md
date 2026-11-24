@@ -953,3 +953,12 @@ Consumer changes to the designated identity field on Event or Channel instances 
 - The notification is emitted only after the occurrence has been successfully persisted.
 - This establishes payload immutability/history correspondence; delivery buffering, overflow/backpressure policy, exact accessor/message signatures, and typed persistence-error notification behavior remain open Define decisions.
 - No implementation/build/tests have started; implementation still requires Define completion and explicit approval.
+
+
+## Define decision — notification overflow policy approved (2026-11-24)
+
+- Notification delivery uses a bounded buffer and remains non-blocking for persistence and the internal scheduler.
+- If the notification buffer is full, the notification is dropped rather than blocking persistence.
+- Persisted occurrences remain safe and recoverable through internal replay; notification loss must be detectable and not silent.
+- Buffer capacity, exact loss-detection mechanism, replay contract/API, and delivery details remain open Define decisions.
+- No implementation/build/tests have started; implementation still requires Define completion and explicit approval.
