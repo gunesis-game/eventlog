@@ -59,3 +59,16 @@ Cycle 1 remains in Define. Continue with bounded design proposals for the unreso
 - Delivery identity, occurrence identity, durable backlog, retries, replay bookkeeping, and acknowledgment of internal dispatch are private implementation details.
 - Since the consumer provides no acknowledgment, eventlog cannot claim exactly-once consumer processing. Delivery/recovery semantics must be stated honestly; duplicates may occur in a crash window if internal dispatch is durably recorded after sending.
 - API example: `for event := range channel.Notifications() { handle(event) }`.
+
+
+## Approved notification payload decision — 2026-11-24
+
+User approved the public payload simplification: consumers receive only `T Event`. No public Notification wrapper, event/occurrence IDs, delivery token, or consumer Ack. Notification stream remains scoped to Channel. Internal delivery metadata/backlog/retries/replay bookkeeping remain private. Exactly-once consumer processing is not claimable without consumer acknowledgment/transactional integration; possible duplicate window must be documented honestly. Notification accessor and publisher/receiver channel initialization remain unresolved. Active requirements and architecture were updated to record this approval; no implementation/build/Go tests started.
+
+
+## Current checkpoint
+
+- Cycle resumed under lock, approved notification payload decision documented in active requirements/architecture and plan/handoff.
+- Completed work: approval checkpoint and doc updates only.
+- Remaining Define: notification stream initialization/ownership and dispatch semantics; API/lifecycle and identity mutation details; acceptance matrix/benchmarks; final reconcile and user approval to exit Define.
+- Next action: continue Define on notification channel construction/ownership; then reconcile complete requirements/architecture and plan/handoff before requesting exit-Define approval.
