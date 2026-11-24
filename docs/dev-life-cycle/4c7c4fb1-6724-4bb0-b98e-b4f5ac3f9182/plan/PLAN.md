@@ -381,3 +381,8 @@ These superseded statements remain in the plan only as historical discussion/pro
 ## Approved D-011 — resolve Channel runtime from factory candidate
 
 `PrepareLog[TEvent, TChannel]` invokes the supplied factory to create a candidate Channel, derives canonical Channel identity from `Fields()`, then looks up the runtime registry by that identity. A hit reuses the existing Channel pointer and runtime/Reader and discards the candidate; a miss adopts the candidate and creates the runtime. The factory may be called even on a registry hit. This internal sequence preserves the approved consumer-facing API.
+
+
+## Approved D-012 — Channel factory is side-effect-free construction
+
+The supplied Channel factory only creates and initializes a candidate Channel value. It does not start goroutines, open external resources, or perform other external side effects. A candidate can be discarded on a runtime-registry hit, so it must be safe to abandon. The library starts the Channel runtime only after adopting a candidate for a new logical Channel. No consumer-facing API change.
