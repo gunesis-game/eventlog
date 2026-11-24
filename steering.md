@@ -32,7 +32,8 @@ Never assume project-specific facts. Discover them from the repository, its docu
 - **Understand before changing.** Trace existing behavior and dependencies before editing.
 - **Preserve intent.** Maintain established behavior, public contracts, compatibility, and project conventions unless the requested change requires otherwise.
 - **Keep changes focused.** Prefer the smallest coherent implementation; avoid unrelated refactoring, speculative abstractions, and unnecessary dependencies.
-- **Make decisions explicit.** Explain consequential trade-offs and record durable project decisions in the appropriate project documentation.
+- **Make decisions explicit and durable.** Explain consequential trade-offs and record durable project decisions in the appropriate project documentation.
+- **Enforce approval-to-artifact governance.** After every material user approval, update the canonical artifact, publish it, fetch it back and verify its exact revision, then mark the decision Recorded in the current handoff before introducing another independent decision. If recording or verification fails, stop and report the approved-but-unrecorded decision as a blocker.
 - **Keep evidence honest.** Never claim that a change, test, build, CI run, review, or deployment succeeded unless it was performed and its result observed.
 - **Control scope.** Do not expand the task or introduce tools, infrastructure, or policy changes without a clear need and appropriate authorization.
 - **Protect existing work.** Inspect the working tree before editing. Preserve user changes; never overwrite or discard unrelated work.
