@@ -73,7 +73,7 @@ Use only Go standard library dependencies and local filesystem storage. Linux an
 
 ## Unresolved architectural details
 
-- Exact public API signatures and stable error taxonomy.
+- Exact public API signatures and detailed error semantics beyond the approved configuration sentinels.
 - Whether a public Occurrence wrapper is needed; eventlog owns concrete Event reconstruction.
 - Reader cancellation, close, and resource-lifecycle semantics.
 - Benchmarks and memory/performance targets.
@@ -204,3 +204,8 @@ The public configuration shape is `Config(options ...Option) error`, with export
 ## Define decision — storage directory validation (approved 2026-11-24)
 
 `Config` rejects empty or whitespace-only storage paths. It accepts relative paths, resolves them to an absolute path at configuration time, lexically cleans the absolute result, and freezes that cleaned absolute path in immutable runtime configuration. Cleaning is equivalent to `filepath.Clean`; it removes redundant path elements but does not resolve symlinks. Config does not require the directory to exist and does not create it. During `PrepareLog`, initialization creates the directory when absent. If the target exists but is not a directory, or creation fails, initialization returns an error. These rules keep path selection stable across later working-directory changes while leaving actual storage initialization to PrepareLog.
+
+
+## Define decision — exported configuration errors (approved 2026-11-24)
+
+The package exports `ErrConfigNotInitialized` and `ErrConfigAlreadySet` sentinel errors. `PrepareLog` before successful configuration returns an error matching the former. Repeated or late `Config` calls return an error matching the latter. Invalid options produce descriptive validation errors. Filesystem failures wrap underlying causes for `errors.Is`/`errors.As`; context cancellation and deadline errors remain discoverable. Validation failure does not publish configuration and remains retryable.
