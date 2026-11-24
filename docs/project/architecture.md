@@ -97,4 +97,23 @@ The index contains Event IDs, Channel associations, occurrence/HEAD, global sequ
 Recovery order: exclusive process ownership; validate manifest/generation; validate segments, schemas and sequences; validate transaction markers/count/checksum; truncate incomplete trailing transaction to its start; validate or rebuild index; safe cleanup only after authoritative source validation; then initialize append and readers. Missing/corrupt manifest may recover only if one complete generation is unambiguous; otherwise error.
 
 Compaction is generation-pinned and reader-safe: build replacements without modifying pinned files; validate/checksum/sync/finalize; atomically switch manifest/index; new readers use new generation; existing readers keep old pinned generation; delete old files only when the final pin releases.
+## Canonical encoding, type tags, and UUID protocol
+
+Canonical identity encoding is distinct from JSON. It starts with an encoding-format version and domain prefix; UTF-8 package path and concrete type name; uint32 BE field count; then sorted field entries. Field names sort bytewise UTF-8. Each field is length-prefixed name, one-byte primitive tag, and length-prefixed payload. All variable component lengths/counts use uint32 BE; oversized components fail. Multi-byte numeric payloads use big-endian; int/uint are fixed 64-bit regardless of architecture; floats use raw IEEE bits preserving width and signed zero; nullable nil has Null tag; strings are UTF-8. Named primitives use underlying tags.
+
+Permanent v1 tags: Null `0x00`, String `0x01`, Bool `0x02`, int `0x10`, int8 `0x11`, int16 `0x12`, int32 `0x13`, int64 `0x14`, uint `0x20`, uint8 `0x21`, uint16 `0x22`, uint32 `0x23`, uint64 `0x24`, float32 `0x30`, float64 `0x31`. Bool payload is one byte 0/1; signed/unsigned widths are fixed as indicated; int/uint use 64-bit. Unknown tags fail recovery. Tags are permanent; reserved ranges stay unused. UUID v5 namespace: `26612f1d-f648-483a-9cfe-59c18f113891`; Event domain prefix `eventlog\\x00event\\x00v1\\x00`; Channel domain prefix `eventlog\\x00channel\\x00v1\\x00`. Identity includes type, exposed field-name schema and designated identity name/value; non-identity mutation retains logical ID.
+
+## Record taxonomy and duplicate recovery rules
+
+Supported records are `channel`, `event`, and `commit` (the later commit-marker decision supersedes the earlier two-kind design). Envelope includes `schema_version`, global `seq`, `kind`, and payload. Channel payload has ID/type/fields; Event has ID/channel_id/type/fields; Commit has transaction ID/count/checksum. Logical promotion is a higher-sequence occurrence, not a separate record.
+
+Recovery deduplicates same-sequence identical physical copies; same sequence with differing content is corruption. Identical Channel ID+data can deduplicate; conflicting Channel data under one ID is corruption. Different-sequence occurrences for the same Event ID are valid history; highest sequence is HEAD, current Channel association and ordering. Compaction retains original sequence numbers and must not promote older occurrences because of duplicate copies. Temporary compaction files are ignored as input and cleaned only after finalized source segments validate.
+
+## Selector resolution and append atomicity
+
+`FieldOf` selects non-nullable primitive fields. `FieldOfNullable` selects nullable primitives and returns pointer-to-pointer (e.g. `func(e *User) **string`); nil is explicit Null. Field names are inferred, not passed as strings. Resolve selectors by invoking them on a zero-valued probe and comparing returned pointers with candidate direct-field addresses; exactly one match is required. This does not inspect source and may not catch conditional selectors that resolve to a field on the probe. Validate all Event and Channel fields before writing; validation failure leaves log unchanged. New Channel and Event records commit together. Write interruption/partial Commit rolls back from transaction start during recovery.
+
+## Commit marker specifics
+
+Commit is a first-class versioned record with its own global sequence. Transaction ID equals the first transaction record sequence; count includes only Channel/Event transaction records, not Commit. SHA-256 covers exact serialized transaction-record bytes including terminating newlines; Commit bytes/newline are excluded. Write order is Channel (if new), Event, Commit. Recovery exposes records only after marker validation. Partial Commit rolls back whole transaction. Append has an internal error result; no consumer-facing Append API is approved.
 
