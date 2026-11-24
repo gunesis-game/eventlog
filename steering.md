@@ -79,9 +79,15 @@ Do not invent an alternative tracker, treat chat history as durable state, or ma
 
 ## 6. Project documentation
 
-Project requirements, architecture, interfaces, operational guidance, and durable decisions belong in the project's maintained documentation—not in this generic steering file and not solely in temporary cycle records. Consult [docs/project/architecture.md](docs/project/architecture.md) for architectural boundaries and decisions, and [docs/project/coding-standards.md](docs/project/coding-standards.md) for implementation conventions aligned with that architecture.
+Maintain documentation by subject ownership; do not use one document as a catch-all or move substantive content into history merely to reduce file size.
 
-Update the existing authoritative documentation when behavior or decisions change. Avoid parallel sources of truth, duplicated explanations, and instructions that contradict implementation.
+- **Requirements** ([docs/project/requirements.md](docs/project/requirements.md)) own product purpose, capabilities, observable behavior, domain rules, constraints, quality expectations, and acceptance criteria. Keep them implementation-neutral unless a technology or implementation constraint is itself an explicit requirement.
+- **Architecture** ([docs/project/architecture.md](docs/project/architecture.md)) owns technical design: components, responsibilities, boundaries, interfaces, algorithms, data/storage representations, lifecycle, and trade-offs. It must satisfy requirements, not redefine them.
+- **Coding standards** ([docs/project/coding-standards.md](docs/project/coding-standards.md)) own implementation conventions, code organization, naming, quality, and maintainability within the approved architecture. They must not introduce product or architecture decisions.
+- **Commands** ([docs/project/commands.md](docs/project/commands.md)) owns verified setup, build, test, lint, and validation commands, including prerequisites and expected outcomes. Never list unverified commands as project guidance.
+- **Cycle plans and handoffs** capture temporary execution scope, progress, checkpoints, proposals awaiting decisions, verification evidence, and next steps. They are not the sole home of durable requirements or approved design.
+
+Keep information in its authoritative owner and prefer concise cross-references over duplicating details. Clearly distinguish approved decisions, proposals, unresolved questions, verified implementation facts, and historical provenance. Do not present intended design as implemented behavior or test evidence. When requirements or architecture change, update the owning document and reconcile affected documents and cycle records. Preserve substantive approved design in active architecture documentation; archives are provenance, not a substitute for the current specification.
 
 ## 7. Communication
 
