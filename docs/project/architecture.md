@@ -224,3 +224,8 @@ When polling observes a changed selected Event field snapshot, the change manage
 ## Define decision — stable logical Event ID across field changes (approved 2026-11-24)
 
 The initial logical Event ID is derived from the concrete Event type and the initial selected-field snapshot. Once associated with a prepared consumer Event value, that ID remains stable for its lifetime; later field snapshots must not recalculate it. Every detected selected-field change persists a new immutable occurrence carrying the same logical Event ID. The previous occurrence remains authoritative history, while the new occurrence becomes HEAD and determines the current channel and ordering. Channel identity remains independent. This supersedes the earlier current-fields-derived Event ID rule. The internal association and recovery representation must preserve the stable ID without exposing a new public API.
+
+
+## Define decision — identity and occurrence are distinct (approved 2026-11-24)
+
+Logical Event ID identifies the entity, derived from the concrete Go Event type name, the exposed `Fields()` field-name schema, and the consumer-designated identity field name/value. Canonically encode these inputs and derive deterministic UUID v5. A change in non-identity data (e.g., Order 501 status from created to paid) keeps the same logical Event ID but constitutes a new event occurrence. Each new occurrence is persisted immutably; previous occurrences remain in history and the newest occurrence becomes HEAD/current state. Physical Event/Channel record data must be deduplicated so identical physical data is stored once and reused.
