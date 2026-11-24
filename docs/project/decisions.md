@@ -37,6 +37,7 @@ This is the durable register of approved project decisions. It records outcomes 
 | D-028 | Each Channel uses one continuous committed-sequence Reader from pending history to live tail; no replay/live boundary, and wake-up hints only prompt rechecking the authoritative committed log | Recorded | docs/project/architecture.md | e5d33897cd84dc670eb836d53b58030daf4ed112 |
 | D-029 | Recoverable delivery errors may retry only while preserving pending occurrence/order/completeness; terminal retry failure stops the Channel Reader and reports via Errors(), without skipping or discarding committed pending history; retry policy specifics remain open | Recorded | docs/project/architecture.md | 8c86ea5dde56b539c7f8270f20b09958af118d57 |
 | D-030 | Shutdown drain failure must report a lifecycle failure without claiming clean shutdown, and committed undelivered history remains recoverable; reporting is best-effort through existing Channel Errors() with first fatal error retained, while exact drain deadline/termination policy remains open | Recorded | docs/project/architecture.md | 5f0f3fa05f6bf1018dc31e3aa42b91bf2c6d4044 |
+| D-031 | Shutdown uses a fixed internal bounded graceful-drain grace period; on timeout, abort remaining delivery, report lifecycle failure best-effort via Errors(), preserve committed undelivered history, cancel delivery, wait for sender exit before closing streams, and release resources | Recorded | docs/project/architecture.md | 748438ffbd25b4bfcf21b10667ea0c4bc2a5ec1b |
 
 ## Decision maintenance
 
