@@ -408,3 +408,8 @@ When concurrent `PrepareLog[TEvent, TChannel]` calls register different concrete
 ## Event decoder registration lifetime — D-015
 
 A successful concrete Event decoder registration is retained for the lifetime of the Log runtime. Its availability is independent of the lifetime or completion of the individual `PrepareLog[TEvent, TChannel]` call that caused registration, and it remains available to any Channel Reader whose committed history requires that decoder. Registration is associated with the concrete Event type and its exposed field-name schema, not with an individual Channel. There is no consumer-facing unregister operation. This is internal lifecycle behavior and does not change the approved consumer-facing API.
+
+
+## Conflicting concrete Event decoder registrations — D-016
+
+Concrete Event decoder registration is keyed by the concrete Event Go type and its exposed field-name schema. If that concrete Event type is registered again with the same exposed field-name schema, the existing registration is reused. If it is presented with a different exposed field-name schema, registration fails with a typed schema-conflict error; it must not replace or mutate the existing registration or affect Readers already using it. This is an internal registration rule and does not change the approved consumer-facing API.
