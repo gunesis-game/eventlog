@@ -286,3 +286,28 @@ This template defaults to direct work on `main`. A derived repository that requi
 ## Validator
 
 Run `python3 scripts/validate-steering.py` locally. The included GitHub Actions workflow runs the same standard-library validator when lifecycle files or the validator change, on pushes, pull requests, or manual dispatch. It checks registry/lock structure, statuses, uniqueness, timestamp relationships, cycle/lock consistency, and micro-cycle rules. JSON Schemas remain the structural contract; the validator covers cross-record invariants that JSON Schema cannot express. A green validator is necessary but does not replace cycle-file existence checks, implementation review, tests, or lifecycle gates.
+
+## Active-work checkpoints and liveness
+
+An active execution lock is an ownership record, not evidence that useful progress is occurring. The lock does not expire automatically. Elapsed time, a quiet conversation, a missing heartbeat, or apparent inactivity does not authorize another worker to take over.
+
+While actively working under the lock:
+
+- Update the current standard-cycle handoff, or the micro-cycle registry record, after every material decision, completed investigation, implementation checkpoint, blocker/next-action change, or verification result.
+- During uninterrupted work, persist a progress checkpoint at least every 15 minutes. Each checkpoint states the exact phase, what changed or was established, remaining work, verification performed or not performed, and one next action.
+- Do not create empty or cosmetic commits merely to refresh a timestamp. A checkpoint must record meaningful state.
+
+Before an extended pause, while waiting for a user/external response, on context switch, or before ending a session:
+
+1. Persist a truthful checkpoint with the exact current phase, completed work, outstanding work, verification state, and next action.
+2. Set a standard cycle to `paused` when work is voluntarily deferred, or `blocked` when a concrete external dependency prevents progress. A blocked cycle records the blocker and unblocking action in `status_reason` and the handoff.
+3. Release the execution lock through the normal persisted procedure and verify the released lock on the shared repository.
+4. Do not hold an active lock while waiting for a user response or while no development work is being performed.
+
+If meaningful progress cannot be made, state that plainly and record the investigation, blocker, or decision needed. Do not imply progress from elapsed time or conversational activity.
+
+The handoff's last-progress checkpoint timestamp must reflect the actual latest persisted checkpoint. Keep the handoff, registry phase/status, and execution-lock state consistent. A stale handoff heading does not override the registry or lock; reconcile it immediately when discovered.
+
+### Recovery of an abandoned active lock
+
+If the lock remains active after the prior worker has terminated, do not infer termination from age or silence. Obtain explicit confirmation from the user or responsible repository owner that the previous worker is no longer working. Then preserve the cycle ID, sequence, execution order, phase, and history; record the confirmation and recovery rationale in the handoff; set the cycle to `paused` or `blocked` as appropriate; release and publish the old lock; fetch and verify both lock and registry; only then may a new worker claim the cycle. If the prior handoff is unavailable, record that limitation and the evidence used; never fabricate a checkpoint.
