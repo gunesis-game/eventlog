@@ -202,3 +202,8 @@ The library MUST reuse an existing decoder registration when the same concrete E
 - **D-022 Backpressure:** The internal queue is bounded. Capacity pressure pauses/delays internal monitoring rather than blocking consumer field assignments. Consumers may continue mutating structs; after monitoring resumes, only the latest observed state is guaranteed to be captured. Enqueued snapshots are retained. Queue sizing and worker scheduling are internal, not public API.
 
 These decisions preserve the existing consumer-facing API, including `PrepareLog[TEvent, TChannel]`, `Fields() Fields`, `Notifications() <-chan Event`, and `Errors() <-chan error`.
+
+
+## Approved UUID identity representation — D-024 (2026-11-24)
+
+Event and Channel identity fields MUST have Go underlying type `[16]byte`. Both the unnamed `[16]byte` type and named types whose underlying type is `[16]byte` are accepted. The canonical 16-byte UUID payload is the array elements in index order (`value[0]` through `value[15]`); implementations MUST NOT parse UUID strings or reinterpret the array as an integer with platform-dependent byte order. Nullable UUID identity fields and all other underlying types are invalid. The dedicated UUID identity marker/tag assignment remains open and is not decided by this approval.
