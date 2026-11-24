@@ -72,7 +72,7 @@ are historical and are not current public API requirements.
 
 ## Remaining open decisions (current only)
 
-1. **Internal lifecycle and consumer value association:** Specify how the returned event/channel values from `PrepareLog` are associated with the internally owned Log, including how updates are detected and how append/read operations are triggered without exposing a Log handle or additional public lifecycle APIs.
+1. **Internal lifecycle and consumer value association:** Specify how the returned event/channel values from PrepareLog are associated with the internally owned Log, including how polling is stopped/retried, persistence errors are handled internally, and event/channel updates are translated into persistence without exposing a Log handle or additional public lifecycle APIs. The 100 ms default cadence and single manager-owned scheduler are approved.
 2. **Public API and errors:** Consolidate exact signatures and stable error categories (validation, corruption/recovery, unsupported schema, I/O, closed state), including channel selection, context and close semantics.
 3. **Benchmark scenarios and acceptance matrix:** Define measurable scenarios and qualitative limits; convert approved guarantees into verification cases.
 4. **Performance/memory expectations:** Define measurable benchmark scenarios and acceptable qualitative limits without prematurely fixing numeric targets.
@@ -883,3 +883,14 @@ The public configuration shape is `Config(options ...Option) error`, with export
 ## Define decision — exported configuration errors (approved 2026-11-24)
 
 The user approved the exported sentinel error contract: `ErrConfigNotInitialized` for PrepareLog before successful Config and `ErrConfigAlreadySet` for repeated Config or Config after initialization begins. Invalid options return descriptive validation errors; filesystem causes are wrapped and discoverable through `errors.Is`/`errors.As`; context cancellation/deadline causes remain discoverable. Failed validation leaves configuration unset and retryable. This decision closes the exported configuration error taxonomy item; implementation remains out of scope until Define is complete and explicitly approved.
+
+
+## Latest Define decision — polling cadence and scheduler approved (2026-11-24)
+
+- User approved a 100 ms default polling interval.
+- One managed scheduler owned by the internal Log/change manager scans all selected event and channel fields; do not create one goroutine per field.
+- The interval may be adjusted internally for implementation and focused tests. No public polling option or operational API is added.
+- Polling compares selected-field snapshots and routes detected changes through internal persistence.
+- This approval does not make unsynchronized concurrent struct-field writes race-safe.
+- Remaining Define work: caller synchronization/snapshot consistency, event-versus-channel change semantics, scheduler shutdown/retry, and internal persistence-error handling.
+- No implementation, build, or Go tests have started.
