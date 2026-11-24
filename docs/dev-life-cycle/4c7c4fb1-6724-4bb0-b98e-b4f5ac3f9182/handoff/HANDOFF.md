@@ -72,3 +72,11 @@ User approved the public payload simplification: consumers receive only `T Event
 - Completed work: approval checkpoint and doc updates only.
 - Remaining Define: notification stream initialization/ownership and dispatch semantics; API/lifecycle and identity mutation details; acceptance matrix/benchmarks; final reconcile and user approval to exit Define.
 - Next action: continue Define on notification channel construction/ownership; then reconcile complete requirements/architecture and plan/handoff before requesting exit-Define approval.
+
+
+## Resume checkpoint — notification construction and remaining design proposals (2026-11-24)
+- Re-read active requirements/architecture, Cycle 1 plan and handoff after lock claim. Cycle remains Define; no implementation/build/test started.
+- Proposed notification accessor mechanism: Channel embeds library-owned `eventlog.Notifications[TEvent]`, initialized by PrepareLog, exposing receive-only `Notifications()`; helper is excluded from persisted Fields. This keeps Event-only payload and avoids public Ack/token metadata.
+- Proposal recommends pointer type arguments, stable pair reuse, per-caller Context cancellation with library-owned shared init, and object-scoped quarantine for identity mutation.
+- Acceptance matrix/benchmark scenarios added to proposal. None promoted to active docs; requires explicit user approval.
+- Next: user review of proposal, then finalize remaining API/identity/delivery diagnostics/shutdown decisions, acceptance/benchmark matrix, reconcile active requirements and architecture, and seek explicit approval to exit Define. Implementation still prohibited.

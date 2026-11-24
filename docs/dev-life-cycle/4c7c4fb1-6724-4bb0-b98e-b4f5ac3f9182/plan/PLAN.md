@@ -169,3 +169,36 @@ This proposal adds Ack/status API surface and delivery-ledger writes, but avoids
 ## Approval checkpoint — notification public payload (2026-11-24)
 
 **Approved:** The public notification payload is the concrete Event type `T` only. Remove the proposed public `Notification[T]` wrapper and public identity/occurrence/token metadata, and do not expose consumer-facing Ack. Notifications remain Channel-scoped. Delivery IDs, durable backlog, retry, replay, and dispatch acknowledgment are internal only. With no consumer Ack, eventlog cannot guarantee exactly-once consumer processing; public delivery/recovery guarantees must reflect the crash window and possible duplicates. The accessor and channel initialization/ownership mechanism still require design. This approval resolves the payload-shape open item, not the full notification API.
+
+
+## Follow-on Define proposal — API, identity faults, notification source (not approved)
+
+This proposal resolves remaining design questions with minimal public surface while retaining the approved `PrepareLog[TEvent,TChannel](ctx)` call shape and the approved Event-only notification payload.
+
+### Type and preparation contract
+- Require pointer type arguments (`PrepareLog[*MyEvent,*MyChannel]`). Pointer receiver `Fields()` is supported; value type arguments are rejected at preparation with a typed contract error.
+- Each type/schema pair is prepared once per process and returns the same live Event/Channel pointer pair on repeated calls; incompatible pair/schema reuse is a typed conflict.
+- Context cancellation only stops that caller's wait. Shared initialization is library-owned and proceeds independently; failed attempts clean partial resources and may retry under frozen Config. No object is returned until initialization succeeds.
+- Field schemas and identity selectors are fixed at preparation. Drift is a typed error; consumer writes must synchronize themselves.
+
+### Identity mutation
+- Quarantine is object-scoped and latched. Event identity mutation preserves last committed snapshot, emits one typed fault, and stops tracking that Event. Channel identity mutation preserves its last committed snapshot, faults once, quarantines that Channel, and prevents further writes through it. Other Channels continue. No reset/rebind API in v1.
+- Channel non-identity changes update the current snapshot only; future Event occurrences bind to it. Historical occurrences retain their Channel snapshot.
+
+### Notification channel construction and ownership
+- Public payload remains concrete Event `T`, with no public IDs, token, wrapper, or Ack.
+- Proposed solution: users embed `eventlog.Notifications[TEvent]` in their Channel type. This exported zero-value helper has a library-owned private channel and a public receive-only `Notifications() <-chan TEvent` accessor; the library initializes it during PrepareLog. It is not included in `Fields()` and is not persisted. This avoids requiring consumers to implement or inject an accessor and preserves the two-return-value API.
+- The stream is ordered per Channel, bounded in memory, with disk-backed backlog; recovered pending notifications are sent before newer occurrences. Persistence/dispatch bookkeeping remains internal. Because there is no consumer Ack, delivery is at-least-once across crash windows (duplicates possible), not exactly-once processing. Consumers should make handlers idempotent.
+- Dispatch send is never performed by append/polling paths. Persistent dispatcher errors/quarantine faults are surfaced through a separate bounded/coalescing diagnostics status channel (exact accessor still to be specified). Shutdown closes notification streams only after dispatcher stop; pending unconfirmed deliveries remain recoverable. Shutdown drain has a deadline and returns typed failure if backlog cannot drain.
+
+### Acceptance matrix and benchmark proposal
+- API/type contract: compile examples; pointer-only enforcement; stable repeated preparation; incompatible schema/pair conflict; cancellation and shared initialization tests.
+- Fields/identity: all primitive golden vectors; null vs zero; named types; selector failures; schema drift; Event and Channel identity mutation/quarantine isolation.
+- Persistence: transaction fault injection at every write/commit/sync boundary; incomplete-tail rollback; malformed complete record fail-closed; checksum/count/sequence validation.
+- Reader: replay/live handoff race, no gap/duplicate, channel isolation, mixed type filtering, cancellation and order.
+- Notifications: recovered backlog precedence, ordering, slow consumer bounded memory, restart duplicates allowed only before internal dispatch confirmation, no loss of unconfirmed items, shutdown drain deadline/error, diagnostics coalescing.
+- Storage: segment rotation, manifest atomic replacement, index rebuild, duplicate reconciliation, pinned-reader compaction and generation cleanup.
+- CI/quality: Linux and Windows; race detector; parser/recovery fuzzing. Benchmark append throughput, replay throughput, tail latency, compaction cost, and resident memory with stalled consumers. Set numeric thresholds only after baselines.
+
+### Approval needed before promotion
+Approve/reject pointer-only preparation, shared-instance reuse, object-scoped identity quarantine, embedded `Notifications[T]` helper, at-least-once duplicate semantics, diagnostics/shutdown shape, and this acceptance matrix. These are proposals only; active requirements/architecture remain unchanged and implementation remains forbidden until explicit Define exit approval.
