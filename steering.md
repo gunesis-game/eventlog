@@ -89,7 +89,7 @@ Do not invent an alternative tracker, treat chat history as durable state, or ma
 
 ## 6. Project documentation
 
-Project requirements, architecture, engineering standards, project-specific strategies, operational guidance, and durable decisions belong in maintained documentation—not in this generic steering file or temporary cycle records. The generic standards in `docs/standards/` define reusable minimum expectations. The project-specific strategies in `docs/project/` select and configure how those standards apply to this repository. Consult [requirements](docs/project/requirements.md), [architecture](docs/project/architecture.md), [coding standard](docs/standards/coding.md), [testing strategy](docs/project/testing-strategy.md), [performance strategy](docs/project/performance-strategy.md), and [Git workflow](docs/project/git-workflow.md).
+Project requirements, architecture, engineering standards, project-specific strategies, operational guidance, and durable decisions belong in maintained documentation—not in this generic steering file or temporary cycle records. The [engineering standards index](docs/standards/README.md) identifies the canonical reusable standards in `docs/standards/`, which define minimum expectations. The project-specific strategies in `docs/project/` select and configure how those standards apply to this repository. Consult [requirements](docs/project/requirements.md), [architecture](docs/project/architecture.md), [coding standard](docs/standards/coding.md), [testing strategy](docs/project/testing-strategy.md), [performance strategy](docs/project/performance-strategy.md), and [Git workflow](docs/project/git-workflow.md).
 
 ### Document ownership and boundaries
 
