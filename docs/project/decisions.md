@@ -47,6 +47,7 @@ This is the durable register of approved project decisions. It records outcomes 
 | D-036 | Require valid UTF-8 for persisted metadata keys and values; reject invalid bytes before persistence and during recovery without replacement or normalization; byte-distinct Unicode strings remain distinct | Recorded | docs/project/architecture.md | 6955107926cb8b5b5689dee5f3bd65f5e4631059 |
 | D-037 | Identify concrete Go types using reflected package path and runtime-provided name; aliases resolve to their target type, instantiated generic names are opaque, and cross-toolchain name stability is not guaranteed | Recorded | docs/project/architecture.md | 06f6e8f5e2835dc91538972fb0d2a16a5b55e8b4 |
 | D-038 | Bound v1 canonical identity encoding: package path, concrete type name, and each schema field name ≤4 KiB UTF-8; schema field count ≤1,024; complete canonical identity input including domain prefix and framing ≤1 MiB; reject over-limit identities before persistence and during recovery without truncation | Recorded | docs/project/architecture.md | e87281f45aa0b2f33526201fa48d606bffd1189e |
+| D-039 | Keep exact internal registry-key composition as an implementation detail; preserve separate decoder-registration, Event-instance, and Channel-runtime identities and their specified reuse/conflict behavior; distinct logical Channels of one concrete type retain separate runtimes | Recorded | docs/project/architecture.md | 947bb3cb357f2f3786a24ad98ad9a5e333208939 |
 
 ## Decision maintenance
 
