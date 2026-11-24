@@ -71,6 +71,12 @@ configuration is not inferred from Context or environment.
   existing internal event-type registration/codec mechanisms. Unknown persisted Event types and decode
   failures are errors, never silently skipped. Typed Readers may filter concrete Event types for typed
   reads, but independent typed Readers do not compose the heterogeneous notification stream.
+- **Preparation barrier:** `PrepareLog` is event-specific, while Channel resolution, notification delivery,
+  and runtime lifecycle are Channel-specific. All concrete Event types/decoders for one logical Channel
+  must be registered before that Channel's heterogeneous historical notification replay starts. The
+  barrier is approved; its completion signal is not. Sequential `PrepareLog` calls alone provide no proof
+  that registration is complete. Resolve this through an existing or internal lifecycle boundary without
+  adding consumer-facing `Activate`, `Start`, `RegisterEventType`, or `Close` methods.
 - **Compactor:** Produces replacement segments/index without modifying reader-pinned files,
   validates/checksums and syncs them, finalizes, atomically switches manifest/index, and deletes old
   generations only after the last reader releases its pin.
@@ -285,8 +291,9 @@ memory use and platform parity precede numeric performance targets.
   terminal-error semantics.
 - Identity-field mutation detection and transition mechanics, snapshot consistency,
   occurrence/HEAD/index and Channel association effects.
-- Internal writable-channel construction/ownership, backlog durability/retention and replay boundary,
-  retry termination, delivery/error ordering, scheduler interaction and shutdown drain failure.
+- Preparation-barrier completion signal; internal writable-channel ownership; backlog durability/retention
+  and replay boundary; retry termination; delivery/error ordering; scheduler interaction and shutdown
+  drain failure.
 - Consumer synchronization/snapshot consistency details.
 - Benchmarks, memory/performance targets, and measurable acceptance criteria.
 
