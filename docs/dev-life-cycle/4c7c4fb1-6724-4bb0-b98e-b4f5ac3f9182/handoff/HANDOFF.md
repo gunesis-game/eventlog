@@ -397,3 +397,24 @@ The next session must re-fetch shared `main` and verify `docs/dev-life-cycle/exe
 4. Specify scheduler shutdown/retry and internal persistence-error handling without adding public operational APIs.
 5. Complete initialization/cancellation/resource, benchmark, acceptance, and cross-document consistency review.
 6. Obtain explicit user approval before implementation.
+
+
+## Latest session checkpoint — identity and occurrence separation approved (2026-11-24)
+
+- User confirmed that logical Event identity and event occurrences are separate concepts.
+- Logical ID: concrete Go Event type name + exposed `Fields()` field-name schema + consumer-designated identity field name/value, canonically encoded and used for deterministic UUID v5.
+- A non-identity field change (e.g. order 501 status created → paid) is a new occurrence under the same logical ID.
+- Occurrences are immutable and append-only; previous history is retained; newest occurrence becomes HEAD/current state.
+- Identical physical Event or Channel data must not be stored twice; reuse/reference existing physical data.
+- These decisions supersede conflicting provisional stable-ID/current-fields-derived identity and full-snapshot assumptions. Reconcile requirements/architecture/plan/handoff, making active rules unambiguous and historical decisions clearly marked superseded.
+- Cycle 1 remains in Define. Lock remains claimed by ChatGPT-GPT-6. No implementation/build/tests have started.
+
+### Next Define tasks
+
+1. Reconcile active Event identity and occurrence rules throughout the documentation; explicitly mark contradictory earlier decisions as superseded history.
+2. Clarify deduplication key and physical record representation for Events and Channels, without weakening the user's no-duplicate-record requirement.
+3. Define Channel identity and channel-data changes, associations, and occurrence semantics.
+4. Define caller synchronization/snapshot consistency; polling does not make unsynchronized Go struct writes race-safe.
+5. Specify polling scheduler shutdown/retry and internal persistence-error handling without adding public operational API.
+6. Complete initialization, cancellation, resource/reader, terminal error, benchmark, and acceptance criteria.
+7. Finish Define consistency review and seek approval before implementation.
