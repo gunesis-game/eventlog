@@ -362,3 +362,13 @@ Historical checkpoint statements below that describe `TEvent` as the common inte
 - **Verification:** each canonical file was fetched back after publication. The active lock and resumed registry were fetched back. No lifecycle validator, Go build, or Go tests were run; no implementation has started.
 - **Governance note:** this session initially fetched other repository files before reading the execution lock, contrary to the mandatory first-read rule. The lock was then fetched and found released before claim; no conflicting owner was observed. The claim was published and fetched back before the registry was changed. Future continuation must read the lock first.
 - **Next:** continue Define with the internal prepared-instance registry key and remaining lifecycle/cancellation/error semantics. Preserve the consumer-facing API and include both generic type arguments in every example.
+
+
+## Pause after D-009 — 2026-11-24T18:41:59.190Z
+
+- D-009 is Recorded and verified in the active architecture, requirements, Cycle 1 plan and this handoff.
+- Cycle 1 is paused at Define while awaiting the next user decision. The registry and execution lock are being released together with this checkpoint in one atomic main-branch commit.
+- Completed: D-009 prepared-instance reuse approval recorded; D-008 pointer-only runtime validation restored in the active architecture/requirements baseline. All canonical artifacts were fetched back after publication.
+- Remaining: define the internal prepared-instance registry key and conflict taxonomy; finish initialization/cancellation/resource/error lifecycle; resolve identity mutation and notification retry/backlog/shutdown details; complete acceptance matrix and benchmark plan; reconcile and seek explicit approval to exit Define.
+- No implementation, lifecycle validator, Go build, or Go tests were run.
+- Next: resume this same Cycle 1 through the normal lock-claim protocol and continue Define with the internal prepared-instance registry key. Preserve the approved consumer-facing API and include both generic type arguments in every example.
