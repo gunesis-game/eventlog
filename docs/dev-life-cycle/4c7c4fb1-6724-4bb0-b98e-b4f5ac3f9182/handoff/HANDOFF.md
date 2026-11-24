@@ -46,7 +46,6 @@ Both generic arguments are concrete pointer types constrained by their respectiv
 
 ## Verification
 
-- Governance/documentation validation for this maintenance change is separate from Cycle 1.
 - No implementation, Go build, or Go tests have been run.
 
 ## Next action
