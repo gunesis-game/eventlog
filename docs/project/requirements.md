@@ -215,3 +215,8 @@ var (
 ```
 
 `PrepareLog` called before a successful `Config` returns an error matching `ErrConfigNotInitialized`. A repeated `Config` call, or one attempted after initialization has begun, returns an error matching `ErrConfigAlreadySet`. Invalid options return descriptive validation errors. Filesystem failures wrap their underlying causes so callers can use `errors.Is` and `errors.As`; context cancellation and deadline errors likewise remain discoverable. Failed Config validation leaves the runtime unconfigured and retryable.
+
+
+## Define decision — polling interval and scheduler (approved 2026-11-24)
+
+Internal change detection uses a 100 ms polling interval by default. One managed polling scheduler owned by the internal Log/change manager inspects all selected event and channel fields; the implementation must not create one polling goroutine per field. The interval may be adjusted internally for implementation and focused tests, but this decision does not add a public configuration option or operational API. Polling compares selected-field snapshots and triggers the package's internal persistence path. This decision does not make unsynchronized concurrent writes to ordinary Go struct fields race-safe; the caller synchronization contract and snapshot consistency rules remain open. Scheduler shutdown/retry behavior, persistence-error handling, and event-versus-channel change semantics remain Define work.
