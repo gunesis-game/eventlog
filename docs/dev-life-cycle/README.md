@@ -272,7 +272,7 @@ Before stopping or handing off, update the current cycle checkpoint. A session e
 
 ## Template setup and product documentation
 
-The first-use bootstrap (replacing the root README from `README.template.md`, filling `docs/project/`, choosing product licensing, and updating `TEMPLATE_VERSION`) is setup work, not a development cycle. Complete it before the first ordinary implementation cycle. Product requirements, architecture, coding standards, verified commands, and durable project decisions belong in docs/project/requirements.md, architecture.md, coding-standards.md, commands.md, and decisions.md. Coding standards must align with and defer structural and naming decisions to architecture.md; cycle plans and handoffs are temporary progress records.
+The first-use bootstrap (replacing the root README from `README.template.md`, filling `docs/project/`, choosing product licensing, and updating `TEMPLATE_VERSION`) is setup work, not a development cycle. Complete it before the first ordinary implementation cycle. Product requirements and architecture belong in docs/project/requirements.md and architecture.md. The reusable coding standard belongs in docs/standards/coding.md; project-specific testing, performance, and Git workflow strategies belong in docs/project/testing-strategy.md, performance-strategy.md, and git-workflow.md; verified commands and durable project decisions belong in docs/project/commands.md and decisions.md. Engineering standards are indexed in docs/standards/README.md and defer product and structural decisions to their owning specifications; cycle plans and handoffs are temporary progress records.
 
 
 
