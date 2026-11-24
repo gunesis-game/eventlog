@@ -240,3 +240,11 @@ This provisional decision incorrectly used the initial exposed-field snapshot as
 - Each detected change in non-identity event data represents a new event occurrence and must be persisted; it does not change the logical Event ID.
 - Occurrence history is append-only: prior occurrences are retained, never overwritten. The newest occurrence becomes HEAD/current state.
 - Physical Event and Channel records must be deduplicated: identical physical data is stored only once and reused/referenced rather than written as duplicate records.
+
+
+## Define decision — internal-only synchronization (approved 2026-11-24)
+
+- Preserve the existing public API; do not introduce any lock, mutex, synchronization interface, or configuration option for consumer-field mutation.
+- eventlog's synchronization remains internal and covers its own scheduler, change detection, persistence, and lifecycle coordination.
+- Consumers are responsible for synchronizing their own mutations of returned Event and Channel fields when concurrent access occurs. The 100 ms polling mechanism does not make unsynchronized ordinary Go struct field writes race-safe and must not be documented as doing so.
+- This decision rejects the proposed consumer-shared-lock configuration option and introduces no public API.
