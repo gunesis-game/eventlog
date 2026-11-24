@@ -279,3 +279,12 @@ This provisional decision incorrectly used the initial exposed-field snapshot as
 - The notification is emitted only after the occurrence has been successfully persisted.
 - This establishes payload immutability/history correspondence; delivery buffering, overflow/backpressure policy, exact accessor/message signatures, and typed persistence-error notification behavior remain open Define decisions.
 - No implementation/build/tests have started; implementation still requires Define completion and explicit approval.
+
+
+## Define decision — notification overflow policy approved (2026-11-24)
+
+- Notification delivery uses a bounded buffer and remains non-blocking for persistence and the internal scheduler.
+- When the buffer is full, notifications are dropped instead of blocking persistence.
+- Persisted occurrences remain safe and recoverable through internal replay; notification loss must be detectable and not silent.
+- Buffer capacity, loss-detection mechanism, replay contract/API, and delivery details remain open Define decisions.
+- No implementation/build/tests have started; implementation still requires Define completion and explicit approval.
