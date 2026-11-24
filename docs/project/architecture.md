@@ -15,7 +15,7 @@ supports concurrent goroutine use but does not coordinate multiple processes or 
 Consumer Event/Channel domain semantics remain outside the library; the consumer explicitly selects
 persisted fields.
 
-The public preparation entry point is `PrepareLog[TEvent, TChannel]`. `TEvent` is a concrete Event type constrained by the common `Event` interface; `TChannel` is a concrete Channel type constrained by `Channel`. The required factory is `func(chan Event) TChannel`, so the single Channel notification stream can carry heterogeneous concrete Event values. The Channel interface exposes `Notifications() <-chan Event` and `Errors() <-chan error`. These approved contracts must not be expanded or changed without explicit user approval.
+The public preparation entry point is `PrepareLog[TEvent, TChannel]`. `TEvent` is a concrete pointer-to-Event type constrained by the common `Event` interface; `TChannel` is a concrete pointer-to-Channel type constrained by `Channel`. Runtime validation using reflection rejects either type argument if it is not a pointer. The required factory is `func(chan Event) TChannel`, so the single Channel notification stream can carry heterogeneous concrete Event values. The Channel interface exposes `Notifications() <-chan Event` and `Errors() <-chan error`. These approved contracts must not be expanded or changed without explicit user approval.
 Consumers receive values, not a Log handle; internal Log owns append/read/next, persistence, recovery,
 change manager, synchronization and lifecycle. No public Log handle or
 Append/Read/Next/Close/Flush/Compact API is approved.
@@ -33,8 +33,9 @@ configuration is not inferred from Context or environment.
 ## Logical components
 
 - **Public API:** The only approved public entry point is package-level generic `PrepareLog[TEvent,
-  TChannel](ctx, newChannel)`, returning `(TEvent, TChannel, error)`. `TEvent` is a concrete type constrained
-  by `Event`; `TChannel` is a concrete type constrained by `Channel`; `newChannel` is the required
+  TChannel](ctx, newChannel)`, returning `(TEvent, TChannel, error)`. `TEvent` is a concrete pointer type constrained
+  by `Event`; `TChannel` is a concrete pointer type constrained by `Channel`; `PrepareLog` validates both
+  generic types at runtime using reflection and returns an error if either is not a pointer. `newChannel` is the required
   `func(chan Event) TChannel` factory. The Channel interface exposes `Notifications() <-chan Event` and
   `Errors() <-chan error`; the notification stream carries heterogeneous concrete Event values.
   Consumers receive event and channel values, not a Log handle. The package owns the internal `Log`
@@ -339,7 +340,7 @@ func PrepareLog[
 ) (TEvent, TChannel, error)
 ```
 
-Here `TEvent` is a concrete Event type satisfying the `Event` interface; it is not the common interface type itself. `TChannel` is a consumer-defined concrete Channel type satisfying the `Channel` interface. The factory receives `chan Event`, allowing one Channel to receive different concrete Event implementations. The generic `TEvent` identifies the concrete Event type for internal preparation/decoder registration. This generic relationship does not authorize a consumer-facing API expansion.
+Here `TEvent` is a concrete pointer type satisfying the `Event` interface; it is not the common interface type itself. `TChannel` is a consumer-defined concrete pointer type satisfying the `Channel` interface. `PrepareLog` uses reflection at runtime to reject non-pointer type arguments. The factory receives `chan Event`, allowing one Channel to receive different concrete Event implementations. The generic `TEvent` identifies the concrete Event type for internal preparation/decoder registration. This generic relationship does not authorize a consumer-facing API expansion.
 
 The Channel interface exposes:
 
@@ -359,3 +360,8 @@ Concrete Event type registration is derived internally from the concrete `TEvent
 Historical notification replay must not begin until every concrete Event decoder required by the committed history for that logical Channel is available. The runtime waits asynchronously and indefinitely for a required decoder that has not yet registered; there is no arbitrary timeout, and decoder absence alone does not produce a fatal Channel error. The first `PrepareLog` call must not block in a way that prevents subsequent Event types from being prepared. Once the missing decoder registers, replay may proceed. Unknown or undecodable persisted Event types must fail closed and must never be silently skipped. The existing codec implementation's availability remains to be verified before implementation.
 
 No public `RegisterEventType`, `Activate`, `Start`, `Close`, Ack, or checkpoint method is permitted. The public Channel surface remains the two accessors above.
+
+
+### Pointer-only generic argument validation (D-007 / D-008)
+
+Both `TEvent` and `TChannel` must be pointer types. The approved two-parameter generic signature remains unchanged. Because Go's generic constraints do not straightforwardly express a pointer-to-any-type constraint while preserving this API, `PrepareLog` validates both generic types at runtime using reflection. If either type argument is not a pointer type, preparation returns an error before creating or exposing prepared objects. This validation decision does not add a generic parameter or consumer-facing method.
