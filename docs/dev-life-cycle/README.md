@@ -269,7 +269,7 @@ The first-use bootstrap (replacing the root README from `README.template.md`, fi
 
 ## Branch-policy adaptation
 
-This template defaults to direct work on `main`. A derived repository that requires pull requests or another branch policy must make an explicit governance change to `steering.md` and reconcile its review and verification rules. Do not merely change the branch instruction or bypass branch protection; the claim mechanism must remain safe across collaborators and branches.
+This template defaults to direct work on `main`. A derived repository that requires pull requests or another branch policy must make an explicit governance change to `steering.md` and reconcile its review and verification rules. Do not merely change the branch instruction or bypass branch protection; contributors coordinate through ordinary Git collaboration and review.
 
 
 ## Validator
