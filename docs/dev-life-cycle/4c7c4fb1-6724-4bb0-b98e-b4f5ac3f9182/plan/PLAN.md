@@ -939,7 +939,7 @@ Consumer changes to the designated identity field on Event or Channel instances 
 ## Define decision — Channel notification direction (approved)
 
 - Public Channel API will expose a notification Go channel through an accessor method (name/signature TBD).
-- Successful occurrence notifications carry the concrete consumer Event instance/snapshot, rather than IDs-only or a generic event-type payload.
+- Successful occurrence notifications carry the concrete consumer Event struct instance, rather than IDs-only or a generic event-type payload.
 - Errors are typed to support `errors.Is` and `errors.As`.
 - Slow/unread notification consumers must not block persistence or the internal poll scheduler; delivery/buffering strategy remains to be specified.
 - Close the notification channel when the relevant lifecycle shuts down; close it on initialization failure if it was allocated.
