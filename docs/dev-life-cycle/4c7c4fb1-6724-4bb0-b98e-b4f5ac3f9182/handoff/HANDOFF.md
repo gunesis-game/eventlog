@@ -10,10 +10,10 @@
 ## State
 - **Cycle:** 4c7c4fb1-6724-4bb0-b98e-b4f5ac3f9182 (sequence 1, execution order 1)
 - **Workflow / phase:** standard / define
-- **Registry:** in-progress at Define
-- **Execution lock:** active for ChatGPT-GPT-6; claim published and fetched back at `2a92ccd5f68b744e260f7fb2a738d5f7fdfd9196`.
+- **Registry:** paused at Define
+- **Execution lock:** released at 2026-11-24T18:31:57.733Z; release published atomically with this checkpoint.
 - **Implementation:** none; no build or Go tests started.
-- **Latest checkpoint:** D-007 approval is being recorded in canonical artifacts. Earlier checkpoints and history remain preserved.
+- **Latest checkpoint:** 2026-11-24T18:31:57.733Z — D-007 recorded in architecture, requirements, plan and decision register; Cycle 1 paused while awaiting the next design decision.
 
 ## Correction after user review
 The previous cleanup was wrong: it optimized for file size and stripped substantive requirements/design from active project docs, leaving the archive as the place to find them. The user explicitly said this was not simply moving content and that architecture must retain the complete design. This pass restores and curates the active docs. Active specifications must remain complete and topic-oriented; archives are provenance only.
@@ -322,3 +322,11 @@ Historical checkpoint statements below that describe `TEvent` as the common inte
 - **Open distinction:** the pointer-only requirement is approved; the exact enforcement mechanism is not. Field-value reconstruction conventions also remain open.
 - **Verification:** all three canonical artifacts were fetched back from `main` and the approved wording inspected. No lifecycle validator, Go build, or Go tests were run. No implementation has started.
 - **Next:** decide how the pointer-only requirement is enforced without changing the approved two-parameter consumer-facing `PrepareLog[TEvent, TChannel]` API. All examples must include both type arguments.
+
+
+## Pause after D-007 — 2026-11-24T18:31:57.733Z
+
+- D-007 is Recorded and verified in the architecture, requirements, Cycle 1 plan and this handoff decision register.
+- Cycle 1 is paused at Define; the registry and execution lock are updated together in the same main-branch commit. No worker retains ownership while awaiting the user's next decision.
+- No implementation, local lifecycle validator, Go build, or Go tests were run.
+- Next Define topic: choose the enforcement mechanism for the approved pointer-only `TEvent` and `TChannel` requirement, preserving the existing two-parameter `PrepareLog[TEvent, TChannel]` consumer API. Resume through the normal lock-claim protocol.

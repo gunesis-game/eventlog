@@ -98,7 +98,7 @@ from replay into live tailing. It is not tied to an event-sourcing framework or 
 ### Change detection and notifications
 - eventlog detects changes to selected Event and Channel fields on a managed cadence. Consumer-owned
   concurrent mutations still require consumer synchronization.
-- The Channel interface defines `Notifications() <-chan Event`, where `Event` is the common interface implemented by concrete Event types. `TEvent` in `PrepareLog` is instead a concrete Event type constrained by `Event`, and both generic type arguments (`TEvent` and `TChannel`) must be pointers; the required factory accepts `func(chan Event) TChannel` so one Channel can receive heterogeneous concrete Event values. Notifications carry concrete Event values as immutable snapshots after successful persistence. There is no `Notify` callback/sink method.
+- The Channel interface defines `Notifications() <-chan Event`, where `Event` is the common interface implemented by concrete Event types. `TEvent` in `PrepareLog` is instead a concrete Event type constrained by `Event`; the required factory accepts `func(chan Event) TChannel` so one Channel can receive heterogeneous concrete Event values. Notifications carry concrete Event values as immutable snapshots after successful persistence. There is no `Notify` callback/sink method.
 - Notifications are channel-scoped, ordered, and lossless across buffer pressure or recovery. Slow
   consumers must not stall persistence. Pending deliveries are recovered and delivered before newer ones.
 - Shutdown stops new preparation/appends, coordinates outstanding commits, cancels Reader/delivery workers,
@@ -127,7 +127,7 @@ from replay into live tailing. It is not tied to an event-sourcing framework or 
 
 ## Define details still open
 
-Technical open questions and approved low-level decisions are tracked in [architecture.md](architecture.md) and the active Cycle 1 plan. Remaining topics include field-value reconstruction conventions and the exact enforcement mechanism for pointer-only generic type arguments, initialization/lifecycle and cancellation details, identity mutation behavior, notification backlog/retry/shutdown details, snapshot consistency, complete acceptance tests, and measurable performance/memory targets. The `PrepareLog` generic relationship, heterogeneous `Notifications() <-chan Event` accessor, and `Errors() <-chan error` contract are approved. Do not treat proposals as approved decisions or begin implementation before explicit Define approval.
+Technical open questions and approved low-level decisions are tracked in [architecture.md](architecture.md) and the active Cycle 1 plan. Remaining topics include pointer/value reconstruction conventions, initialization/lifecycle and cancellation details, identity mutation behavior, notification backlog/retry/shutdown details, snapshot consistency, complete acceptance tests, and measurable performance/memory targets. The `PrepareLog` generic relationship, heterogeneous `Notifications() <-chan Event` accessor, and `Errors() <-chan error` contract are approved. Do not treat proposals as approved decisions or begin implementation before explicit Define approval.
 
 
 ## Approved notification and asynchronous error contract — 2026-11-24
