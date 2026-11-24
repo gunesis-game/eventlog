@@ -42,17 +42,18 @@ Never assume project-specific facts. Discover them from the repository, its docu
 
 ## 4. Main branch only
 
-The `main` branch is the default working branch and policy for this template. Product teams may adopt another branch/review model only through an explicit governance change in their derived repository: document the policy, update this section and reconcile the review and verification rules to that model. Do not silently fork the mechanism or bypass branch protections.
+The repository has one working branch: `main`. This is an absolute, permanent project policy, not a default or an adaptable preference. All development, governance, documentation, verification, and maintenance work stays on `main`.
 
-- Start development on `main` and keep the working branch set to `main` throughout the work.
-- Do not create, switch to, or work on feature, fix, task, release, or other branches.
-- Do not use a branch as a workaround for repository permissions, branch protection, or a failing check.
+- Start and remain on `main` for every task.
+- Never create, switch to, publish, or work on another branch, including feature, fix, task, release, or temporary branches.
+- Do not use pull requests or merge commits from another branch as a development workflow. Changes are made and committed directly on `main`.
+- Do not use another branch as a workaround for repository permissions, branch protection, or a failing check.
 - Before making changes, verify the current branch is `main` and inspect its working tree and upstream state.
-- Keep commits on `main`, following the repository's applicable commit and signing requirements.
+- Keep all commits on `main`, following applicable commit and signing requirements.
 - Never force-push, rewrite shared history, bypass required protections, or disable checks.
-- If `main` is unavailable, the checkout is on another branch, or repository protections prevent the required direct-main workflow, stop and report the exact blocker.
+- If the checkout is not on `main`, or repository protections or permissions prevent the required direct-main workflow, stop and report the exact blocker. Do not create or switch branches to get around it.
 
-The main-only rule does not authorize bypassing repository security, review, or protection controls.
+No project document, workflow, contributor instruction, or later project-level policy may authorize work on another branch or merging from another branch. This rule does not authorize bypassing repository security controls; if those controls prevent direct work on `main`, stop.
 
 ## 5. Development-cycle mechanism
 
