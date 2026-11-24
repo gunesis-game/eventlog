@@ -396,3 +396,8 @@ Runtime lookup and candidate adoption are atomic under canonical Channel identit
 ## Approved D-014 — concurrent Event-type preparation
 
 Different concrete Event types may be prepared concurrently for the same logical Channel. Each Event type registers independently; preparations converge on the one Channel pointer/runtime/Reader selected by canonical Channel identity and atomic adoption. A preparation does not synchronously wait for another Event type registration. The shared Reader's historical replay barrier remains asynchronous and waits for all decoders required by committed history. The consumer-facing API remains unchanged.
+
+
+## Approved D-015 — Event decoder registration lifetime
+
+A successful concrete Event decoder registration remains available for the lifetime of the Log runtime. It is independent of the lifetime/completion of the `PrepareLog[TEvent, TChannel]` call that registered it and is available to any Channel Reader whose committed history requires it. Registration is keyed by concrete Event type and exposed field-name schema, not by Channel. No consumer-facing unregister operation or API change.
