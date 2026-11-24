@@ -1,6 +1,11 @@
 name: Workflow history cleanup
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/cleanup-workflow-history.yml'
   workflow_run:
     workflows:
       - Steering state validation
@@ -42,6 +47,14 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TARGET_WORKFLOW_ID: ${{ github.event.workflow_run.workflow_id }}
           TARGET_RUN_ID: ${{ github.event.workflow_run.id }}
+        run: python3 scripts/cleanup-workflow-runs.py
+
+      - name: One-time cleanup of retired initialization workflow history
+        if: github.event_name == 'push'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TARGET_WORKFLOW_ID: '426874766'
+          TARGET_RUN_ID: '45264380959'
         run: python3 scripts/cleanup-workflow-runs.py
 
       - name: Validate optional historical cleanup target
