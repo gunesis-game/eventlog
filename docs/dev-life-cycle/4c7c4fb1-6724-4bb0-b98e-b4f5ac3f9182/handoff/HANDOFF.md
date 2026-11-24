@@ -41,11 +41,11 @@ The current requirements, architecture, decisions, acceptance matrix, and benchm
 
 ### Reconciliation evidence
 
-- **Repository revision inspected before this decision:** `1f2186287c2b5ecb58147d3335e8a5fe01782947` (`main`).
+- **Repository revision inspected before this decision:** `edcb72595d3c06f48d3fc67244fa1df45e22ad6a` (`main`).
 - **Project records reviewed in full:** `docs/project/requirements.md`, `architecture.md`, `decisions.md`, `acceptance.md`, and `benchmarks.md`.
 - **Cycle records reviewed:** this plan, current handoff, and `docs/dev-life-cycle/cycle-index.json`.
-- **Decision register:** D-001 through D-036 are Recorded; D-029 is refined by D-032 and D-030/D-031 are historical and superseded for process termination by D-034.
-- **Cross-document corrections made:** stale Channel snapshot, Reader wake-up, retry, and backlog open-item claims were reconciled; the duplicate runtime-shutdown section was consolidated; D-034 replaces the former shutdown-drain sequence with process-lifetime runtime ownership and recovery after process termination; D-035 assigns UUID identity tag `0x03`; D-036 requires valid UTF-8 metadata keys and values and rejects invalid bytes without normalization.
+- **Decision register:** D-001 through D-037 are Recorded; D-029 is refined by D-032 and D-030/D-031 are historical and superseded for process termination by D-034.
+- **Cross-document corrections made:** stale Channel snapshot, Reader wake-up, retry, and backlog open-item claims were reconciled; the duplicate runtime-shutdown section was consolidated; D-034 replaces the former shutdown-drain sequence with process-lifetime runtime ownership and recovery after process termination; D-035 assigns UUID identity tag `0x03`; D-036 requires valid UTF-8 metadata keys and values and rejects invalid bytes without normalization; D-037 settles reflected Go type naming, alias resolution, opaque instantiated generic names, and the cross-toolchain compatibility limitation.
 - **Validation boundary:** this is a semantic document reconciliation. No implementation, Go build, Go tests, or benchmark measurements have been run.
 
 | Candidate item | Classification | Current evidence / next action |
@@ -57,8 +57,10 @@ The current requirements, architecture, decisions, acceptance matrix, and benchm
 | Bounded notification backlog and Reader backpressure | Resolved | D-033 |
 | Acceptance scenarios and benchmark workload scenarios | Resolved | `acceptance.md` and `benchmarks.md` |
 | UUID identity marker/tag | Resolved | D-035 and architecture sections “UUID identity representation” and “Canonical identity byte composition” |
+| Canonical alias/generic type naming | Resolved | D-037 and architecture section “Canonical identity encoding” |
 | Metadata UTF-8 policy | Resolved | D-036 and architecture section “Metadata UTF-8 policy” |
-| Canonical alias/generic naming, maximum framing sizes | Unresolved | Resolve explicitly or record a bounded deferral |
+| Canonical alias/generic type naming | Resolved | D-037 and architecture section “Canonical identity encoding” |
+| Maximum framing sizes | Unresolved | Set explicit bounds for each u32-framed component/count before implementation |
 | Exact internal registry-key composition | Unresolved/internal design detail | Confirm whether existing identity/registration rules are sufficient and defer exact representation to implementation if no observable contract depends on it |
 | Numeric performance/memory targets and measurement criteria | Unresolved | Agree target environments, resource ceilings, repetitions, warm-up, and acceptance methodology |
 
@@ -74,12 +76,12 @@ The current requirements, architecture, decisions, acceptance matrix, and benchm
 
 ### Unresolved
 
-- Remaining architecture details: metadata UTF-8 policy, canonical alias/instantiated-generic naming, maximum framing sizes, and exact internal registry-key details.
+- Remaining architecture details: maximum framing sizes and exact internal registry-key details.
 - Measurable performance and memory targets, representative target environments, and benchmark measurement/acceptance criteria.
 
 ### Next action
 
-Resolve the remaining architecture details, agree measurable performance/memory targets and measurement criteria, then perform the final cross-document consistency review. Do not begin implementation or exit Define until the remaining work is settled and you explicitly approve the phase transition.
+Resolve maximum framing sizes and the remaining registry-key question, agree measurable performance/memory targets and measurement criteria, then perform the final cross-document consistency review. Do not begin implementation or exit Define until the remaining work is settled and you explicitly approve the phase transition.
 
 ## Verification
 
