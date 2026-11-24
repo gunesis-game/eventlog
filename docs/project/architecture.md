@@ -359,3 +359,12 @@ Concrete Event type registration is derived internally from the concrete `TEvent
 Historical notification replay must not begin until every concrete Event decoder required by the committed history for that logical Channel is available. The runtime waits asynchronously and indefinitely for a required decoder that has not yet registered; there is no arbitrary timeout, and decoder absence alone does not produce a fatal Channel error. The first `PrepareLog` call must not block in a way that prevents subsequent Event types from being prepared. Once the missing decoder registers, replay may proceed. Unknown or undecodable persisted Event types must fail closed and must never be silently skipped. The existing codec implementation's availability remains to be verified before implementation.
 
 No public `RegisterEventType`, `Activate`, `Start`, `Close`, Ack, or checkpoint method is permitted. The public Channel surface remains the two accessors above.
+
+
+## Approved pointer-only preparation and prepared-instance reuse — D-008 / D-009
+
+Both generic arguments to `PrepareLog[TEvent, TChannel]` must be pointer types. `PrepareLog` validates both generic types at runtime using reflection and returns an error before exposing prepared values if either argument is not a pointer. The two-parameter generic signature and all consumer-facing method signatures remain unchanged.
+
+For a compatible repeated preparation using the same concrete `TEvent` and `TChannel` types and unchanged exposed field schemas, eventlog returns the same live Event pointer and Channel pointer rather than allocating a second prepared pair. An incompatible registration for an already prepared type/schema combination fails with a typed conflict error; it must not silently create a competing prepared instance or Channel runtime.
+
+This reuse is consistent with the Channel-scoped lifecycle: event-specific preparations that resolve to the same logical Channel reuse that Channel's existing live pointer, runtime and single Reader progression, including when another concrete Event type is prepared for that Channel. Each concrete Event type retains its own prepared Event instance. The precise internal registry key, typed conflict taxonomy, and behavior for distinct logical Channels of the same concrete Channel type remain Define details. No consumer-facing API is added or changed.
