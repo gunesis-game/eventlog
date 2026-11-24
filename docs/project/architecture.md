@@ -257,3 +257,8 @@ Channel's public capability will include a notification Go channel, exposed by a
 - The notification is emitted only after the occurrence has been successfully persisted.
 - This establishes payload immutability/history correspondence; delivery buffering, overflow/backpressure policy, exact accessor/message signatures, and typed persistence-error notification behavior remain open Define decisions.
 - No implementation/build/tests have started; implementation still requires Define completion and explicit approval.
+
+
+## Define decision — notification overflow policy approved (2026-11-24)
+
+Notification delivery is bounded and non-blocking. When the buffer is full, the notification is dropped rather than blocking persistence or the internal scheduler. Persisted occurrences remain recoverable through internal replay, and notification loss must be detectable rather than silent. Buffer capacity, the loss-detection mechanism, replay contract/API, and exact delivery details remain open Define decisions. No implementation/build/tests have started; implementation still requires Define completion and explicit approval.
