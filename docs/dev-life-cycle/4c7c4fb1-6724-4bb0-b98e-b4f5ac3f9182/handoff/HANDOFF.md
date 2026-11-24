@@ -244,8 +244,8 @@ This is the authoritative decision ledger for Cycle 1. Every material user-appro
 
 | ID | Decision | State (Proposed / Approved / Recorded) | Canonical artifact | Verified revision / evidence |
 |---|---|---|---|---|
-| D-001 | Concrete `TEvent Event`, `TChannel Channel`; factory `func(chan Event) TChannel`; heterogeneous notification payload | Recorded | docs/project/architecture.md | d4fe4e197b07385e95159d7090e8110f4805b68f |
-| D-002 | Channel exposes receive-only `Notifications() <-chan Event` | Recorded | docs/project/requirements.md | 4b7bc62c6cf851bf62a86bd7a11286c761063f02 |
+| D-001 | Concrete `TEvent Event`, `TChannel Channel`; factory `func(chan Event) TChannel`; heterogeneous notification payload | Recorded | docs/project/architecture.md | 5e3dd94b988454a31068f75f5b163ec288909e67 |
+| D-002 | Channel exposes receive-only `Notifications() <-chan Event` | Recorded | docs/project/requirements.md | b580b7c083dea60be61910d402f71d9d969fe590 |
 | D-003 | Channel exposes one-way shared `Errors() <-chan error`, capacity one, first fatal error retained and best-effort non-blocking delivery | Recorded | docs/project/requirements.md | 4b7bc62c6cf851bf62a86bd7a11286c761063f02 |
 | D-004 | Fatal Reader error terminates Channel Reader and closes notification/error streams after reporting; safe recoverable errors may continue | Recorded | docs/project/architecture.md | d4fe4e197b07385e95159d7090e8110f4805b68f |
 | D-005 | Concrete decoder registration derives from generic `TEvent`; historical replay waits asynchronously for all decoders required by committed Channel history; no public registration/activation API | Recorded | docs/project/architecture.md | d4fe4e197b07385e95159d7090e8110f4805b68f |
@@ -256,6 +256,20 @@ This is the authoritative decision ledger for Cycle 1. Every material user-appro
 - Cycle 1 resumed at Define under the existing cycle ID and execution order. Lock claim was published and fetched back at commit `8a489bf4e842f758bdf79ff6772ef16b068a6ca8`; registry resumed at commit `f2bde95cf5506a379a5ee8a9efacdbabe2248076`.
 - Governance process deviation: the initial discovery call fetched files in parallel before reading the execution lock first, contrary to the mandatory read-order rule. The lock was then read and found released before the claim. No conflicting active owner was observed. Future sessions must read the lock as the first repository operation.
 - D-001 through D-005 are recorded in canonical requirements/architecture documents with verified revisions; D-006 remains proposed.
-- Plan reconciled and fetched back at `b7a15b525239e5f0a376516489f59f847263b7f8`.
+- Plan reconciled and fetched back at `3ab3f6aeecbc70732232bb884ff87c4e70086b2c`.
+- Active requirements reconciled and fetched back at `b580b7c083dea60be61910d402f71d9d969fe590`; active architecture reconciled and fetched back at `5e3dd94b988454a31068f75f5b163ec288909e67`.
+- Eventlog steering, lifecycle README, handoff template, validator and CI path filters now adopt the template v1.1.0 approval-to-artifact gate. The validator rejects persisted Approved decisions and requires Recorded decisions to identify an existing canonical artifact plus a commit hash.
 - No implementation, build or Go tests were started.
 
+
+
+## Latest reconciliation checkpoint — 2026-11-24T20:04+02:00
+
+- Requirements, architecture and plan have been reconciled against all explicit approvals from the current review. Older contradictory wording is corrected in active sections; historical proposals are explicitly superseded rather than silently erased.
+- Approved contract: `PrepareLog[TEvent, TChannel](ctx, newChannel)`, with `TEvent Event` concrete, `TChannel Channel` concrete, and `newChannel func(chan Event) TChannel`. Channel accessors are `Notifications() <-chan Event` and `Errors() <-chan error`.
+- Error semantics recorded: shared per-Channel one-way error stream, capacity one, first fatal error retained, best-effort non-blocking delivery, fatal Reader termination, stream closure after fatal report; safe recoverable errors may continue.
+- Decoder direction recorded: generic concrete `TEvent` supplies internal registration identity; historical replay waits asynchronously for all decoders required by committed Channel history; no consumer registration/activation API. Exact policy for a decoder that never registers remains open.
+- The template v1.1.0 governance rule is propagated into eventlog steering/lifecycle instructions, handoff template, validator and workflow triggers. A CI failure on commit `37ad20bf929ef8987afc1ef79bf697ef4f2fd7ee` exposed a heading mismatch in the validator; corrected in commit `415302ccdf42eac3136c3acc4768eaf0f28740ce`. The latest workflow result is pending at this checkpoint.
+- The initial lock-read-order deviation is retained above for transparency.
+- No implementation, build or Go tests were started.
+- Next: verify the latest lifecycle workflow, run a full contradictory-wording audit, and continue Define only after all approved decisions are reconciled.
