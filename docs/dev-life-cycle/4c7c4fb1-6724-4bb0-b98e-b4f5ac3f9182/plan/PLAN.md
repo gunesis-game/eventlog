@@ -198,7 +198,7 @@ This proposal resolves remaining design questions with minimal public surface wh
 - CI/quality: Linux and Windows; race detector; parser/recovery fuzzing. Benchmark append throughput, replay throughput, tail latency, compaction cost, and resident memory with stalled consumers. Set numeric thresholds only after baselines.
 
 ### Approval needed before promotion
-Approve/reject pointer-only preparation, shared-instance reuse, object-scoped identity quarantine, consumer-defined Channel notification method, at-least-once duplicate semantics, diagnostics/shutdown shape, and this acceptance matrix. These are proposals only; active requirements/architecture remain unchanged and implementation remains forbidden until explicit Define exit approval.
+Approve/reject pointer-only preparation, shared-instance reuse, object-scoped identity quarantine, notification accessor `Notifications() <-chan TEvent` and send-side ownership/recovery semantics, diagnostics/shutdown shape, and this acceptance matrix. These are proposals only; active requirements/architecture remain unchanged and implementation remains forbidden until explicit Define exit approval.
 
 
 ### Superseded notification helper sketch
