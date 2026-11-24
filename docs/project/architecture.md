@@ -306,9 +306,10 @@ Shutdown is ordered:
 1. Stop accepting new preparations and stop initiating new change-detection appends.
 2. Coordinate all outstanding append transactions until each reaches a committed or safely aborted state.
 3. Cancel the Channel Reader and delivery workers after the append boundary is settled.
-4. Drain pending notifications according to the defined shutdown policy and wait for all senders to stop. If drain cannot complete, report the lifecycle failure and preserve recoverable pending state.
-5. Close notification streams only after no sender can still write to them.
-6. Release storage and process-ownership resources.
+4. Drain pending notifications according to the defined shutdown policy and wait for all senders to stop. If drain cannot complete, shutdown must report a lifecycle failure and must not claim a clean drain; committed undelivered history remains recoverable from the authoritative log.
+5. Report a shutdown-drain failure through the existing Channel `Errors()` stream on a best-effort basis, retaining the first fatal error internally. Error reporting must not depend on a receiver being available or block shutdown indefinitely. The exact drain deadline/termination policy remains open.
+6. Close notification streams only after no sender can still write to them.
+7. Release storage and process-ownership resources.
 
 ## Runtime lifecycle and shutdown
 
