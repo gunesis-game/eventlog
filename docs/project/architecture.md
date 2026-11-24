@@ -168,7 +168,7 @@ Permanent v1 identity type tags: Null `0x00` (no payload), String `0x01` (UTF-8)
 `0x21` (1-byte unsigned), uint16 `0x22` (2-byte unsigned BE), uint32 `0x23` (4-byte unsigned BE), uint64
 `0x24` (8-byte unsigned BE), float32 `0x30` (4 raw IEEE bytes), float64 `0x31` (8 raw IEEE bytes). Go
 int/uint are fixed 64-bit regardless of architecture; named types use underlying tags. Nullable nil uses
-Null, non-nil uses primitive tag. Unknown tags fail recovery; tags are permanent and reserved ranges
+Null, non-nil uses primitive tag. UUID identity uses its dedicated permanent tag `0x03` followed by exactly 16 canonical UUID bytes. Unknown or unassigned tags fail recovery; tags are permanent and reserved ranges
 remain unused.
 
 UUID v5 namespace is `26612f1d-f648-483a-9cfe-59c18f113891`. Event domain prefix is
