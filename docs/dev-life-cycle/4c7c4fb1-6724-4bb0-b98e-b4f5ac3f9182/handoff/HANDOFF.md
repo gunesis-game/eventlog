@@ -24,6 +24,7 @@ Complete eventlog's requirements and technical design before implementation.
 - [Requirements](../../../project/requirements.md) — product behavior and acceptance expectations.
 - [Architecture](../../../project/architecture.md) — current approved technical design.
 - [Project decisions](../../../project/decisions.md) — durable decision register and provenance.
+- [Acceptance matrix](../../../project/acceptance.md) — agreed bottom-up test layers and pass conditions.
 Approved outcomes are integrated into the relevant specification topics. This handoff is only the current cycle checkpoint; it is not a second decision ledger or specification.
 
 ## Current state
@@ -39,7 +40,7 @@ Both generic arguments are concrete pointer types constrained by their respectiv
 - Runtime process scope, preparation Context scope, shared-worker ownership, and terminal Reader error behavior are approved and recorded as D-026. The exact internal shutdown trigger and ordered graceful cleanup remain unresolved.
 - Channel snapshots now use the same identity-keyed bounded FIFO dispatch mechanism as Event snapshots (D-027); consumer synchronization remains required for concurrent multi-field mutation.
 - Delivery retry policy is approved and recorded as D-032: retry the same pending occurrence with internal bounded backoff and a finite retry limit; do not advance the Reader or deliver later occurrences while retrying. Retry exhaustion terminates that Channel Reader and reports through Errors(); committed pending history remains recoverable, and other Channel Readers continue independently. Numeric limits and classification remain internal. D-030 defines shutdown-drain failure reporting; D-031 defines a fixed internal graceful-drain grace period, timeout abort, best-effort Errors() reporting, retained pending history, and sender exit before stream closure. No public timeout setting.
-- Complete acceptance matrix and benchmark/performance/memory targets.
+- Acceptance matrix is agreed and recorded in [acceptance.md](../../../project/acceptance.md). Benchmark workloads and measurable performance/memory targets remain to be defined.
 - Final consistency review and explicit approval to exit Define.
 
 ## Verification
@@ -48,4 +49,4 @@ Both generic arguments are concrete pointer types constrained by their respectiv
 
 ## Next action
 
-Bounded notification backlog with Reader backpressure is now approved and recorded as D-033: the in-memory pending buffer is finite, a full buffer holds the Reader until capacity returns, persistence continues, committed pending history remains authoritative in the append log, and no second durable queue is introduced. Next, complete the acceptance matrix, benchmark/performance/memory targets, and final consistency review. D-025 through D-033 are recorded. Do not begin implementation until Define is complete and the user explicitly approves exit.
+Bounded notification backlog with Reader backpressure is approved and recorded as D-033. The complete bottom-up acceptance matrix is now agreed and recorded in [acceptance.md](../../../project/acceptance.md), covering disk/storage, persistence/transactions, metadata/recovery, core event-log behavior, Channel/Reader, notification delivery, runtime lifecycle, and public API/end-to-end integration. Next, define benchmark workloads and measurable performance/memory targets, then complete the final consistency review. D-025 through D-033 are recorded. Do not begin implementation until Define is complete and the user explicitly approves exit.
