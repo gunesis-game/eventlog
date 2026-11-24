@@ -21,9 +21,9 @@ Complete eventlog's requirements and technical design before implementation.
 
 ## Authoritative project records
 
-- [Requirements](../../../../project/requirements.md) — product behavior and acceptance expectations.
-- [Architecture](../../../../project/architecture.md) — current approved technical design.
-- [Project decisions](../../../../project/decisions.md) — durable decision register and provenance.
+- [Requirements](../../../project/requirements.md) — product behavior and acceptance expectations.
+- [Architecture](../../../project/architecture.md) — current approved technical design.
+- [Project decisions](../../../project/decisions.md) — durable decision register and provenance.
 
 The decision register contains D-001 through D-024. Their approved outcomes are integrated into the relevant specification topics. This handoff is only the current cycle checkpoint; it is not a second decision ledger or specification.
 
