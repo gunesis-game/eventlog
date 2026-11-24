@@ -5,8 +5,7 @@
 - **Cycle UUID:** 4c7c4fb1-6724-4bb0-b98e-b4f5ac3f9182
 - **Sequence:** 1
 - **Execution order:** 1
-- **Status:** blocked
-- **Status reason:** Awaiting user confirmation of a Go-valid generic API surface: Go does not permit type parameters on methods, so the literal log.Append[TChannel,TEvent](selector) call cannot compile. Confirm whether to bind the types on a generic Log handle (log.Append(selector), log.Read()) or use package-level generic functions.
+- **Status:** in-progress
 - **Current phase:** define
 - **Created:** 2026-11-22T16:00:00+02:00
 
@@ -19,6 +18,15 @@ Define eventlog's initial product requirements and core design decisions before 
 The repository describes eventlog as a lightweight disk-backed append-only Go log intended for event-oriented applications. The scaffold proposes persistence, ordered replay, and transition into live tailing. Requirements, architecture, commands, and README content remain placeholders. No implementation or tests were found during initial assessment.
 
 ## Current approved product and design baseline (authoritative)
+
+**API decision supersession (2026-11-24):** The sole approved public entry point is
+`eventlog.PrepareLog[TEvent, TChannel](ctx) (TEvent, TChannel, error)`.
+The `Log` implementation and all append/read/next/sync/recovery/close/compaction
+machinery are internal to the package. Consumers receive only their typed event
+and channel values; they do not receive a Log handle or manage its lifecycle.
+Earlier public Append/Read/Next/Close APIs and generic Log-handle proposals below
+are historical and are not current public API requirements.
+
 
 - **Purpose:** General-purpose embedded, append-only event storage; no domain semantics or event-sourcing-framework assumptions.
 - **Ownership/concurrency:** Single process owns the log; multiple goroutines may use the API, with internally coordinated writes. Multi-process/distributed writers are out of scope.
@@ -809,3 +817,11 @@ type EventType interface { Fields() Fields }
 ```
 
 The returned event and channel values are consumer-owned data values whose exposed fields consumers may set or change. The package owns the internal `Log` struct and all append, read, next, synchronization, recovery, and lifecycle machinery. Consumers do not receive a Log handle and do not call lifecycle methods. No other public append/read/next/close/flush/compact API is approved at this stage. A single process owns a log at a time; multiple goroutines may use the API concurrently. This replaces earlier generic Log-handle and consumer-facing Append/Read proposals.
+
+
+## Resume checkpoint — 2026-11-24
+
+- The released execution lock was claimed in lock-only commit `7e2d3eebfd0c706ca19dd37e565ebec3bfe5693b` and fetched from shared `main`; owner is `ChatGPT-GPT-6`.
+- Cycle 1 is resumed as `in-progress` in Define. No implementation, build, or Go tests have started.
+- The latest approved public API and internal Log ownership are unchanged.
+- Next Define decision: determine how the sole `PrepareLog(ctx)` entry point selects/identifies its storage location and how the context participates in initialization and recovery, without adding another public API.
