@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "status": "active",
-  "cycle_id": "4c7c4fb1-6724-4bb0-b98e-b4f5ac3f9182",
-  "workflow": "standard",
-  "worker_id": "ChatGPT continuation session",
-  "claimed_at": "2026-11-24T16:00:00Z",
-  "released_at": null,
-  "release_evidence": null
+  "status": "released",
+  "cycle_id": null,
+  "workflow": null,
+  "worker_id": null,
+  "claimed_at": null,
+  "released_at": "2026-11-24T16:05:00Z",
+  "release_evidence": "Cycle 1 blocked at Define pending user review of notification sink proposal; handoff commit 8b6afe69422012605f633864e9d60d1453c279ac and registry blocked commit 005d1b6f00bd3860e16aca5af6f8dc955f6e60bd."
 }
