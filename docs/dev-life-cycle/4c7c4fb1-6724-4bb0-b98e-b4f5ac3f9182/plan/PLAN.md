@@ -19,7 +19,7 @@ The complete pre-cleanup plan and handoff checkpoints are preserved verbatim in 
 ## Current approved baseline
 Authoritative durable decisions are consolidated in `docs/project/requirements.md` and `docs/project/architecture.md`.
 
-- **Public API:** sole approved entry point is `PrepareLog[TEvent, TChannel](ctx, newChannel) (TEvent, TChannel, error)`, where `TEvent` is a concrete type constrained by `Event`, `TChannel` is a concrete type constrained by `Channel`, and `newChannel` is `func(chan Event) TChannel`. The common `Event` interface is the heterogeneous notification payload type. Channel exposes `Notifications() <-chan Event` and `Errors() <-chan error`. The earlier statement that `TEvent` itself is the common interface and that the factory accepts `chan TEvent` is superseded. Consumers receive values, not a Log handle; internal Log owns append/read, persistence, recovery, scheduler and lifecycle.
+- **Public API:** sole approved entry point is `PrepareLog[TEvent, TChannel](ctx, newChannel) (TEvent, TChannel, error)`, where `TEvent` is a concrete pointer type constrained by `Event`, `TChannel` is a concrete pointer type constrained by `Channel`, and `newChannel` is `func(chan Event) TChannel`. Runtime reflection rejects either non-pointer type argument before exposing prepared values. Compatible repeated preparation for the same concrete Event/Channel type pair and exposed schemas returns the same live pointer pair; incompatible reuse fails with a typed conflict. The common `Event` interface is the heterogeneous notification payload type. Channel exposes `Notifications() <-chan Event` and `Errors() <-chan error`. The earlier statement that `TEvent` itself is the common interface and that the factory accepts `chan TEvent` is superseded. Consumers receive values, not a Log handle; internal Log owns append/read, persistence, recovery, scheduler and lifecycle.
 - **Configuration:** mandatory, immutable, one-time `Config(options ...Option) error` with required `WithStorageDirectory(path)`. Nil, duplicate, missing, invalid options fail. Relative paths are resolved and lexically cleaned to absolute during Config; Config does not create storage. PrepareLog creates storage. `ErrConfigNotInitialized` and `ErrConfigAlreadySet` are approved.
 - **Fields:** typed explicit primitive selectors; nullable primitive pointers; no nested fields; strict names/types/ranges and validation before writes.
 - **Identity:** deterministic UUID v5 with canonical encoding. Event identity is concrete type + exposed field-name schema + designated identity field name/value, global across channels. Non-identity changes create immutable occurrences under the same logical ID; latest occurrence promotes HEAD. Channel identity is similarly canonical. Identical physical records are deduplicated. Identity-field mutation handling remains open.
@@ -33,7 +33,7 @@ Authoritative durable decisions are consolidated in `docs/project/requirements.m
 
 ## Open Define decisions
 1. Field selector signatures, pointer/value convention and occurrence result shape; the `PrepareLog` generic constraints, factory type and Channel notification/error accessors are approved.
-2. Prepared-value association, internal lifecycle, cancellation, reader/resource cleanup and terminal errors.
+2. Internal lifecycle, cancellation, reader/resource cleanup and terminal errors; the compatible prepared-instance reuse contract is approved, while registry-key details and distinct logical Channels of one concrete type remain open.
 3. Identity-field mutation response and precise Channel change semantics.
 4. Backlog durability/replay boundary, recoverable retry termination, and shutdown drain failure.
 5. Snapshot consistency and consumer synchronization requirements.
@@ -355,3 +355,12 @@ These superseded statements remain in the plan only as historical discussion/pro
 
 
 [Governance reconciliation note] Historical proposal/checkpoint wording that conflicts with the current approved API or current Cycle 1 status is superseded by the current approved baseline and decision register. Do not treat historical wording as operative.
+
+
+## Approved D-008 / D-009 — preparation contract and reuse
+
+- **D-008:** Both `TEvent` and `TChannel` generic arguments must be pointers. `PrepareLog[TEvent, TChannel]` enforces this using runtime reflection and returns an error for either non-pointer argument. The two-parameter generic API is unchanged.
+- **D-009:** Repeating a compatible preparation for the same concrete Event/Channel type pair and unchanged exposed field schemas returns the same live Event and Channel pointer instances. Incompatible reuse of an already prepared type/schema registration returns a typed conflict rather than creating competing live instances.
+- Event-specific preparations resolving to the same logical Channel reuse its existing Channel pointer, runtime and single Reader progression, including across different concrete Event types. Each concrete Event type retains its own prepared Event instance.
+- The exact internal registry key, typed conflict taxonomy, and handling of distinct logical Channels of the same concrete Channel type remain open. No consumer-facing API is added or changed.
+- Canonical requirements and architecture updates were published and fetched back before this plan update. No implementation, build or Go tests were started.
