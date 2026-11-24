@@ -185,7 +185,7 @@ Event and Channel identity fields must have Go underlying type [16]byte. The unn
 named types with that underlying type are accepted. The canonical UUID payload is the 16 array elements
 in index order (value[0] through value[15]). No string parsing, textual normalization, integer endianness
 conversion, or external UUID dependency is involved. Nullable UUID identity fields and all other
-underlying types are rejected. The dedicated UUID identity marker/tag assignment remains open.
+underlying types are rejected. The UUID identity marker is permanently assigned tag `0x03` in the v1 identity type-tag namespace. It is distinct from Null (`0x00`), String (`0x01`), and Bool (`0x02`); the UUID payload is exactly the following 16 canonical bytes.
 
 ## Canonical identity byte composition
 
@@ -195,13 +195,13 @@ The exact canonical identity payload layout after the existing domain prefix is 
 3. Concrete type name: UTF-8 bytes framed by u32 BE byte length.
 4. Schema field count: u32 BE, followed by each field name sorted bytewise by UTF-8 bytes and framed by u32 BE byte length.
 5. Identity field name: UTF-8 bytes framed by u32 BE byte length.
-6. Identity value: a UUID-specific encoding marker (tag assignment remains open) followed by the UUID's canonical 16 bytes. The identity field must be part of the exposed schema and UUID-typed; nullable and arbitrary primitive identity values are forbidden.
+6. Identity value: the permanent UUID identity type tag `0x03`, followed by the UUID's canonical 16 bytes. The identity field must be part of the exposed schema and UUID-typed; nullable and arbitrary primitive identity values are forbidden.
 
-The already-approved namespace, Event/Channel domain prefixes, primitive field tags, big-endian framing, UUID v5 derivation, and non-identity value exclusion remain unchanged. Identity payload is UUID-only; the UUID tag remains unresolved. The accepted Go representation and byte extraction order are specified in the UUID identity contract. Format byte is intentionally redundant with the domain prefix's v1 marker.
+The already-approved namespace, Event/Channel domain prefixes, primitive field tags, big-endian framing, UUID v5 derivation, and non-identity value exclusion remain unchanged. UUID identity uses the permanent dedicated tag `0x03`; the accepted Go representation and byte extraction order are specified in the UUID identity contract. Format byte is intentionally redundant with the domain prefix's v1 marker.
 
 The UUID identity representation is specified in the UUID identity section below.
 
-Still open: the dedicated UUID identity marker/tag assignment; metadata UTF-8 policy; canonical naming of aliases/generic instantiated types; and maximum framing sizes. The UUID Go representation and byte extraction order are settled.
+Still open: metadata UTF-8 policy; canonical naming of aliases/generic instantiated types; and maximum framing sizes. The UUID Go representation, byte extraction order, and dedicated tag `0x03` are settled.
 
 ## Append transaction flow
 
