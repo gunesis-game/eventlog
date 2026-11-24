@@ -42,3 +42,11 @@ Cycle 1 remains in Define. Continue with bounded design proposals for the unreso
 - Added a decision table for pointer enforcement, prepared-instance reuse, init timeout ownership, identity mutation severity, notification acknowledgment/backlog/error accessor, and schema drift.
 - These remain recommendations only; active requirements and architecture are unchanged. No code/build/test started.
 - Proposal commit: `3ab160061d562bf8ab63cb5d5c679a9db8b0234c`.
+
+## Identity/notification decision proposal checkpoint — 2026-11-24
+- Started requested work by resuming Cycle 1 Define, claiming the execution lock and updating the registry to in-progress.
+- Added concrete identity-mutation proposal: Event-scoped quarantine on Event identity changes; Channel-scoped quarantine blocking events on that Channel after Channel identity changes; preserve last committed snapshots; unaffected channels continue; no implicit auto-clear; avoid repeated fault spam.
+- Added notification contract proposal: at-least-once delivery, opaque delivery token, immutable occurrence snapshots, explicit Ack after consumer handling, durable pending/ack ledger, replay unacked in order, duplicates possible between send and Ack, bounded channel with durable backlog, one in-flight per channel, typed bounded diagnostics, shutdown drain deadline and typed error while retaining pending items.
+- Important rationale: exactly-once consumer processing cannot be guaranteed across crash between receiving/processing and acknowledgment without consumer transactional integration. Ack makes semantics honest and recoverable but adds API and persistence cost.
+- Plan commit: `4e6b5877120d657ccd2e534ac953b4c31ff9ff89`.
+- Proposals only; active requirements/architecture remain unchanged. No implementation/build/tests started.
