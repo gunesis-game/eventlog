@@ -3,8 +3,18 @@
 **Cycle ID:** 4c7c4fb1-6724-4bb0-b98e-b4f5ac3f9182  
 **Workflow:** Standard  
 **Phase:** Define  
-**Status:** Paused  
-**Execution lock:** Released for session handoff.
+**Status:** In progress  
+**Execution lock:** Active; claimed and confirmed on shared `main` in commit `7e2d3eebfd0c706ca19dd37e565ebec3bfe5693b`.
+
+## Latest checkpoint — 2026-11-24 — resumed session
+
+- Re-read the released execution lock first, then resumed this same Cycle 1 from Define.
+- Claimed the lock with a lock-only commit: `7e2d3eebfd0c706ca19dd37e565ebec3bfe5693b`.
+- Fetched `docs/dev-life-cycle/execution-lock.json` from `main` and confirmed it remains active for cycle `4c7c4fb1-6724-4bb0-b98e-b4f5ac3f9182`, workflow `standard`, worker `ChatGPT-GPT-6`.
+- Updated the registry to `in-progress` and reconciled the plan's active API statement.
+- The sole approved public API remains `PrepareLog[TEvent, TChannel](ctx) (TEvent, TChannel, error)`; the internal `Log` owns all operations and lifecycle.
+- Next decision: storage-location selection and the role of `context.Context` for the parameterless storage configuration.
+- No implementation, build, or Go tests have started.
 
 ## Latest checkpoint — 2026-11-24 — session handoff
 
