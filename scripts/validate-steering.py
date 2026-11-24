@@ -187,11 +187,32 @@ def validate_governance():
             if not resolved.exists():
                 fail(f"{source.relative_to(ROOT)}: broken local link {raw_target}")
 
+def validate_workflows():
+    """Require main-only, event-driven workflows with shared startup retention."""
+    workflow_dir = ROOT / ".github/workflows"
+    workflow_files = sorted([*workflow_dir.glob("*.yml"), *workflow_dir.glob("*.yaml")])
+    if not workflow_files:
+        fail("workflows: at least one GitHub Actions workflow is required")
+    for path in workflow_files:
+        content = path.read_text(encoding="utf-8")
+        relative = path.relative_to(ROOT)
+        if "python3 scripts/cleanup-workflow-runs.py" not in content:
+            fail(f"{relative}: every workflow must invoke shared history cleanup at startup")
+        if re.search(r"(?m)^\\s*schedule\\s*:", content):
+            fail(f"{relative}: scheduled workflow runs are prohibited")
+        if re.search(r"(?m)^\\s*pull_request(?:_target)?\\s*:", content):
+            fail(f"{relative}: pull-request workflow triggers conflict with the main-only policy")
+        if "if: github.ref == 'refs/heads/main'" not in content:
+            fail(f"{relative}: workflow jobs must be restricted to main")
+        if re.search(r"(?m)^  push\\s*:", content) and "branches:\\n      - main" not in content:
+            fail(f"{relative}: push triggers must be restricted to main")
+
 def main():
     validate_decision_register(ROOT / "docs/project/decisions.md")
     registry=read_json(REGISTRY)
     validate_registry(registry)
     validate_governance()
+    validate_workflows()
     print("Development-cycle registry, decision ledger, and repository governance: valid")
 if __name__=="__main__":
     try: main()
