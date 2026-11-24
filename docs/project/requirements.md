@@ -180,3 +180,8 @@ The Channel runtime registry MUST resolve lookup and candidate adoption atomical
 ## Concurrent Event-type preparation for one logical Channel — D-014
 
 The library must allow concurrent preparations for different concrete Event types that resolve to the same logical Channel to register those Event types independently. They must converge on the same adopted Channel pointer and single Channel runtime/Reader, using canonical Channel identity and atomic runtime resolution. A preparation must not synchronously wait for another Event type's registration. Historical replay must continue to wait asynchronously for all decoders required by that Channel's committed history. No consumer-facing registration/activation API or public API change is permitted.
+
+
+## Event decoder registration lifetime — D-015
+
+Once a concrete Event decoder has been registered successfully, the library MUST retain that registration for the lifetime of the Log runtime. Its availability MUST NOT depend on an individual `PrepareLog[TEvent, TChannel]` call remaining active, nor may it be removed when that call completes. Registration is associated with the concrete Event type and exposed field-name schema, not an individual Channel. The consumer-facing API MUST NOT expose an unregister operation or otherwise change.
