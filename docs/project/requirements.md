@@ -50,6 +50,9 @@ from replay into live tailing. It is not tied to an event-sourcing framework or 
   Configuration does not create the storage directory; preparation creates it and reports failures.
 - Concurrent preparation shares initialization safely. Each caller's Context controls its own wait or
   operation; configuration is not inferred from Context or environment variables.
+- Existing event-log storage is loaded and recovered as the system of record before eventlog resolves or
+  creates any runtime Channel. A Channel is resolved by its stable Channel identity; event-specific
+  preparation must reuse that Channel runtime rather than create a parallel Channel stream.
 
 ### Fields and validation
 - Consumers expose a heterogeneous set of typed primitive fields. Supported values include strings,
@@ -75,8 +78,10 @@ from replay into live tailing. It is not tied to an event-sourcing framework or 
   records, and recovery must fail closed when storage is ambiguous rather than guess.
 
 ### Reading
-- A unified reader provides committed history and live updates in order, without gaps or duplicates when
-  transitioning from replay to tailing.
+- One unified Reader progression per runtime Channel provides committed history and live updates in
+  order, without gaps or duplicates when transitioning from replay to tailing. The same progression
+  advances through replay and live tailing; separate typed Readers must not be combined to synthesize
+  the heterogeneous notification stream.
 - Each reader is scoped to exactly one consumer-provided Channel. No all-channel reader is provided.
 - Storage sequences, offsets, cursors, and tailing coordination remain internal.
 - Context cancellation and explicit errors are required. Re-appended logical Events are separate
