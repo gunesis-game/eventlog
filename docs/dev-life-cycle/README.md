@@ -2,13 +2,11 @@
 
 This directory contains the durable execution state for ordinary development work. Use of this mechanism is mandatory for ordinary project work; the narrowly scoped governance-maintenance exemption is defined below.
 
-The mechanism is deliberately project-agnostic: project-specific objectives, architecture, commands, quality gates, branch-protection details, and deployment constraints belong in the repository's own documentation and configuration. This template uses `main` as its working branch. Contributors may work concurrently; no execution coordination or single-worker restriction exists.
+The mechanism is deliberately project-agnostic: project-specific objectives, architecture, commands, quality gates, branch-protection details, and deployment constraints belong in the repository's own documentation and configuration. This repository uses main as its working branch.
 
-## Governance-maintenance exemption
+## Governance maintenance
 
-Changes whose scope is limited to `steering.md` and/or files under `docs/dev-life-cycle/`, and whose purpose is to amend or repair the steering policy or development-cycle mechanism itself, do not create or resume a cycle. This explicit self-maintenance exemption prevents recursive cycles.
-
-Keep such changes strictly limited to those governance files. If ordinary project files are also changed, that ordinary work must use the normal cycle process. The exemption from cycle tracking does not waive other repository controls.
+The governance-maintenance exemption is defined in steering.md. Apply governance changes directly to their owning governance files; do not create or advance a development cycle for that work. This lifecycle specification does not define a second exemption policy.
 
 ## Authoritative files
 
@@ -16,6 +14,7 @@ Keep such changes strictly limited to those governance files. If ordinary projec
 - `cycle-index.schema.json` defines the registry's structural JSON contract.
 - `templates/PLAN.md` is copied into each standard cycle's plan.
 - `templates/HANDOFF.md` is copied into each standard cycle's handoff.
+- `docs/project/decisions.md` is the durable project decision register; cycle records link to it and do not duplicate it.
 
 Standard-cycle structure:
 
@@ -34,7 +33,7 @@ docs/dev-life-cycle/
       HANDOFF.md
 ```
 
-Micro-cycles have no per-cycle plan or handoff directory. Their required compact record is stored directly in `cycle-index.json`. Do not store project-wide architecture or permanent requirements in cycle plans or handoffs.
+Micro-cycles have no per-cycle plan or handoff directory. Their required compact record is stored directly in `cycle-index.json`. Do not store project-wide architecture, requirements, or the durable decision register in cycle plans or handoffs.
 
 ## Registry contract
 
@@ -250,7 +249,7 @@ If verification fails after a commit to main, do not leave the unverified revisi
 
 ## Documentation audit policy
 
-Every standard cycle considers documentation in its plan, updates relevant focused docs during implementation, and performs a final consistency audit before completion. Every micro cycle confirms that its cosmetic-only change does not alter meaning and records that review in its outcome. Promote only durable, approved decisions into long-lived project documentation; do not turn cycle notes into permanent doctrine.
+Every standard cycle considers documentation in its plan, updates relevant focused docs during implementation, and performs a final consistency audit before completion. Every micro cycle confirms that its cosmetic-only change does not alter meaning and records that review in its outcome. Promote only durable, approved outcomes into the relevant project specification and decision ledger. Curate the result; do not copy checkpoint or handoff prose into project documentation.
 
 At least once every three completed implementation cycles (standard and micro count; governance-only changes do not count), or sooner after a major architecture/contract change, perform a dedicated historical documentation audit. The audit is a lifecycle gate within the selected cycle, not a separate cycle. Review completed standard plans and handoffs and micro-cycle registry outcomes since the previous audit boundary alongside current implementation and maintained docs. Consolidate durable decisions, resolve contradictions, remove stale guidance, and check links and terminology. Record the reviewed execution-order range and outcome; only then advance the registry watermark.
 
@@ -264,7 +263,7 @@ Before stopping or handing off, update the current cycle checkpoint. A session e
 
 ## Template setup and product documentation
 
-The first-use bootstrap (replacing the root README from `README.template.md`, filling `docs/project/`, choosing product licensing, and updating `TEMPLATE_VERSION`) is setup work, not a development cycle. Complete it before the first ordinary implementation cycle. Product requirements, architecture, coding standards, and verified commands belong in `docs/project/requirements.md`, `architecture.md`, `coding-standards.md`, and `commands.md`. Coding standards must align with and defer structural and naming decisions to `architecture.md`; cycle plans and handoffs are temporary checkpoints only.
+The first-use bootstrap (replacing the root README from `README.template.md`, filling `docs/project/`, choosing product licensing, and updating `TEMPLATE_VERSION`) is setup work, not a development cycle. Complete it before the first ordinary implementation cycle. Product requirements, architecture, coding standards, verified commands, and durable project decisions belong in docs/project/requirements.md, architecture.md, coding-standards.md, commands.md, and decisions.md. Coding standards must align with and defer structural and naming decisions to architecture.md; cycle plans and handoffs are temporary progress records.
 
 
 ## Branch-policy adaptation
@@ -274,4 +273,4 @@ This template defaults to direct work on `main`. A derived repository that requi
 
 ## Validator
 
-Run `python3 scripts/validate-steering.py` locally. The included GitHub Actions workflow runs the same standard-library validator when lifecycle files or the validator change, on pushes, pull requests, or manual dispatch. It checks registry structure, statuses, uniqueness, timestamp relationships, micro-cycle rules, and each standard handoff's decision register. Persisted decisions may be Proposed or Recorded; an Approved-but-unrecorded decision fails validation. Recorded decisions must identify an existing canonical artifact and a verified commit/revision. JSON Schemas remain the structural contract; the validator covers cross-record and handoff invariants that JSON Schema cannot express. A green validator is necessary but does not replace cycle-file existence checks, implementation review, tests, or lifecycle gates.
+Run `python3 scripts/validate-steering.py` locally. The included GitHub Actions workflow runs the same standard-library validator when lifecycle files or the validator change, on pushes, pull requests, or manual dispatch. It checks registry structure, statuses, uniqueness, timestamp relationships, micro-cycle rules, and the single project decision register. Decisions may be Proposed or Recorded; an Approved-but-unrecorded decision fails validation. Recorded decisions must identify an existing specification and a verified commit/revision. JSON Schemas remain the structural contract; the validator covers cross-record and decision-ledger invariants that JSON Schema cannot express. A green validator is necessary but does not replace cycle-file existence checks, implementation review, tests, or lifecycle gates.
