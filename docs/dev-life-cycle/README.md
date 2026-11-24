@@ -166,22 +166,23 @@ The lifecycle mechanism is mandatory for the whole ordinary task, including desi
 
 **Before starting or resuming ordinary work:**
 - Validate the registry and select/resume the correct standard or eligible micro cycle.
-- For standard work, read and update the cycle's plan and handoff before substantive work. The handoff is the sole live decision ledger.
+- For standard work, read and update the cycle's plan and handoff before substantive work. The handoff is the current progress record; the project decision ledger remains separate.
 - If no applicable cycle exists, create and persist one using the prescribed workflow before proceeding. Do not conduct an extended design conversation first and attempt to reconstruct its state later.
 
 **After each material user approval:**
 - Treat the approval as a hard stop on design progression.
-- Update the canonical artifact and the handoff decision register in the same work unit. Use one published commit where the repository workflow permits; otherwise publish the canonical artifact first and the handoff immediately afterward.
-- Fetch both artifacts from the shared target branch. Verify the exact contents and revision, and verify that the recorded revision is present in the shared branch.
-- Only then may the handoff mark the decision as Recorded, and only then may the next independent design question or dependent implementation begin.
-- If any write or verification fails, do not continue the design. Leave the decision visibly unresolved in the handoff/checkpoint, record the exact blocker and recovery action, and report it.
+- Integrate the approved outcome into its owning project specification and record its provenance in docs/project/decisions.md. Do not copy the decision text into both requirements and architecture.
+- Publish and fetch the specification and decision ledger. Verify their exact contents and revisions, and verify that the recorded revision is present in the shared target branch.
+- Update the current handoff only with the resulting progress, verification, blockers, and next action. The handoff does not maintain a second decision register.
+- Only after the specification and decision ledger are verified may the next independent design question, dependent implementation, or phase transition begin.
+- If any write or verification fails, do not continue the design. Leave the decision Proposed in the ledger, record the exact blocker and recovery action in the handoff, and report it.
 
 **At every session or context resumption:**
 - Re-read the registry and current handoff. Reconcile the handoff against the actual repository revision.
 - Treat chat history as explanatory context only. It cannot establish cycle status, decision approval, artifact recording, or verification.
-- Resume from the persisted phase and first resolve any approved-but-unrecorded decision before doing other work.
+- Resume from the persisted phase and first resolve any approved-but-unrecorded project decision using docs/project/decisions.md before doing other work.
 
-The governance-maintenance exemption permits repair of this lifecycle mechanism without creating a recursive cycle. It does not exempt the repair from review, publication, fetch-back, and verification.
+The governance-maintenance exemption in steering.md permits direct maintenance of the governance mechanism without creating or advancing a development cycle. Governance changes remain subject to review, publication, fetch-back, and verification.
 
 
 ## Standard-cycle phase machine
@@ -214,28 +215,36 @@ When a standard-cycle transition occurs, update the registry's current_phase and
 
 Every standard plan must include objective, problem, scope/non-goals, relevant project context, dependencies/risks, ordered tasks, testable acceptance criteria, verification approach, current phase, next action, and phase-exit evidence.
 
-Every standard handoff must be updated before stopping, including when work is interrupted or unsuccessfully preempted. It records actual repository state, phase and exit evidence, completed changes, decisions and their governance state, verification and failures, unresolved risks/blockers, documentation status, next concrete action, and uncommitted/unpushed work. Keep one current handoff per cycle; do not make a transcript or create multiple handoff files. Cycle progress is recorded in the registry and current handoff; contributors coordinate through ordinary Git collaboration.
+Every standard handoff must be updated before stopping, including when work is interrupted or unsuccessfully preempted. It records actual repository state, phase and exit evidence, completed changes, links to relevant decision IDs, verification and failures, unresolved risks/blockers, documentation status, next concrete action, and uncommitted/unpushed work. Keep one current handoff per cycle; do not make a transcript or create multiple handoff files. Cycle progress is recorded in the registry and current handoff; contributors coordinate through ordinary Git collaboration.
 
-### Mandatory decision approval-to-artifact gate
+### Decision approval-to-artifact gate
 
-The current standard-cycle handoff is the authoritative decision ledger for that cycle. Track every material requirement, architecture, interface, or implementation decision using the `Decision register` table in `templates/HANDOFF.md`. Do not create a parallel decision tracker.
+The durable project decision ledger is docs/project/decisions.md. It is the single register for material
+requirements, architecture, interface, and implementation decisions. Cycle plans and handoffs link to
+decision IDs and record progress; they do not maintain a parallel decision register.
 
-Use these states:
+Use these states in the project decision ledger:
 
 - **Proposed:** The decision and rationale have been presented; user approval is outstanding.
-- **Approved:** The user has explicitly approved the decision. This is a transient workflow state only; it must not remain in a persisted handoff or checkpoint.
-- **Recorded:** The canonical artifact has been updated, reviewed, published to the shared repository, fetched back, and verified at the stated revision. The register names the artifact path and verified revision.
+- **Recorded:** The user approved the outcome, the owning specification was updated, and both the
+  specification and decision ledger were published, fetched back, and verified at their stated revisions.
+
+Approval is transient working state, not a persisted ledger state. Do not write Approved as a durable
+status. If approval has been given but recording is incomplete, leave the ledger entry Proposed and
+record the exact blocker and next action in the current handoff.
 
 On approval, immediately perform the following in the same work unit:
-1. Identify the one canonical artifact using the document-ownership rules in `steering.md`.
-2. Update that artifact with the approved decision and rationale, distinguishing a proposed/future design from implemented behavior.
-3. Review the exact diff for consistency with requirements, existing architecture, public contracts, and scope.
-4. Publish the change using the repository's approved workflow. Fetch the artifact from the shared target branch and verify its content and exact commit/revision.
-5. Update the handoff register to `Recorded`, including the canonical artifact path and verified revision. Publish and fetch the handoff checkpoint as well.
+1. Identify the owning specification using the document-ownership rules in steering.md.
+2. Integrate the approved outcome into the relevant topic in requirements.md or architecture.md.
+3. Review the exact diff for consistency with the other specification, existing public contracts, and scope.
+4. Publish the specification and update docs/project/decisions.md with the concise decision outcome,
+   specification path, and verified revision.
+5. Fetch both files from the shared target branch and verify their exact contents and revisions.
+6. Update the handoff with progress, verification, and the next action only.
 
-Only after these steps may the agent ask for the next independent design decision, start dependent implementation, or advance the phase. If any step fails or cannot be completed, stop. Keep the decision marked `Approved` in the working checkpoint (not as a falsely `Recorded` decision), state the exact failure and next action, and do not proceed. When publishing the checkpoint itself is impossible, report that limitation; never claim durable recording.
-
-A user approval is not an implementation authorization to bypass this gate. An acknowledgement in chat, a local edit, a commit that has not reached the shared branch, or a successful write response without fetch-back verification does not count as `Recorded`. The registry phase and handoff must remain synchronized with this gate.
+Only after these steps may the agent ask the next independent design question, start dependent
+implementation, or advance the phase. If any step fails, stop and report the approved-but-unrecorded
+decision. A user approval is not implementation authorization to bypass this gate.
 
 ## Verification feedback loop
 
