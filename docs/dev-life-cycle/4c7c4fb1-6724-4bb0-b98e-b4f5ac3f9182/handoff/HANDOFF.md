@@ -128,3 +128,11 @@ User clarified that the consumer-selected identity field for both Event and Chan
 - Updated files: `docs/project/requirements.md`, `docs/project/architecture.md`, `docs/project/coding-standards.md`, `steering.md`. `docs/project/commands.md` was reviewed and already correctly requires verified commands, so it was left unchanged.
 - Verification performed: GitHub fetch-back review of updated text. No local schema validator, build, or Go tests ran because this connector session provides file fetch/update but no repository checkout/command execution.
 - Next action: finish fetch-back contradiction review, then continue Define topics; no implementation begins before explicit Define approval.
+
+
+## Session pause and lock release — 2026-11-24T16:00:07Z
+- Cycle 1 is intentionally paused at the Define phase so a new session can resume it.
+- Checkpointed state: documentation ownership review changes are committed and fetch-back checked; the remaining Define topics are API/lifecycle, identity mutation, notification stream initialization/ownership and dispatch guarantees, acceptance matrix, and performance/memory targets.
+- No implementation, local validation, build, or Go tests were run in this session.
+- Next action for the next session: read the lock first, then steering/lifecycle state and this handoff/plan; resume Cycle 1 Define with the existing cycle ID and execution order.
+- Lock release is being performed explicitly for this pause. Cycle 1 remains resumable and is not complete or cancelled.
