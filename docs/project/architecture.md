@@ -64,14 +64,13 @@ configuration is not inferred from Context or environment.
 - **Recovery/index manager:** Validates manifest, segment generation, records, sequences, transaction
   Commit IDs/count/checksums and derived index. Incomplete trailing transaction truncates to its start;
   index is rebuilt from segment source if missing/inconsistent and atomically replaced.
-- **Reader/tailer:** Streams committed historical occurrences for exactly one consumer-provided Channel
-  value, catches up with concurrent appends, and transitions to live tailing without gaps or duplicates.
-  Global sequence/cursor/offset management is internal; consumers do not provide or receive storage
-  cursors. Cancellation and errors are explicit. Reads are generic over the consumer's concrete Event
-  struct type; eventlog allocates and reconstructs that type internally without a
-  registration/factory/prototype API. A channel may contain multiple concrete Event types; a `Reader[T]`
-  returns matching occurrences in order and advances past other event types, which are filtered rather
-  than treated as errors.
+- **Reader/tailer:** One unified Reader progression serves each runtime Channel, streams committed
+  history, catches concurrent appends, and transitions to live tailing without gaps or duplicates. Global
+  sequence/cursor/offset management is internal; consumers do not provide or receive storage cursors.
+  Cancellation and errors are explicit. Concrete Event values are reconstructed through the project's
+  existing internal event-type registration/codec mechanisms. Unknown persisted Event types and decode
+  failures are errors, never silently skipped. Typed Readers may filter concrete Event types for typed
+  reads, but independent typed Readers do not compose the heterogeneous notification stream.
 - **Compactor:** Produces replacement segments/index without modifying reader-pinned files,
   validates/checksums and syncs them, finalizes, atomically switches manifest/index, and deletes old
   generations only after the last reader releases its pin.
@@ -286,8 +285,8 @@ memory use and platform parity precede numeric performance targets.
   terminal-error semantics.
 - Identity-field mutation detection and transition mechanics, snapshot consistency,
   occurrence/HEAD/index and Channel association effects.
-- Notification method signature/accessor ownership, internal backlog durability/retention and replay
-  boundary, retry termination, delivery/error ordering, scheduler interaction and shutdown drain failure.
+- Internal writable-channel construction/ownership, backlog durability/retention and replay boundary,
+  retry termination, delivery/error ordering, scheduler interaction and shutdown drain failure.
 - Consumer synchronization/snapshot consistency details.
 - Benchmarks, memory/performance targets, and measurable acceptance criteria.
 
