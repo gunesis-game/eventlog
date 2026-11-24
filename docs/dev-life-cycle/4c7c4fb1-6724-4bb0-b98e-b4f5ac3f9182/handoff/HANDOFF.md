@@ -268,12 +268,12 @@ This is the authoritative decision ledger for Cycle 1. Every material user-appro
 | D-014 | Concurrent Event-type preparations for one logical Channel converge on one Channel pointer/runtime/Reader; replay waits asynchronously for required decoders | Recorded | docs/project/architecture.md | 92d5b462d99a55763cbe5a217292e52a37e4e7e1 |
 | D-015 | Successful concrete Event decoder registrations persist for the Log runtime lifetime, keyed by concrete Event type and exposed schema | Recorded | docs/project/architecture.md | 3258af3313da4a40f43e7e3a7dd698bb4e5f1de1 |
 | D-016 | Re-registering the same Event type/schema reuses the decoder; a different schema returns a typed conflict without mutating existing registration | Recorded | docs/project/architecture.md | aa3f317df4daaba2ce40bed7530309493a9339a4 |
-| D-017 | Typed direct-field selectors `FieldOf` and `FieldOfNullable` preserve named primitive types and nil-versus-zero distinctions | Recorded | docs/project/architecture.md | 810999fbbffb9a360bb1496a72b57ec387f00a05 |
-| D-018 | Historical Event reconstruction uses fresh concrete pointers; notification snapshots are immutable and isolated from live and persistence storage | Recorded | docs/project/architecture.md | 810999fbbffb9a360bb1496a72b57ec387f00a05 |
-| D-019 | Prepared Event identity is immutable; detected identity mutation is rejected and reported through the existing Channel error stream | Recorded | docs/project/architecture.md | 810999fbbffb9a360bb1496a72b57ec387f00a05 |
-| D-020 | Detected mutations enqueue immutable snapshots on an internal eventlog-owned queue; workers dequeue and persist; no public API change | Recorded | docs/project/architecture.md | 810999fbbffb9a360bb1496a72b57ec387f00a05 |
-| D-021 | Per-logical-Event FIFO order is preserved; no queued snapshot is dropped; suppress only consecutive unchanged observations; A→B→A remains distinct | Recorded | docs/project/architecture.md | 810999fbbffb9a360bb1496a72b57ec387f00a05 |
-| D-022 | Internal queue is bounded; capacity pressure pauses/delays monitoring, not consumer assignments; queued snapshots remain retained | Recorded | docs/project/architecture.md | 810999fbbffb9a360bb1496a72b57ec387f00a05 |
+| D-017 | Typed direct-field selectors `FieldOf` and `FieldOfNullable` preserve named primitive types and nil-versus-zero distinctions | Recorded | docs/project/architecture.md | 37da85f14975b31ae9810d0f22454537bb0e6c09 |
+| D-018 | Historical Event reconstruction uses fresh concrete pointers; notification snapshots are immutable and isolated from live and persistence storage | Recorded | docs/project/architecture.md | 37da85f14975b31ae9810d0f22454537bb0e6c09 |
+| D-019 | Prepared Event identity is immutable; detected identity mutation is rejected and reported through the existing Channel error stream | Recorded | docs/project/architecture.md | 37da85f14975b31ae9810d0f22454537bb0e6c09 |
+| D-020 | Detected mutations enqueue immutable snapshots on an internal eventlog-owned queue; workers dequeue and persist; no public API change | Recorded | docs/project/architecture.md | 37da85f14975b31ae9810d0f22454537bb0e6c09 |
+| D-021 | Per-logical-Event FIFO order is preserved; no queued snapshot is dropped; suppress only consecutive unchanged observations; A→B→A remains distinct | Recorded | docs/project/architecture.md | 37da85f14975b31ae9810d0f22454537bb0e6c09 |
+| D-022 | Internal queue is bounded; capacity pressure pauses/delays monitoring, not consumer assignments; queued snapshots remain retained | Recorded | docs/project/architecture.md | 37da85f14975b31ae9810d0f22454537bb0e6c09 |
 
 ## Governance correction checkpoint — 2026-11-24T20:02+02:00
 
