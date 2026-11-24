@@ -226,6 +226,20 @@ unknown persisted Event types, and decode failures are errors, never silently sk
 
 The reader stays internal under the currently approved public API. The common `Event` interface and `Notifications() <-chan Event` accessor are settled; pointer/value convention, occurrence wrapper, and close/resource semantics remain open.
 
+## Runtime lifecycle and shutdown
+
+eventlog owns the runtime lifecycle; consumers do not receive public `Start`, `Activate`, `Close`, or other lifecycle controls. Successful append Commit is the authoritative ordering point. The Channel's single unified Reader progression observes only committed records and drives notification delivery in global sequence order. No notification is emitted before its append Commit succeeds.
+
+Slow consumers may apply backpressure to the notification delivery worker, but must not stall append/persistence or cause committed Events to be reordered or skipped. A delivery failure never rolls back or deletes a committed Event. The Reader/delivery progression and pending delivery state remain recoverable; without consumer acknowledgment, exactly-once consumer processing is not guaranteed and duplicates may occur in the documented crash window.
+
+Shutdown is ordered:
+1. Stop accepting new preparations and stop initiating new change-detection appends.
+2. Coordinate all outstanding append transactions until each reaches a committed or safely aborted state.
+3. Cancel the Channel Reader and delivery workers after the append boundary is settled.
+4. Drain pending notifications according to the defined shutdown policy and wait for all senders to stop. If drain cannot complete, report the lifecycle failure and preserve recoverable pending state.
+5. Close notification streams only after no sender can still write to them.
+6. Release storage and process-ownership resources.
+
 ## Durability, segment management and compaction
 
 Automatic sync occurs every 1 second or 1 MiB of pending writes, whichever first. Flush and Close are
