@@ -3,10 +3,10 @@
 ## State
 - **Cycle:** 4c7c4fb1-6724-4bb0-b98e-b4f5ac3f9182 (sequence 1, execution order 1)
 - **Workflow / phase:** standard / define
-- **Registry:** in-progress at Define
-- **Execution lock:** active for ChatGPT (claimed 2026-11-24T16:30:00Z)
+- **Registry:** blocked at Define
+- **Execution lock:** released at 2026-11-24T17:17:13Z after blocked checkpoint
 - **Implementation:** none; no build or Go tests started.
-- **Latest checkpoint:** proposal commit `c57fbdf2f336d0c3c6370233249bdf59a8f22896`; handoff update `68b42ab313c84617dd13832e529ee8f01ee82846`; registry pause commit `1d2d691350e71f7b7d2f11349d57951aa5e36074`; lock release commit `e0dd9ad1a53777376f3eae3d36394b8897bbcfd2`.
+- **Latest checkpoint:** see the current blocked checkpoint at the end of this handoff; earlier checkpoints and history remain preserved.
 
 ## Correction after user review
 The previous cleanup was wrong: it optimized for file size and stripped substantive requirements/design from active project docs, leaving the archive as the place to find them. The user explicitly said this was not simply moving content and that architecture must retain the complete design. This pass restores and curates the active docs. Active specifications must remain complete and topic-oriented; archives are provenance only.
@@ -215,3 +215,12 @@ part of the API. The remaining issue is internal writable-channel ownership and 
 - **Why this is only a proposal:** repository inspection found no Go source, codec implementation, or registry code. It is not yet established that the existing registry is process-wide, available before recovery, or enumerable by persisted type ID. Do not promote or implement this mechanism until confirmed.
 - **Verification:** workflow passed on handoff commit `eb07d653513539e02d66ddb4362ed0d5f5b12915` (run 45446734047). Latest plan proposal commit `64bb679a1a823a770968d4bdc715dd7330c24cad` has not yet been observed in the workflow list.
 - **Next:** confirm the scope/availability of the existing Event codec registry; then finalize the barrier. After that, settle identity mutation, delivery retries/errors/backlog, and acceptance/benchmark matrix.
+
+## Pause/blocked checkpoint — 2026-11-24T17:17:13Z
+
+- **Last progress checkpoint:** 2026-11-24T17:17:13Z
+- **Registry:** Cycle 1 is `blocked` at `define`; `status_reason` records the dependency on confirming the existing Event type/codec registry.
+- **Execution lock:** released in the same atomic commit as the registry/handoff update. No worker retains ownership while waiting for the user.
+- **Completed:** governance checkpoint rules propagated; heterogeneous `Notifications() <-chan Event` and common Event semantics recorded; recovery-before-Channel-resolution, Channel convergence, one Reader progression, committed ordering, backpressure, failure recovery, and shutdown rules reconciled into active docs; replay-barrier proposal recorded but not promoted.
+- **Open question:** is the existing Event type/codec registry process-wide and loaded before the first `PrepareLog`, with decoders available for every persisted concrete Event type during recovery?
+- **Resume:** after the registry scope is confirmed, resume this same Cycle 1 at Define. Do not create a new cycle or change the consumer-facing API.

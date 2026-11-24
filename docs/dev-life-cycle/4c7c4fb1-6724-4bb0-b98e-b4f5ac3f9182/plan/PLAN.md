@@ -4,7 +4,7 @@
 - **Cycle ID:** 4c7c4fb1-6724-4bb0-b98e-b4f5ac3f9182
 - **Sequence / execution order:** 1 / 1
 - **Workflow:** standard
-- **Status / phase:** in-progress / define
+- **Status / phase:** blocked / define
 - **Created:** 2026-11-22
 - **Updated:** 2026-11-24
 
@@ -318,3 +318,7 @@ The only API-compatible candidate identified so far is to make the existing Even
 4. Start the unified Reader only after the preceding checks. New Event types must be registered through the existing codec mechanism before an append of that type can commit.
 
 This would provide a deterministic historical-replay barrier without a consumer-facing `Activate`, `Start`, or `RegisterEventType` method and without treating sequential `PrepareLog` calls as a completion signal. **It is not approved yet:** the repository currently contains no Go source or codec implementation, so it is not established that the existing registry is process-wide, available before recovery, or enumerable by persisted type ID. Verify those facts before promoting this proposal or implementing it.
+
+## Blocked checkpoint — 2026-11-24T17:17:13Z
+
+Cycle 1 is blocked at Define pending confirmation of the existing Event type/codec registry's initialization and scope. The approved registration barrier requires all persisted concrete Event types to be decodable before historical replay; the proposed registry-driven mechanism is not approved because this repository contains no Go source/codec implementation to verify it. No consumer-facing API additions are permitted. Resume the same Cycle 1 after this dependency is clarified; preserve its ID, sequence, execution order, and Define phase.
