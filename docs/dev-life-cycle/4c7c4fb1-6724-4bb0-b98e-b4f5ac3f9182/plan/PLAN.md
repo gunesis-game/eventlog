@@ -33,7 +33,7 @@ The consumer-facing API remains:
 - Channel exposes Notifications() <-chan Event and Errors() <-chan error.
 - The library owns persistence, replay, change detection, dispatch, and runtime lifecycle.
 
-Approved decisions D-001 through D-024 are recorded in the project decision register and integrated into the current requirements and architecture. Do not treat the register as a substitute for those specifications.
+Approved project decisions are recorded in the project decision register and integrated into the current requirements and architecture. The register is provenance, not a substitute for those specifications.
 
 ## Remaining Define work
 
