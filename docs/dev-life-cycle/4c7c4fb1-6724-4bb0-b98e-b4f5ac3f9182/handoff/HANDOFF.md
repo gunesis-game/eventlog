@@ -38,7 +38,7 @@ Both generic arguments are concrete pointer types constrained by their respectiv
 
 - Runtime process scope, preparation Context scope, shared-worker ownership, and terminal Reader error behavior are approved and recorded as D-026. The exact internal shutdown trigger and ordered graceful cleanup remain unresolved.
 - Channel snapshots now use the same identity-keyed bounded FIFO dispatch mechanism as Event snapshots (D-027); consumer synchronization remains required for concurrent multi-field mutation.
-- Backlog/replay boundaries, recoverable retry termination, and shutdown-drain failure behavior.
+- The unified Reader no longer has a replay/live boundary (D-028); remaining delivery questions are recoverable retry termination, and shutdown-drain failure behavior.
 - Complete acceptance matrix and benchmark/performance/memory targets.
 - Final consistency review and explicit approval to exit Define.
 
@@ -48,4 +48,4 @@ Both generic arguments are concrete pointer types constrained by their respectiv
 
 ## Next action
 
-Next, define the internal lifecycle/cancellation and resource cleanup model: how preparation, append workers, Channel Readers, delivery workers, and storage ownership stop or fail, with clear terminal-error handling. D-025, D-026, and D-027 are recorded and verified. Do not begin implementation until Define is complete and the user explicitly approves exit.
+Next, define recoverable delivery retry termination: when a retryable delivery error repeats, what retry policy and terminal behavior preserve ordering and recoverability? D-025 through D-028 are recorded; D-028 removes the explicit replay/live transition and relies on one committed-sequence progression with wake-up hints plus authoritative rechecks. Do not begin implementation until Define is complete and the user explicitly approves exit.
