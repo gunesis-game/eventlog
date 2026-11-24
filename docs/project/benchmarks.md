@@ -193,6 +193,8 @@ For each individual GitHub Actions workflow, retain the four most recent workflo
 
 Retention is per workflow, not a repository-wide limit. Runs belonging to other workflows must not be deleted by this workflow's cleanup. The retained run history is intended to support comparison of benchmark results and execution behavior.
 
+Retain failed runs as well as successful runs so failures remain available for investigation. Cancelled runs are excluded from the four-run retention set and should be removed during cleanup. The four retained runs are therefore the four most recent non-cancelled runs for that workflow.
+
 The eventual cleanup implementation must account for the currently running workflow run, required GitHub token permissions, and concurrent runs so that it does not accidentally delete one of the four runs intended to be retained. This policy does not itself specify a benchmark schedule or create scheduled runs.
 
 ## Remaining Define work
