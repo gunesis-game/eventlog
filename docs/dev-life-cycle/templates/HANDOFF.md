@@ -6,7 +6,7 @@
 - **Objective:** <One-line objective>
 - **Registry status:** <pending | in-progress | paused | blocked | cancelled | complete>
 - **Persisted phase:** <assess | define | implement | verify | reconcile | complete>
-- **Last updated:** <UTC ISO-8601 timestamp>
+- **Last updated:** <UTC ISO-8601 timestamp>\n- **Last progress checkpoint:** <UTC ISO-8601 timestamp; update after every material decision and at least every 15 minutes while actively working>
 
 ## Current repository state
 
