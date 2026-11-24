@@ -1,10 +1,12 @@
 # Architecture
 
-**Status:** Current technical design baseline; remaining open details are listed below. This active document owns approved technical design:
-components, responsibilities, boundaries, interfaces, algorithms, data/storage representations, lifecycle,
-and design trade-offs. Requirements are owned by [requirements.md](requirements.md); this document must
-trace to and satisfy them rather than redefine product behavior. Approved decisions are integrated by topic; their concise provenance is recorded in [decisions.md](decisions.md). Proposals and unresolved alternatives must be clearly labeled and never presented as approved. It describes intended design, not implementation or verification
-evidence.
+**Status:** Current technical design baseline; remaining open details are listed below.
+
+This document owns technical design: components, responsibilities, boundaries, interfaces, algorithms,
+data/storage representations, lifecycle, and trade-offs. Requirements are owned by
+[requirements.md](requirements.md); this design must satisfy them rather than redefine product behavior.
+It describes intended design, not implementation or verification evidence.
+
 
 ## System boundary
 
@@ -30,12 +32,10 @@ configuration is not inferred from Context or environment.
 
 ## Preparation and registration
 
-The public preparation entry point is
-PrepareLog[TEvent, TChannel](ctx, newChannel) (TEvent, TChannel, error). Both generic arguments
-must be concrete pointer types satisfying Event and Channel; PrepareLog checks the pointer constraint
-at runtime and returns an error before exposing prepared values if either argument is not a pointer.
-The required factory is func(chan Event) TChannel. The common Event interface is implemented by every
-concrete Event type and is the element type of the heterogeneous notification stream.
+Both generic arguments to PrepareLog must be concrete pointer types satisfying Event and Channel.
+PrepareLog checks this constraint at runtime and returns an error before exposing prepared values if
+either argument is not a pointer. The factory and heterogeneous notification stream are defined in the
+System boundary section; the rules below specify internal registration and runtime resolution.
 
 Compatible repeated preparations reuse the same live Event and Channel pointer instances. Event instance
 reuse follows canonical Event identity. Channel runtime reuse follows canonical Channel identity, not
@@ -65,23 +65,8 @@ is part of the API.
 
 ## Logical components
 
-- **Public API:** The only approved public entry point is package-level generic `PrepareLog[TEvent,
-  TChannel](ctx, newChannel)`, returning `(TEvent, TChannel, error)`. `TEvent` is a concrete type constrained
-  by `Event`; `TChannel` is a concrete type constrained by `Channel`; `newChannel` is the required
-  `func(chan Event) TChannel` factory. The Channel interface exposes `Notifications() <-chan Event` and
-  `Errors() <-chan error`; the notification stream carries heterogeneous concrete Event values.
-  Consumers receive event and channel values, not a Log handle. The package owns the internal `Log`
-  instance and all append/read/next/lifecycle operations; none of those operations are exposed to consumers
-  at this stage. Consumer event and channel types implement `Fields() Fields`; consumers set or change their
-  own field values. A single process owns a log at a time, with concurrent goroutine use coordinated
-  internally.
-- **Field builder and validator:** Selector callback supplies typed field selectors for direct fields.
-  `FieldOf` selects non-nullable primitives; `FieldOfNullable` selects nullable primitive pointers and
-  returns pointer-to-pointer (nil is explicit Null). Field names are inferred. Resolve a selector by
-  invoking it on a zero-value probe and comparing its returned pointer with candidate direct-field
-  addresses; exactly one match must be found. This does not inspect source and may miss conditional
-  selectors that resolve on the probe. Validate names, uniqueness, type, nilability, integer range and
-  finite floats before writing; invalid input is not omitted or coerced.
+
+
 - **Identity encoder:** Canonically encodes type identity, exposed field-name schema, and designated
   identity field name/value; non-identity field values are excluded from logical ID so updates retain
   identity. UTF-8 names sort bytewise, variable components/counts use uint32 big-endian framing,
@@ -108,14 +93,7 @@ is part of the API.
   existing internal event-type registration/codec mechanisms. Unknown persisted Event types and decode
   failures are errors, never silently skipped. Typed Readers may filter concrete Event types for typed
   reads, but independent typed Readers do not compose the heterogeneous notification stream.
-- **Preparation barrier:** `PrepareLog` is event-specific, while Channel resolution, notification delivery,
-  and runtime lifecycle are Channel-specific. Concrete Event registration is derived internally from the
-  concrete `TEvent` generic argument. Historical notification replay waits asynchronously until every
-  decoder required by committed history for that logical Channel is available; the first `PrepareLog` call
-  must not block in a way that prevents subsequent registrations. If a required decoder has not registered,
-  the Channel Reader waits indefinitely: there is no arbitrary timeout, and absence alone does not produce
-  a fatal Channel error. Replay proceeds when the decoder registers. No consumer-facing registration or
-  activation method is added.
+
 - **Compactor:** Produces replacement segments/index without modifying reader-pinned files,
   validates/checksums and syncs them, finalizes, atomically switches manifest/index, and deletes old
   generations only after the last reader releases its pin.
