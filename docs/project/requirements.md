@@ -138,11 +138,11 @@ from replay into live tailing. It is not tied to an event-sourcing framework or 
 ## Define details still open
 
 Remaining design questions are maintained in [architecture.md](architecture.md), with decision provenance
-in [decisions.md](decisions.md). They include the UUID identity marker/tag, metadata UTF-8 policy,
-canonical naming of aliases and instantiated generic types, maximum framing sizes, and exact internal
-registry-key details. Process-lifetime runtime ownership with no library-managed shutdown or graceful
-process-exit drain is settled by D-034; Channel snapshot ordering/consistency, delivery retry behavior,
-and bounded notification backlog are recorded in D-027 and D-032–D-034. The acceptance scenarios are
-recorded in [acceptance.md](acceptance.md).
+in [decisions.md](decisions.md). The UUID identity marker/tag, metadata UTF-8 policy, canonical naming of
+aliases and instantiated generic types, and v1 canonical identity framing limits are settled by D-035–D-038.
+The exact internal registry-key details remain an internal design question. Process-lifetime runtime
+ownership with no library-managed shutdown or graceful process-exit drain is settled by D-034; Channel
+snapshot ordering/consistency, delivery retry behavior, and bounded notification backlog are recorded in
+D-027 and D-032–D-034. The acceptance scenarios are recorded in [acceptance.md](acceptance.md).
 Benchmark workloads are approved and recorded in [benchmarks.md](benchmarks.md); measurable performance
 and memory targets and their measurement/acceptance criteria remain open. 
