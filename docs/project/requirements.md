@@ -27,7 +27,7 @@ eventlog is a lightweight, embedded, disk-backed append-only event log for gener
 - Field construction uses typed selectors (`FieldOf` for non-nullable and `FieldOfNullable` for nullable). Selectors must identify direct primitive fields; nested structs are not selectable. Reflection-based field-name resolution must be unique. Validation occurs during append and fails atomically before persistence.
 
 ### Append and transaction guarantees
-- Public API direction: `Append(channel, event) error`; exact signatures and error types remain open.
+- Public API direction: a generic `Log[TChannel, TEvent]` contract with field selection supplied through the `Append` selector callback. The earlier `Append(channel, event)` form is superseded. Exact selector, interface, and reader signatures remain open; see the current channel-scoped reader contract and Define open details.
 - An append validates channel and event before writing. If the channel is new, channel and event records are one transaction; otherwise the transaction contains the event occurrence. A commit marker is written last.
 - Transaction records are not exposed until their commit marker is validated. Recovery discards incomplete trailing transactions by truncating back to their start.
 - Every persisted record has a global sequence, including commit markers. Transaction ID is the sequence of its first transaction record. Transaction record count excludes the commit marker.
@@ -63,7 +63,7 @@ eventlog is a lightweight, embedded, disk-backed append-only event log for gener
 - Correctness, recovery, predictable memory use, and cross-platform parity are prioritized. Numeric performance targets await benchmarks.
 
 ## Open details (not approved yet)
-- Exact public signatures, reader interface shape, stable error categories, and detailed context/cancellation/close semantics.
+- Exact public signatures, selector callback/value-input shape, reader interface shape, stable error categories, and detailed context/cancellation/close semantics. Go does not permit methods to declare their own type parameters; the requested `log.Append[TChannel,TEvent](...)` call syntax therefore needs a Go-valid encoding, likely by carrying the type arguments on a generic Log handle and calling `log.Append(...)`, or by using package-level generic functions. This is unresolved and must not be silently substituted.
 - Whether a public Occurrence wrapper is needed; eventlog owns the concrete Event reconstruction mechanism.
 - Benchmark scenarios and measurable performance/memory acceptance targets.
 - Detailed acceptance test matrix.
