@@ -12,7 +12,7 @@
 - **Cycle:** 4c7c4fb1-6724-4bb0-b98e-b4f5ac3f9182 (sequence 1, execution order 1)
 - **Workflow / phase:** standard / define
 - **Registry:** in-progress at Define
-- **Execution lock:** active for ChatGPT-GPT-6; claim published on main at `5dfa84b39909350f4e37cbb672e066663c9d2214` and fetched back with the expected active ownership.
+- **Collaboration:** contributors may work concurrently; the registry and handoff track progress but do not grant exclusive ownership.
 - **Implementation:** none; no build or Go tests started.
 - **Latest checkpoint:** 2026-11-24T18:38:51.151Z — Cycle 1 resumed; D-009 prepared-instance reuse approved and recorded in canonical artifacts.
 
@@ -52,7 +52,7 @@ Cycle 1 remains in Define. Continue with bounded design proposals for the unreso
 - Proposal commit: `3ab160061d562bf8ab63cb5d5c679a9db8b0234c`.
 
 ## Identity/notification decision proposal checkpoint — 2026-11-24
-- Started requested work by resuming Cycle 1 Define, claiming the execution lock and updating the registry to in-progress.
+- Started requested work by resuming Cycle 1 Define, resuming Cycle 1 Define and confirming the registry is in-progress.
 - Added concrete identity-mutation proposal: Event-scoped quarantine on Event identity changes; Channel-scoped quarantine blocking events on that Channel after Channel identity changes; preserve last committed snapshots; unaffected channels continue; no implicit auto-clear; avoid repeated fault spam.
 - Added notification contract proposal: at-least-once delivery, opaque delivery token, immutable occurrence snapshots, explicit Ack after consumer handling, durable pending/ack ledger, replay unacked in order, duplicates possible between send and Ack, bounded channel with durable backlog, one in-flight per channel, typed bounded diagnostics, shutdown drain deadline and typed error while retaining pending items.
 - Important rationale: exactly-once consumer processing cannot be guaranteed across crash between receiving/processing and acknowledgment without consumer transactional integration. Ack makes semantics honest and recoverable but adds API and persistence cost.
@@ -295,7 +295,7 @@ Historical checkpoint statements below that describe `TEvent` as the common inte
 - CI passed on `d7c5f766965a68901f0a1a98e693ff62814a05ff` (run 45456358070). This validates the registry, lock, and decision-register format; it does not execute Go tests or verify implementation behavior.
 - The initial read-order deviation was disclosed and retained above. No implementation, build, or Go tests were started.
 - **Next action:** complete a line-by-line audit for remaining contradictory historical statements and ensure all approved decisions are recorded; then continue Define with D-006 only after confirming the persisted state.
-- This session is pausing Cycle 1 at Define. The registry will be set to paused and the execution lock released before stopping.
+- This session is pausing Cycle 1 at Define. The registry will be set to paused and the cycle checkpoint persisted before stopping.
 
 
 ## D-006 recorded checkpoint — 2026-11-24T18:26:40.689Z
@@ -313,7 +313,7 @@ Historical checkpoint statements below that describe `TEvent` as the common inte
 - D-006 is Recorded in the decision register and verified in architecture, requirements, and plan.
 - Cycle 1 is paused at Define; the registry and execution lock are updated together in one main-branch commit. No worker retains ownership while awaiting the user's next decision.
 - No implementation, local validator, build, or Go tests were run in this checkpoint.
-- Resume the same Cycle 1 through the normal lock-claim protocol. The next proposed Define topic is whether generic Event and Channel type arguments must be pointers or may be values.
+- Resume the same Cycle 1 from the persisted cycle checkpoint. The next proposed Define topic is whether generic Event and Channel type arguments must be pointers or may be values.
 
 
 ## D-007 recorded checkpoint — 2026-11-24T18:31:27.019Z
@@ -358,7 +358,7 @@ Historical checkpoint statements below that describe `TEvent` as the common inte
 - **Canonical artifacts updated and fetched back:** architecture commit `0b070a42cfa3e924a6744077259dd9ed6a3c90ae`; requirements commit `b2ccfeb1a4fa6a9a08d4679f9beeea9286bc2d95`; Cycle 1 plan commit `8748c5d4152ef54af4f7b44a9972e1b7ced03b63`. D-008 pointer-only runtime validation was also restored to the active architecture/requirements baseline.
 - **Decision register:** D-009 is Recorded against the three fetched-back canonical artifacts.
 - **Remaining details:** exact internal registry key, typed conflict taxonomy, and handling of distinct logical Channels of the same concrete Channel type remain open. No consumer-facing API change.
-- **Lifecycle:** Cycle 1 remains in-progress at Define; execution lock remains active for this worker.
+- **Lifecycle:** Cycle 1 remains in-progress at Define; cycle remains in-progress at Define.
 - **Verification:** each canonical file was fetched back after publication. The active lock and resumed registry were fetched back. No lifecycle validator, Go build, or Go tests were run; no implementation has started.
 - **Governance note:** this session initially fetched other repository files before reading the execution lock, contrary to the mandatory first-read rule. The lock was then fetched and found released before claim; no conflicting owner was observed. The claim was published and fetched back before the registry was changed. Future continuation must read the lock first.
 - **Next:** continue Define with the internal prepared-instance registry key and remaining lifecycle/cancellation/error semantics. Preserve the consumer-facing API and include both generic type arguments in every example.
@@ -442,3 +442,16 @@ Historical checkpoint statements below that describe `TEvent` as the common inte
 - This is an internal registration rule; the approved consumer-facing API remains unchanged.
 - **Canonical artifacts updated:** architecture commit `aa3f317df4daaba2ce40bed7530309493a9339a4`; requirements commit `1d2a28cae23e55a381eff6300b0bf18e680e1d3d`; Cycle 1 plan commit `0861f77be8f991aaa7693190e9bde9b139cd7753`.
 - No implementation, lifecycle validator, Go build or Go tests were run.
+
+
+## Governance adoption — lock-free baseline 1.3.0 (2026-11-24)
+
+The repository adopts the lock-free development governance from `gunesis-game/project-steering-template` 1.3.0.
+
+- Repository-wide execution locks, worker claims, exclusive ownership, lock acquisition/release, lock recovery and single-worker serialization are removed.
+- Multiple cycles and contributors may work concurrently. Cycle registry entries and handoffs are progress records, not ownership claims.
+- Contributors coordinate through ordinary Git collaboration, review and conflict resolution.
+- The existing Cycle 1 identity, sequence, execution order, Define phase, approved decisions D-001 onward, and project API constraints are preserved.
+- D-017 through D-022 remain approved and recorded in requirements and architecture. The consumer-facing API remains unchanged.
+- The next design work remains the unresolved concurrency question recorded in the current plan; no implementation is authorized until Define is completed and explicitly approved.
+- Historical handoff entries that mention the former lock process describe superseded governance and are not operative instructions.
