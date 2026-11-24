@@ -187,6 +187,14 @@ The full benchmark matrix is not required on every pull request. Linux and Windo
 
 Performance benchmark results are informational and diagnostic. There are no hard performance thresholds in CI, and performance measurements must not fail a pull request based on timing, throughput, or resource-use values. Correctness and acceptance tests remain independently enforceable and may fail CI for correctness defects. The exact manual workload sizes, repetition counts, and any future performance regression gates remain to be established against actual free-runner limits and observed measurement noise. Benchmark execution must remain bounded and must not consume disproportionate CI capacity.
 
+## GitHub Actions run-history retention
+
+For each individual GitHub Actions workflow, retain the four most recent workflow runs. When that workflow starts, its run-history cleanup should remove older runs belonging to that same workflow, leaving the four newest runs available for comparison.
+
+Retention is per workflow, not a repository-wide limit. Runs belonging to other workflows must not be deleted by this workflow's cleanup. The retained run history is intended to support comparison of benchmark results and execution behavior.
+
+The eventual cleanup implementation must account for the currently running workflow run, required GitHub token permissions, and concurrent runs so that it does not accidentally delete one of the four runs intended to be retained. This policy does not itself specify a benchmark schedule or create scheduled runs.
+
 ## Remaining Define work
 
 - Agree numeric performance targets and thresholds for the workloads.
