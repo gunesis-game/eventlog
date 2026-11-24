@@ -411,3 +411,14 @@ Historical checkpoint statements below that describe `TEvent` as the common inte
 - This is internal synchronization and does not change the consumer-facing API.
 - **Canonical artifacts updated and fetched back:** architecture commit `9c808cc9fd3c236885ec9f37110cd91cd0297541`; requirements commit `879710d9378ecf9e01c85b66acc55a0cd0befa31`; Cycle 1 plan commit `1220813bda3e7ca43d0a1aa95127594ba7e77a1a`.
 - **Next:** continue Define with the next unresolved preparation/lifecycle detail. No implementation, lifecycle validator, Go build, or Go tests were run.
+
+
+| D-014 | Concurrent preparations for different concrete Event types on the same logical Channel register independently and converge on one Channel pointer/runtime/Reader; no synchronous wait between registrations; historical replay retains its asynchronous decoder barrier | Recorded | docs/project/architecture.md, requirements.md and Cycle 1 plan | architecture `92d5b462d99a55763cbe5a217292e52a37e4e7e1`; requirements `cfe540632ab40b4d8214cbb39e21b515a2aba741`; plan `4930e55f635eed5d6f713812ba42e2ed928b7b80` |
+
+## D-014 recorded checkpoint
+
+- **Approved decision:** concurrent preparations for different concrete Event types that resolve to the same logical Channel register each Event type independently and converge on the same adopted Channel pointer, runtime and single Reader progression.
+- A preparation does not synchronously wait for another Event type registration. Historical replay remains asynchronous and waits for every decoder required by the Channel's committed history; replay proceeds when the required decoder registers.
+- No consumer-facing registration/activation API is added, and the approved consumer-facing API remains unchanged.
+- **Canonical artifacts updated:** architecture commit `92d5b462d99a55763cbe5a217292e52a37e4e7e1`; requirements commit `cfe540632ab40b4d8214cbb39e21b515a2aba741`; Cycle 1 plan commit `4930e55f635eed5d6f713812ba42e2ed928b7b80`.
+- No implementation, lifecycle validator, Go build or Go tests were run.
