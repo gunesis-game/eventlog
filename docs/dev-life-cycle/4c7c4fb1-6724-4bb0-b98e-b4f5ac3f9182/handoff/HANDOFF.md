@@ -443,3 +443,11 @@ Channel's public API will expose a notification Go channel through an accessor (
 - Open: identity violation response (restore/quarantine/etc); exact notification API method/signature and message shape; delivery/buffering policy; whether success notifications occur only after persistence (recommended); snapshot vs live instance payload (recommended snapshot, awaiting approval); precise semantics for identity-field mutation detection, persistence, HEAD/index, and channel association.
 - Current next discussion: whether notification payload is a captured concrete Event instance (snapshot) versus the same live instance. No final decision recorded on this point.
 - Execution lock is being released for the next session to claim.
+
+
+## Define decision — notification payload snapshots approved (2026-11-24)
+
+- Approved Option A: successful occurrence notifications carry a snapshot of the concrete consumer Event instance as captured at the persistence boundary, not a live mutable pointer.
+- The notification is emitted only after the occurrence has been successfully persisted.
+- This establishes payload immutability/history correspondence; delivery buffering, overflow/backpressure policy, exact accessor/message signatures, and typed persistence-error notification behavior remain open Define decisions.
+- No implementation/build/tests have started; implementation still requires Define completion and explicit approval.
