@@ -200,3 +200,10 @@ Generic arguments select consumer Event and Channel types only. `context.Context
 ## Latest Define decision — configuration is mandatory (2026-11-24)
 
 `Config(...)` is mandatory. If no successful `Config(...)` call has completed, `PrepareLog[TEvent, TChannel](ctx)` must fail with an explicit configuration-not-initialized error. It must not select a default storage directory, infer configuration from the environment, or silently initialize with implicit settings. A failed Config call does not count as successful initialization; only a successful one-time Config establishes the immutable runtime configuration. This decision resolves the previously open behavior when Config is omitted.
+
+## Latest checkpoint — concurrent initialization behavior (2026-11-24)
+
+- User decided that concurrent `PrepareLog` calls wait for the first shared initialization attempt; they do not fail merely because initialization is in progress.
+- Each waiting caller may cancel its own wait through its context. If initialization fails, the immutable configuration remains set and a later `PrepareLog` may retry.
+- This decision does not approve a specific exported error taxonomy or exact Config option signatures; those remain Define work.
+- Execution lock remains active. No source implementation, build, or Go tests have started.
