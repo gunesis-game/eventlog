@@ -478,3 +478,11 @@ Channel's public API will expose a notification Go channel through an accessor (
 - Crash/interrupted delivery is recovered from persistence on the next initialization.
 - Exact lifecycle triggers, drain failure semantics, and startup replay ordering remain open Define decisions.
 - No implementation/build/tests have started; implementation still requires Define completion and explicit approval.
+
+
+## Define decision — startup replay ordering approved (2026-11-24)
+
+- Recovered persisted occurrences awaiting notification are delivered first, in persistence order.
+- Live notifications follow recovered backlog and must not overtake it.
+- Exact replay boundary, ordering scope, and coordination mechanics remain open Define details.
+- No implementation/build/tests have started; implementation still requires Define completion and explicit approval.
