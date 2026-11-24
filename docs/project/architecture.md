@@ -117,7 +117,7 @@ provided they preserve these observable rules:
   registry concerns.
 
 No internal registry key is serialized or exposed through the public API. Changing the internal
-representation is permitted as long as these behaviors remain unchanged.
+representation is permitted as long as these behaviors remain unchanged. This implementation boundary is approved by D-039.
 
 ## Field selection, reconstruction, and identity integrity
 
@@ -415,7 +415,7 @@ memory use and platform parity precede numeric performance targets.
 
 ## Unresolved architectural details
 
-- Maximum framing sizes. Canonical type naming is settled by D-037: reflected package path and runtime-provided name, with aliases resolving to their target and instantiated generic names treated as opaque text.
+- Canonical type naming is settled by D-037: reflected package path and runtime-provided name, with aliases resolving to their target and instantiated generic names treated as opaque text; v1 framing limits are settled by D-038.
 - Numeric benchmark targets, memory targets, representative measurement environments, repetitions,
   warm-up policy, and statistical acceptance criteria.
 
