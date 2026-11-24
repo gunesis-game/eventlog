@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "status": "active",
-  "cycle_id": "4c7c4fb1-6724-4bb0-b98e-b4f5ac3f9182",
-  "workflow": "standard",
-  "worker_id": "ChatGPT (session)",
-  "claimed_at": "2026-11-24T15:37:09Z",
-  "released_at": null,
-  "release_evidence": null
+  "status": "released",
+  "cycle_id": null,
+  "workflow": null,
+  "worker_id": null,
+  "claimed_at": null,
+  "released_at": "2026-11-24T16:00:07Z",
+  "release_evidence": "Cycle 1 paused at Define; checkpoint handoff commit 211b0f9c4435653b1dfb1d3b3860612a044fa4f3. Lock released for next session to resume."
 }
