@@ -27,7 +27,7 @@ The specifications contain curated current rules. This plan tracks cycle scope a
 
 ## Current design baseline
 
-The consumer-facing API remains:
+The runtime is process-lifetime scoped under D-034; it has no library-managed graceful shutdown at process exit. The consumer-facing API remains:
 - PrepareLog[TEvent, TChannel](ctx, newChannel) (TEvent, TChannel, error).
 - TEvent and TChannel are concrete pointer types constrained by Event and Channel.
 - newChannel has type func(chan Event) TChannel.
@@ -40,7 +40,7 @@ Approved project decisions are recorded in the project decision register and int
 
 ### Reconciliation evidence
 
-- **Repository revision inspected:** `92b84f123100918e1713478c674005da07f64db5` (`main`).
+- **Repository revision inspected before this decision:** `b9727230b154a2fff9c840b3109e7dbf076feb95` (`main`).
 - **Project records reviewed in full:** `docs/project/requirements.md`, `architecture.md`, `decisions.md`, `acceptance.md`, and `benchmarks.md`.
 - **Cycle records reviewed:** this plan, current handoff, and `docs/dev-life-cycle/cycle-index.json`.
 - **Decision register:** D-001 through D-033 are Recorded; D-029 is refined by D-032 and D-030 is refined by D-031.
@@ -52,11 +52,10 @@ Approved project decisions are recorded in the project decision register and int
 | Channel snapshot ordering, identity immutability, concurrent mutation boundary | Resolved | D-027 and architecture section “Channel mutation and snapshot consistency” |
 | Reader progression and wake-up rechecking | Resolved | D-028 and architecture section “Reader behavior” |
 | Delivery retry and terminal failure | Resolved | D-029 refined by D-032 |
-| Shutdown drain failure, grace period, and sender termination | Resolved | D-030 refined by D-031; shutdown trigger remains separate |
+| Process-lifetime runtime ownership and process-termination recovery | Resolved | D-034 supersedes D-030/D-031 graceful-drain behavior for process termination |
 | Bounded notification backlog and Reader backpressure | Resolved | D-033 |
 | Acceptance scenarios and benchmark workload scenarios | Resolved | `acceptance.md` and `benchmarks.md` |
 | UUID identity marker/tag, metadata UTF-8 policy, alias/generic naming, maximum framing sizes | Unresolved | Resolve explicitly or record a bounded deferral |
-| Exact internal shutdown trigger | Unresolved | Requires a design decision compatible with the unchanged public API and no process-wide signal interception |
 | Exact internal registry-key composition | Unresolved/internal design detail | Confirm whether existing identity/registration rules are sufficient and defer exact representation to implementation if no observable contract depends on it |
 | Numeric performance/memory targets and measurement criteria | Unresolved | Agree target environments, resource ceilings, repetitions, warm-up, and acceptance methodology |
 
@@ -69,19 +68,18 @@ The current requirements, architecture, decision register, acceptance matrix, an
 - Channel snapshot FIFO/identity/consistency rules and consumer-owned synchronization for concurrent multi-field mutation: D-027.
 - Continuous committed-sequence Reader progression and wake-up rechecking: D-028.
 - Retry of the same pending occurrence with bounded backoff/finite retry limit and terminal per-Channel failure: D-032.
-- Shutdown drain failure reporting, fixed internal grace period, retained pending history, and sender exit before stream closure: D-030–D-031.
+- Process-lifetime runtime ownership, no library-managed shutdown/drain at process exit, and recovery of committed pending notifications: D-034. D-030–D-031 are historical and superseded for process termination; their graceful-drain sequence is not part of the current runtime contract.
 - Bounded notification backlog and Reader backpressure without blocking persistence or adding a second durable queue: D-033.
 - Bottom-up acceptance scenarios and benchmark workload scenarios: [acceptance.md](../../../project/acceptance.md) and [benchmarks.md](../../../project/benchmarks.md).
 
 ### Unresolved
 
-1. Exact internal runtime-shutdown trigger; no public shutdown API or process-wide signal interception is approved.
-2. Remaining architecture details listed in [architecture.md](../../../project/architecture.md): UUID identity marker/tag, metadata UTF-8 policy, canonical alias/instantiated-generic naming, maximum framing sizes, and exact internal registry-key details.
-3. Measurable performance and memory targets, representative target environments, and benchmark measurement/acceptance criteria.
+1. Remaining architecture details listed in [architecture.md](../../../project/architecture.md): UUID identity marker/tag, metadata UTF-8 policy, canonical alias/instantiated-generic naming, maximum framing sizes, and exact internal registry-key details.
+2. Measurable performance and memory targets, representative target environments, and benchmark measurement/acceptance criteria.
 
 ### Explicitly not open
 
-Channel snapshot consistency, Reader wake-up behavior, retry policy, shutdown-drain policy, and notification backlog/backpressure are not remaining design questions. Their numeric queue/retry parameters are internal implementation/test policy.
+Channel snapshot consistency, Reader wake-up behavior, retry policy, process-lifetime runtime ownership, and notification backlog/backpressure are settled design decisions. Their numeric queue/retry parameters are internal implementation/test policy.
 
 ### Next Define work
 
@@ -92,7 +90,8 @@ Resolve the genuine remaining design questions, agree measurable performance/mem
 - [x] Product purpose, ownership, scope, and platform constraints are established.
 - [x] Public preparation and Channel notification/error contracts are approved.
 - [x] Configuration, field selection, identity, persistence, recovery, Reader, and queue design decisions are recorded.
-- [ ] Exact internal runtime-shutdown trigger and remaining architecture details are resolved or explicitly deferred.
+- [x] Process-lifetime runtime ownership and process-termination recovery are specified; no internal shutdown trigger is required.
+- [ ] Remaining architecture details are resolved or explicitly deferred.
 - [x] Bottom-up acceptance matrix and scenario pass conditions are agreed and recorded.
 - [x] Benchmark workload scenarios are defined and approved.
 - [ ] Measurable performance/memory targets and measurement/acceptance criteria are agreed.
