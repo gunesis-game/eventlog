@@ -223,7 +223,7 @@ Generic arguments select consumer Event and Channel types only. `context.Context
 - Nil options and missing storage-directory configuration fail validation.
 - A failed Config attempt leaves runtime configuration uninitialized and retryable.
 - Option application is package-controlled through an unexported method; consumers use exported option constructors.
-- This does not settle exact path cleaning, symlink handling, filesystem existence/permission checks, or exported error names.
+- Storage path cleaning and directory existence/creation behavior were subsequently approved; see the latest storage directory validation checkpoint. Exported error names remain open.
 - Execution lock remains active; no implementation, build, or Go tests have started.
 
 ## Latest checkpoint — storage directory validation approved (2026-11-24)
