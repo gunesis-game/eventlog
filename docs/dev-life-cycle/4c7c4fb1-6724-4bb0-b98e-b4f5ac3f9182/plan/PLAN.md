@@ -981,3 +981,11 @@ Consumer changes to the designated identity field on Event or Channel instances 
 - If process termination/crash interrupts delivery, persisted occurrences are recovered on next initialization and delivered then.
 - This is consistent with guaranteed eventual consumer-visible delivery; exact lifecycle triggers, drain failure semantics, and startup replay ordering remain open Define decisions.
 - No implementation/build/tests have started; implementation still requires Define completion and explicit approval.
+
+
+## Define decision — startup replay ordering approved (2026-11-24)
+
+- On initialization, recovered persisted occurrences awaiting notification are delivered first, in persistence order.
+- Live notifications follow the recovered backlog; newly detected occurrences must not overtake recovered pending occurrences.
+- Exact replay boundary, ordering scope, and coordination mechanics remain open Define details.
+- No implementation/build/tests have started; implementation still requires Define completion and explicit approval.
