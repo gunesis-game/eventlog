@@ -245,6 +245,14 @@ so intermediate unobserved states may be missed. Queue capacity, dispatch schedu
 are internal implementation details. Notifications become eligible only after the corresponding
 persistence transaction commits.
 
+## Channel mutation and snapshot consistency
+
+Channel change observation uses the same identity-keyed bounded FIFO ingress/dispatch mechanism as Event change persistence, keyed by canonical logical Channel identity. Each logical Channel's snapshots are processed serially in FIFO order; different logical Channels may be processed concurrently. Snapshot capture and validation are Channel-specific, but there is no separate queue/persistence pipeline.
+
+Each captured Channel snapshot is immutable and isolated from the live consumer-owned Channel and persisted data. Consecutive unchanged observed snapshots are suppressed; a later transition back to an earlier state is a new change. Queue capacity is bounded; under pressure, monitoring/queueing is delayed rather than blocking consumer mutations, and already-enqueued snapshots are retained.
+
+FIFO guarantees order only after snapshots have been captured. eventlog does not guarantee an atomic snapshot while consumers concurrently mutate multiple ordinary Go fields; consumers remain responsible for synchronizing their own mutations. Channel identity is immutable after preparation: detected identity mutation is rejected and reported through the existing Channel error stream, without creating a new logical Channel or altering prior associations. Channel-only changes create no Event occurrence; the next Event occurrence uses the latest persisted Channel snapshot, while earlier Event occurrences retain their historical Channel association.
+
 ## Open and recovery flow
 
 A missing storage structure is initialized automatically during PrepareLog. The first active segment is a
