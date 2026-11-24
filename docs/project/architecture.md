@@ -388,3 +388,8 @@ The exact preparation ordering and mechanism for obtaining/validating candidate 
 ## Approved Channel candidate resolution sequence — D-011
 
 During `PrepareLog[TEvent, TChannel]` preparation, invoke the supplied Channel factory to create a candidate, derive its canonical Channel identity from the candidate's `Fields()` schema and designated identity field, then consult the Channel runtime registry by that canonical identity. If a runtime already exists, return and reuse its existing Channel pointer and runtime/Reader; the newly created candidate is discarded. If no runtime exists, adopt the candidate and create the Channel runtime. This is an internal preparation rule and does not change the consumer-facing API. The factory may therefore be invoked even when its candidate is discarded.
+
+
+## Approved Channel factory contract — D-012
+
+The supplied Channel factory is a constructor only: it creates and initializes the candidate Channel value but does not start goroutines, open external resources, or perform other external side effects. `PrepareLog[TEvent, TChannel]` may discard a candidate when its canonical Channel identity resolves to an existing runtime, so discarded candidates must be safe to abandon. The library starts the Channel runtime only after adopting a candidate for a previously unresolved logical Channel. This is an internal lifecycle contract; the consumer-facing API remains unchanged.
