@@ -149,3 +149,9 @@ part of the API. The remaining issue is internal writable-channel ownership and 
 - The prior sink proposal and its pending-review blocker are superseded. Do not reintroduce or ask the user to reconsider `Notify`.
 - Current remaining design question is solely how eventlog gets an internal send-capable channel and initializes it while keeping consumer-defined Channel types and the public receive-only accessor. This cannot be solved by the receive-only accessor alone in Go; address this directly, without callback or public helper embedding.
 - Active requirements and architecture were corrected to record the accessor contract. No implementation/build/tests started.
+
+
+## Notification channel factory decision — 2026-11-24
+- Resolved construction/send-ownership gap: `PrepareLog` takes required factory `func(chan TEvent) TChannel`; the consumer supplies its constructor (e.g. `NewOrdersChannel`) and Go compile-checks this function shape at the call site.
+- eventlog creates and owns the writable channel, passes it into the constructor; consumer Channel retains a receive-only view exposed by `Notifications() <-chan TEvent`. Consumer never sends or closes it.
+- Go cannot enforce a named constructor function as a type/interface member; required typed factory is the compile-time enforcement mechanism. This is the approved design direction. Delivery/backlog/recovery/shutdown semantics remain unresolved. No implementation or tests started.
