@@ -144,3 +144,10 @@ User clarified that the consumer-selected identity field for both Event and Chan
 - This design must be reviewed for generic constraint feasibility and error semantics, including whether consumer notification methods may block, what returned errors mean, and the durability boundary around internal dispatch completion.
 - Next action: user review/approval or correction of this proposed sink contract; after decision, continue remaining Define topics and reconcile acceptance/benchmarks. Implementation remains prohibited until explicit Define exit approval.
 - Cycle is now blocked pending that user design decision; execution lock released.
+
+
+## User correction — remove Notify; settle Notifications accessor (2026-11-24)
+- User reaffirmed the previously decided receive-only accessor: `Notifications() <-chan TEvent`. The consumer receives from this channel; there is no `Notify(event TEvent) error` method.
+- The prior sink proposal and its pending-review blocker are superseded. Do not reintroduce or ask the user to reconsider `Notify`.
+- Current remaining design question is solely how eventlog gets an internal send-capable channel and initializes it while keeping consumer-defined Channel types and the public receive-only accessor. This cannot be solved by the receive-only accessor alone in Go; address this directly, without callback or public helper embedding.
+- Active requirements and architecture were corrected to record the accessor contract. No implementation/build/tests started.
