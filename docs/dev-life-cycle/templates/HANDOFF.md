@@ -21,6 +21,14 @@
 
 ## Decisions and constraints
 
+### Decision register
+
+Record each material decision. `Approved` is transient and must not remain in a persisted handoff; mark `Recorded` only after the canonical artifact is published and fetched back successfully.
+
+| ID | Decision | State (Proposed / Approved / Recorded) | Canonical artifact | Verified revision / evidence |
+|---|---|---|---|---|
+| <D-001> | <Decision and rationale> | <Proposed> | <Path or —> | <Pending approval or —> |
+
 - **Verified facts:** <Facts established by inspection or execution>
 - **Decisions:** <Decision and rationale>
 - **Assumptions:** <Provisional assumptions requiring confirmation>
