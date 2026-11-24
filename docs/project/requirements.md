@@ -220,3 +220,8 @@ var (
 ## Define decision — polling interval and scheduler (approved 2026-11-24)
 
 Internal change detection uses a 100 ms polling interval by default. One managed polling scheduler owned by the internal Log/change manager inspects all selected event and channel fields; the implementation must not create one polling goroutine per field. The interval may be adjusted internally for implementation and focused tests, but this decision does not add a public configuration option or operational API. Polling compares selected-field snapshots and triggers the package's internal persistence path. This decision does not make unsynchronized concurrent writes to ordinary Go struct fields race-safe; the caller synchronization contract and snapshot consistency rules remain open. Scheduler shutdown/retry behavior, persistence-error handling, and event-versus-channel change semantics remain Define work.
+
+
+## Define decision — polled event-field changes preserve occurrence history (approved 2026-11-24)
+
+When the internal polling manager detects a change to selected Event fields, it must persist a new event occurrence through the normal internal persistence path. It must never mutate or overwrite the prior persisted occurrence; earlier occurrences remain available in history. This approval establishes occurrence creation and history retention only. It does not yet settle whether a changed field set retains the prior logical event ID or derives a new ID under the existing event-identity rule (event type plus exposed fields), nor the exact HEAD/index transition. Those identity and ordering details must be reconciled before implementation.
