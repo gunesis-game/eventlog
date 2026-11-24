@@ -85,3 +85,13 @@ Agree benchmark measurement/acceptance methodology and any justified hard thresh
 
 - No implementation, Go build, or Go tests have been run.
 
+
+## Latest resumption checkpoint — 2026-11-25
+
+- **Repository revision inspected:** `9b8c20d5eadd9ddaa7da34a0c8b4d91d81a6f064` (`main`). The latest commit reconciles this handoff with the approved benchmark profiles and resource budgets.
+- **Cycle state verified:** `cycle-index.json` still records Cycle 1 as `in-progress / define`; no new cycle was created.
+- **Repository scope verified:** the current tree contains project/governance documentation, validation and cleanup automation, and governance tests; it contains no Go implementation, `go.mod`, Go test suite, or project build workflow. This is consistent with the current Define phase; implementation has not started.
+- **CI evidence:** Steering state validation and workflow-history cleanup both completed successfully for `9b8c20d5eadd9ddaa7da34a0c8b4d91d81a6f064`. These validate governance only and are not Go build/test evidence.
+- **Benchmark policy verified:** Typical/Heavy/Stress workload profiles, per-process memory budgets (512 MiB / 1 GiB / 2 GiB), and the 4 GiB per-workload disk cap are recorded. They are initial diagnostic budgets, not measured capabilities or hard performance gates. The Linux main-branch smoke suite remains one execution per scenario; extended Linux/Windows measurements are manual, with no scheduled runs.
+- **Consistency issue to resolve before Define exit:** `benchmarks.md` describes the initial memory budgets as diagnostic rather than pass/fail limits, while `requirements.md`, `architecture.md`, and `performance-strategy.md` still describe measurable memory targets as open. The final reconciliation must state consistently whether these budgets are diagnostic guardrails only or approved acceptance limits; no stronger guarantee is inferred.
+- **Next action:** obtain approval for a resource-bounded measurement protocol and the treatment of performance/memory thresholds, then update the owning benchmark/performance specifications and decision provenance, fetch back and verify the exact revisions, and complete the final cross-document consistency review. Define remains open; no implementation, Go build, Go tests, or benchmark measurements have run.
