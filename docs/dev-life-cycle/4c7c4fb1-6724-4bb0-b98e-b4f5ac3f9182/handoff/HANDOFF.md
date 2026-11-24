@@ -225,3 +225,13 @@ Generic arguments select consumer Event and Channel types only. `context.Context
 - Option application is package-controlled through an unexported method; consumers use exported option constructors.
 - This does not settle exact path cleaning, symlink handling, filesystem existence/permission checks, or exported error names.
 - Execution lock remains active; no implementation, build, or Go tests have started.
+
+## Latest checkpoint — storage directory validation approved (2026-11-24)
+
+- User approved all six proposed storage-directory validation rules.
+- Reject empty/whitespace-only paths; accept relative paths and resolve them to absolute paths during Config.
+- Lexically clean the resolved absolute path (`filepath.Clean` semantics); do not resolve symlinks.
+- Config does not require the directory to exist and does not create it.
+- PrepareLog creates a missing directory during initialization; an existing non-directory target or directory-creation failure returns an error.
+- The resolved, cleaned absolute path is frozen in immutable runtime configuration.
+- Execution lock remains active for Cycle 1. No source implementation, build, or Go tests have started.
