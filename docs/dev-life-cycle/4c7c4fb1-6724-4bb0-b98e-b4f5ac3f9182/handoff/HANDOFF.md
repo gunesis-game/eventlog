@@ -25,7 +25,7 @@ Complete eventlog's requirements and technical design before implementation.
 - [Architecture](../../../project/architecture.md) — current approved technical design.
 - [Project decisions](../../../project/decisions.md) — durable decision register and provenance.
 
-The decision register contains D-001 through D-024. Their approved outcomes are integrated into the relevant specification topics. This handoff is only the current cycle checkpoint; it is not a second decision ledger or specification.
+Approved outcomes are integrated into the relevant specification topics. This handoff is only the current cycle checkpoint; it is not a second decision ledger or specification.
 
 ## Current state
 
