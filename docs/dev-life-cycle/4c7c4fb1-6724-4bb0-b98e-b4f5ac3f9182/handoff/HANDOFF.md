@@ -434,3 +434,12 @@ When the consumer mutates the designated identity field on returned Event or Cha
 ## Define decision — Channel notification direction (approved 2026-11-24)
 
 Channel's public API will expose a notification Go channel through an accessor (exact method/signature TBD). Occurrence messages carry the concrete consumer Event struct instance. Error notifications are typed and support `errors.Is`/`errors.As`. Notification consumers must not block persistence or the scheduler; buffering/delivery policy is still to be decided. The notification channel closes when the associated lifecycle shuts down, including initialization failure if it has been allocated. Backward compatibility with released APIs is not a constraint at this early design stage. Identity-mutation response remains unresolved and under discussion.
+
+
+## Session checkpoint — 2026-11-24 04:35 SAST
+
+- Define is still in progress; no implementation/build/tests started.
+- Approved: internal-only synchronization (no public lock API); canonical Channel identity uses the same rules as Event identity; consumer mutation of designated identity fields is an integrity violation principle and must be observable; notification channel is a consumer-facing event stream, not only error reporting; notifications include successful occurrences and typed errors (`errors.Is`/`errors.As`); slow consumers must not block persistence or polling; notification channel closes on shutdown and initialization failure when allocated; compatibility with released API is not a constraint at this early stage.
+- Open: identity violation response (restore/quarantine/etc); exact notification API method/signature and message shape; delivery/buffering policy; whether success notifications occur only after persistence (recommended); snapshot vs live instance payload (recommended snapshot, awaiting approval); precise semantics for identity-field mutation detection, persistence, HEAD/index, and channel association.
+- Current next discussion: whether notification payload is a captured concrete Event instance (snapshot) versus the same live instance. No final decision recorded on this point.
+- Execution lock is being released for the next session to claim.
