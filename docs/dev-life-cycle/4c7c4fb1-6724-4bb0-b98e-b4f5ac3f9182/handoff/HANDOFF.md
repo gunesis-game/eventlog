@@ -36,3 +36,9 @@ A focused design proposal was added to the Cycle 1 plan: pointer-backed prepared
 
 ## Safe resume
 Cycle 1 remains in Define. Continue with bounded design proposals for the unresolved API/lifecycle/identity/notification questions, then reconcile active requirements and architecture and seek explicit approval to exit Define. Do not start implementation before that approval.
+
+## Follow-up proposal checkpoint — 2026-11-24
+- Expanded the working proposal in `plan/PLAN.md` with a concrete generic API recommendation: pointer type arguments (e.g. `PrepareLog[*MyEvent,*MyChannel]`), fresh non-nil allocations, pointer receiver support, reject non-pointer type arguments, shared live instance pair, process-wide configured owner, per-caller Context cancellation, retryable shared initialization failures, typed identity mutation errors, and receive-only durable ordered notification channel.
+- Added a decision table for pointer enforcement, prepared-instance reuse, init timeout ownership, identity mutation severity, notification acknowledgment/backlog/error accessor, and schema drift.
+- These remain recommendations only; active requirements and architecture are unchanged. No code/build/test started.
+- Proposal commit: `3ab160061d562bf8ab63cb5d5c679a9db8b0234c`.
