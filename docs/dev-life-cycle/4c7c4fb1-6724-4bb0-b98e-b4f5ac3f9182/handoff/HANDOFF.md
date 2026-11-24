@@ -432,3 +432,13 @@ Historical checkpoint statements below that describe `TEvent` as the common inte
 - Registration is associated with concrete Event type plus exposed field-name schema, not an individual Channel. No consumer-facing unregister operation is added; the consumer-facing API remains unchanged.
 - **Canonical artifacts updated:** architecture commit `3258af3313da4a40f43e7e3a7dd698bb4e5f1de1`; requirements commit `631b75c1855031203dee4da4651882f94f4404bc`; Cycle 1 plan commit `1feb39b9c44f8a3e1aa015c7dba55df03dd1787e`.
 - No implementation, lifecycle validator, Go build or Go tests were run.
+
+
+| D-016 | Re-registering a concrete Event type with the same field-name schema reuses its decoder; a different schema returns typed schema conflict without mutating the existing registration or Readers | Recorded | docs/project/architecture.md, requirements.md and Cycle 1 plan | architecture `aa3f317df4daaba2ce40bed7530309493a9339a4`; requirements `1d2a28cae23e55a381eff6300b0bf18e680e1d3d`; plan `0861f77be8f991aaa7693190e9bde9b139cd7753` |
+
+## D-016 recorded checkpoint
+
+- **Approved decision:** decoder registration is keyed by concrete Event Go type plus exposed field-name schema. Re-registering the same type/schema reuses the existing registration. Re-registering the same concrete type with a different schema fails with a typed schema-conflict error and does not replace or mutate the existing registration or affect Readers already using it.
+- This is an internal registration rule; the approved consumer-facing API remains unchanged.
+- **Canonical artifacts updated:** architecture commit `aa3f317df4daaba2ce40bed7530309493a9339a4`; requirements commit `1d2a28cae23e55a381eff6300b0bf18e680e1d3d`; Cycle 1 plan commit `0861f77be8f991aaa7693190e9bde9b139cd7753`.
+- No implementation, lifecycle validator, Go build or Go tests were run.
