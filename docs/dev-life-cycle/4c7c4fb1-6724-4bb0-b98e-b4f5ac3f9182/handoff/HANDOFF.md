@@ -372,3 +372,15 @@ Historical checkpoint statements below that describe `TEvent` as the common inte
 - Remaining: define the internal prepared-instance registry key and conflict taxonomy; finish initialization/cancellation/resource/error lifecycle; resolve identity mutation and notification retry/backlog/shutdown details; complete acceptance matrix and benchmark plan; reconcile and seek explicit approval to exit Define.
 - No implementation, lifecycle validator, Go build, or Go tests were run.
 - Next: resume this same Cycle 1 through the normal lock-claim protocol and continue Define with the internal prepared-instance registry key. Preserve the approved consumer-facing API and include both generic type arguments in every example.
+
+
+| D-010 | Separate Event type/schema registration, Event live-instance reuse by canonical Event identity, and Channel runtime reuse by canonical Channel identity; do not key Channel runtimes by concrete Go type alone | Recorded | docs/project/architecture.md, requirements.md and Cycle 1 plan | pending fetched-back verification |
+
+## D-010 recorded checkpoint
+
+- **Approved decision:** internal registry responsibilities are separated into Event type/schema registration, Event instance reuse by canonical Event identity, and Channel runtime reuse by canonical Channel identity.
+- Different concrete Event types may share one logical Channel runtime. Distinct logical Channels may share one concrete Channel Go type and must not be merged by a type-only key.
+- Type/schema registration conflicts are distinct from logical-instance identity. No consumer-facing API changes.
+- The exact mechanism and ordering for obtaining/validating candidate Channel identity fields before runtime lookup remain open.
+- No implementation, lifecycle validator, Go build, or Go tests were run.
+- **Next:** decide how `PrepareLog[TEvent, TChannel]` obtains the Channel identity from the factory-created candidate and reconciles it with an existing runtime, preserving the approved public API.
