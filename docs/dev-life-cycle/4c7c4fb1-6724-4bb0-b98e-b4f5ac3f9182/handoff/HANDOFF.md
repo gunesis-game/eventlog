@@ -430,3 +430,7 @@ Channel identity follows the same canonical determination as Event identity: con
 ## Define topic — consumer mutation of designated identity fields (principle approved; mechanics open)
 
 When the consumer mutates the designated identity field on returned Event or Channel instances, eventlog must handle the identity transition internally, without a public coordination API. Define exact detection, snapshot, occurrence, HEAD/index, association, and persistence behavior before implementation.
+
+## Define decision — Channel notification direction (approved 2026-11-24)
+
+Channel's public API will expose a notification Go channel through an accessor (exact method/signature TBD). Occurrence messages carry the concrete Event instance/snapshot. Error notifications are typed and support `errors.Is`/`errors.As`. Notification consumers must not block persistence or the scheduler; buffering/delivery policy is still to be decided. The notification channel closes when the associated lifecycle shuts down, including initialization failure if it has been allocated. Backward compatibility with released APIs is not a constraint at this early design stage. Identity-mutation response remains unresolved and under discussion.
