@@ -136,3 +136,11 @@ User clarified that the consumer-selected identity field for both Event and Chan
 - No implementation, local validation, build, or Go tests were run in this session.
 - Next action for the next session: read the lock first, then steering/lifecycle state and this handoff/plan; resume Cycle 1 Define with the existing cycle ID and execution order.
 - Lock release is being performed explicitly for this pause. Cycle 1 remains resumable and is not complete or cancelled.
+
+
+## Resume proposal checkpoint — Channel notification method (2026-11-24)
+- Resumed Cycle 1 at Define under the shared execution lock after confirming the lock was released. Claim commit `d0ae8eaec74246737cddae8aa2fc7006ffacbc23` was fetched back and confirmed on main; registry resume commit `d0a9ce1245c2fbd58d99cb6bcca37d2c8d3f0e9e`.
+- Notification construction proposal for user review: consumer-defined Channel implements a generic notification sink method, recommended shape `Notify(event TEvent) error`. Consumer may expose its own receive-only accessor (e.g. `Notifications() <-chan TEvent`) on its concrete Channel type, but eventlog does not prescribe an accessor/helper struct or embed its own channel. The sink owns channel creation/buffering; eventlog calls Notify from its private dispatcher, not the persistence/polling path. A blocking sink can stall the dispatcher while the durable backlog accumulates. Errors are surfaced through private delivery diagnostics/status; after a successful sink call, internal dispatch completion is recorded, with crash-window duplicates possible. This is a proposal only; no requirements/architecture promotion and no implementation.
+- This design must be reviewed for generic constraint feasibility and error semantics, including whether consumer notification methods may block, what returned errors mean, and the durability boundary around internal dispatch completion.
+- Next action: user review/approval or correction of this proposed sink contract; after decision, continue remaining Define topics and reconcile acceptance/benchmarks. Implementation remains prohibited until explicit Define exit approval.
+- Cycle is now blocked pending that user design decision; execution lock released.
