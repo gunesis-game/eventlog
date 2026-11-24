@@ -180,3 +180,7 @@ Generic arguments select consumer Event and Channel types only. `context.Context
 ## Latest Define decision — concurrent preparation waits for initialization (2026-11-24)
 
 Concurrent calls to `PrepareLog[TEvent, TChannel](ctx)` during the first storage initialization wait for that single initialization attempt to finish; they do not fail merely because initialization is in progress and must not initialize storage independently. Each waiting caller may stop waiting when its own context is cancelled or its deadline expires. If the initialization attempt fails, the immutable successful configuration remains set and a later `PrepareLog` call may retry initialization. Configuration remains one-time and cannot be changed after initialization has begun.
+
+## Latest Define decision — absolute storage path captured at configuration time (2026-11-24)
+
+`WithStorageDirectory(path)` accepts a non-empty path. During a successful `Config(...)` call, eventlog resolves that path against the process working directory and captures the resulting absolute path in the immutable runtime configuration. This means a relative input such as `./data/events` is accepted, but the resolved absolute path—not the original relative string—is retained and used for the process lifetime. A later working-directory change cannot redirect storage. An empty or whitespace-only path is invalid. The exact path cleaning, symlink, filesystem existence, and permission-validation rules remain open; `Config` must not silently create or initialize the log storage as part of path resolution.
