@@ -945,3 +945,11 @@ Consumer changes to the designated identity field on Event or Channel instances 
 - Close the notification channel when the relevant lifecycle shuts down; close it on initialization failure if it was allocated.
 - API backward compatibility is not a constraint in this early Define phase.
 - Identity-violation handling remains an open design discussion.
+
+
+## Define decision — notification payload snapshots approved (2026-11-24)
+
+- Approved Option A: successful occurrence notifications carry a snapshot of the concrete consumer Event instance as captured at the persistence boundary, not a live mutable pointer.
+- The notification is emitted only after the occurrence has been successfully persisted.
+- This establishes payload immutability/history correspondence; delivery buffering, overflow/backpressure policy, exact accessor/message signatures, and typed persistence-error notification behavior remain open Define decisions.
+- No implementation/build/tests have started; implementation still requires Define completion and explicit approval.
