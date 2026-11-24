@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Validate the persisted development-cycle registry and lock using Python stdlib."""
 from __future__ import annotations
-import json, sys
+import json, re, sys
 from datetime import datetime
 from pathlib import Path
 from uuid import UUID
@@ -29,6 +29,40 @@ def parse_time(value, label, nullable=True):
         if parsed.tzinfo is None: fail(f"{label}: timezone offset required")
         return parsed
     except ValueError: fail(f"{label}: invalid ISO-8601 timestamp {value!r}")
+
+def validate_decision_register(path):
+    """Validate the persisted approval-to-artifact decision ledger."""
+    try:
+        content = path.read_text(encoding="utf-8")
+    except OSError as e:
+        fail(f"{path.relative_to(ROOT)}: cannot read handoff: {e}")
+    if "### Decision register" not in content:
+        fail(f"{path.relative_to(ROOT)}: missing Decision register")
+    lines = content.splitlines()
+    header = "| ID | Decision | State (Proposed / Approved / Recorded) | Canonical artifact | Verified revision / evidence |"
+    try:
+        start = lines.index(header) + 2
+    except ValueError:
+        fail(f"{path.relative_to(ROOT)}: malformed decision-register table")
+    for line in lines[start:]:
+        if not line.startswith("|"):
+            break
+        cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+        if len(cells) != 5:
+            fail(f"{path.relative_to(ROOT)}: decision-register rows must have five columns")
+        decision_id, decision, state, artifact, evidence = cells
+        if decision_id.startswith("<") or decision.startswith("<"):
+            continue
+        if state not in {"Proposed", "Recorded"}:
+            fail(f"{path.relative_to(ROOT)}: {decision_id} is {state}; approval must be recorded before continuing")
+        if state == "Recorded":
+            if not artifact or artifact in {"—", "-", "<Path or —>"} or artifact.startswith("<"):
+                fail(f"{path.relative_to(ROOT)}: {decision_id} is Recorded without a canonical artifact")
+            if not re.search(r"\\b[0-9a-f]{7,40}\\b", evidence):
+                fail(f"{path.relative_to(ROOT)}: {decision_id} is Recorded without a verified commit/revision")
+            if not (ROOT / artifact).is_file():
+                fail(f"{path.relative_to(ROOT)}: {decision_id} references missing artifact {artifact}")
+
 
 def validate_registry(data):
     if not isinstance(data, dict) or set(data)!={"schema_version","docs_reviewed_through_execution_order","cycles"} or data.get("schema_version") != 3: fail("registry: exact root keys and schema_version 3 required")
@@ -104,8 +138,12 @@ def validate_lock(lock, cycles):
     if len(found)!=1 or found[0].get("workflow")!=lock["workflow"] or found[0].get("status")!="in-progress": fail("execution lock: must match exactly one in-progress registry cycle")
 
 def main():
+    validate_decision_register(ROOT / "docs/dev-life-cycle/templates/HANDOFF.md")
     registry=read_json(REGISTRY); lock=read_json(LOCK)
     validate_registry(registry); validate_lock(lock,registry["cycles"])
+    for cycle in registry["cycles"]:
+        if cycle["workflow"] == "standard":
+            validate_decision_register(ROOT / "docs/dev-life-cycle" / cycle["id"] / "handoff/HANDOFF.md")
     print("Steering registry and execution lock: valid")
 if __name__=="__main__":
     try: main()
