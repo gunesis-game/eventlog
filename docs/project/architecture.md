@@ -161,7 +161,7 @@ The exact canonical identity payload layout after the existing domain prefix is 
 3. Concrete type name: UTF-8 bytes framed by u32 BE byte length.
 4. Schema field count: u32 BE, followed by each field name sorted bytewise by UTF-8 bytes and framed by u32 BE byte length.
 5. Identity field name: UTF-8 bytes framed by u32 BE byte length.
-6. Identity value: existing permanent primitive tag followed by canonical payload. Nullable nil uses Null tag only; named primitive types use their underlying tag. Identity field must be part of exposed schema and value type must match.
+6. Identity value: a UUID-specific encoding marker (tag assignment remains open) followed by the UUID's canonical 16 bytes. The identity field must be part of the exposed schema and UUID-typed; nullable and arbitrary primitive identity values are forbidden.
 
 The already-approved namespace, Event/Channel domain prefixes, primitive field tags, big-endian framing, UUID v5 derivation, and non-identity value exclusion remain unchanged. Identity payload is UUID-only; the UUID tag and accepted Go representation are still unresolved. Format byte is intentionally redundant with the domain prefix's v1 marker.
 
