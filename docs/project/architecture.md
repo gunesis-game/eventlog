@@ -304,6 +304,14 @@ Shutdown is ordered:
 5. Close notification streams only after no sender can still write to them.
 6. Release storage and process-ownership resources.
 
+## Runtime lifecycle and shutdown
+
+The Log runtime is process-scoped and owns storage, append workers, Channel runtimes, Readers, and delivery workers. The Context passed to `PrepareLog` governs only that caller's preparation and waiting: canceling it must not shut down the shared Log or cancel other consumers. Internal append and delivery workers are not children of any one preparation caller's Context.
+
+A fatal Channel Reader error terminates that Reader and is reported through the Channel's existing `Errors()` stream; it must not silently discard recoverable committed history.
+
+Shutdown is internal and does not add a public lifecycle API. The intended shutdown order is to stop new work, settle outstanding commits, stop workers, close streams only after senders have stopped, and release resources. The exact internal shutdown trigger remains unresolved: the public API currently has no Close/Flush or process-shutdown hook, and the library must not assume it can install process-wide signal handlers or otherwise intercept process exit. This constraint must be resolved before implementation claims ordered graceful shutdown.
+
 ## Durability, segment management and compaction
 
 Automatic sync occurs every 1 second or 1 MiB of pending writes, whichever first. Flush and Close are
@@ -364,7 +372,7 @@ memory use and platform parity precede numeric performance targets.
   and instantiated generic types; and maximum framing sizes.
 - Exact internal registry-key composition for prepared instances and behavior for distinct logical
   Channels represented by the same concrete Channel Go type.
-- Internal lifecycle, cancellation, Reader/resource cleanup, and terminal-error semantics.
+- Exact internal shutdown trigger and ordered graceful resource cleanup remain open; process-scoped ownership, preparation Context scope, and terminal Reader failure behavior are approved.
 - Channel identity mutation handling and the precise snapshot-consistency boundary for concurrent
   consumer mutation.
 - Internal backlog durability/retention, replay boundary, recoverable retry termination, and shutdown
