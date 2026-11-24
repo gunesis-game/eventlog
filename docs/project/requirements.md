@@ -82,11 +82,14 @@ from replay into live tailing. It is not tied to an event-sourcing framework or 
   order, without gaps or duplicates when transitioning from replay to tailing. The same progression
   advances through replay and live tailing; separate typed Readers must not be combined to synthesize
   the heterogeneous notification stream.
-- All concrete Event types and their decoders for a logical Channel must be prepared/registered before
-  heterogeneous historical notification replay begins. Unknown persisted Event types must never be
-  silently discarded. Sequential event-specific `PrepareLog` calls alone do not establish that all
-  registrations are complete; the completion boundary is an internal Define item and must not be exposed
-  through new consumer-facing `Activate`, `Start`, `RegisterEventType`, or `Close` methods.
+- All concrete Event types and their decoders required by a logical Channel's committed history must
+  be prepared/registered before heterogeneous historical notification replay begins. If a required
+  decoder has not yet registered, the Channel Reader waits asynchronously and indefinitely; there is no
+  arbitrary timeout, and absence alone does not produce a fatal Channel error. Replay can proceed when
+  the decoder registers. Unknown or undecodable persisted Event types must never be silently discarded.
+  Sequential event-specific `PrepareLog` calls alone do not establish that all registrations are complete;
+  the completion boundary is internal and must not be exposed through new consumer-facing `Activate`,
+  `Start`, `RegisterEventType`, or `Close` methods.
 - Each reader is scoped to exactly one consumer-provided Channel. No all-channel reader is provided.
 - Storage sequences, offsets, cursors, and tailing coordination remain internal.
 - Context cancellation and explicit errors are required. Re-appended logical Events are separate
@@ -124,7 +127,7 @@ from replay into live tailing. It is not tied to an event-sourcing framework or 
 
 ## Define details still open
 
-Technical open questions and approved low-level decisions are tracked in [architecture.md](architecture.md) and the active Cycle 1 plan. Remaining topics include pointer/value reconstruction conventions, initialization/lifecycle and cancellation details, identity mutation behavior, decoder absence/timeout policy, notification backlog/retry/shutdown details, snapshot consistency, complete acceptance tests, and measurable performance/memory targets. The `PrepareLog` generic relationship, heterogeneous `Notifications() <-chan Event` accessor, and `Errors() <-chan error` contract are approved. Do not treat proposals as approved decisions or begin implementation before explicit Define approval.
+Technical open questions and approved low-level decisions are tracked in [architecture.md](architecture.md) and the active Cycle 1 plan. Remaining topics include pointer/value reconstruction conventions, initialization/lifecycle and cancellation details, identity mutation behavior, notification backlog/retry/shutdown details, snapshot consistency, complete acceptance tests, and measurable performance/memory targets. The `PrepareLog` generic relationship, heterogeneous `Notifications() <-chan Event` accessor, and `Errors() <-chan error` contract are approved. Do not treat proposals as approved decisions or begin implementation before explicit Define approval.
 
 
 ## Approved notification and asynchronous error contract — 2026-11-24
