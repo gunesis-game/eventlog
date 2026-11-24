@@ -1,6 +1,6 @@
 # Project requirements
 
-**Status:** Product requirements baseline; design is not yet implementation-authorized. This document owns product purpose, required capabilities,
+**Status:** Current product requirements baseline. This document owns product purpose, required capabilities,
 observable behavior, domain rules, constraints, quality expectations, and acceptance outcomes. It does not
 prescribe internal components, algorithms, storage layouts, encoding formats, or implementation steps.
 Approved technical design belongs in [architecture.md](architecture.md). The design there must satisfy these
@@ -138,5 +138,4 @@ Remaining design questions are maintained in [architecture.md](architecture.md),
 in [decisions.md](decisions.md). They include the UUID identity marker/tag, metadata UTF-8 policy,
 canonical naming of aliases and instantiated generic types, maximum framing sizes, internal lifecycle and
 cancellation details, Channel mutation/snapshot consistency, backlog and retry behavior, shutdown failure
-semantics, and measurable acceptance/performance targets. Approved outcomes are integrated into the
-relevant specification sections rather than appended as dated decision or checkpoint sections.
+semantics, and measurable acceptance/performance targets. 
