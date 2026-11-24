@@ -68,7 +68,7 @@ Configuration is mandatory, separate from generic type selection and Context. Th
 
 ## Canonical identity encoding and permanent type tags
 
-Identity encoding is separate from JSON and architecture-independent. It begins with a fixed encoding-format version and identity-domain prefix. Type identity is UTF-8 package path plus concrete struct type name. Inputs include the exposed field-name/type schema (not non-identity field values) and designated identity field name/value. Schema fields sort bytewise by UTF-8 name. Every variable-length component and count uses unsigned 32-bit big-endian framing. Schema entries encode name and type; designated identity value is encoded separately. Exact composition remains a Define item. Oversized components fail before encoding. Event and Channel use separate UUID v5 domains.
+Identity encoding is separate from JSON and architecture-independent. It begins with a fixed encoding-format version and identity-domain prefix. Type identity is UTF-8 package path plus concrete struct type name. Inputs include the exposed field-name/type schema (not non-identity field values) and designated identity field name/value. Schema fields sort bytewise by UTF-8 name. Every variable-length component and count uses unsigned 32-bit big-endian framing. Schema entries encode field name and primitive type; the designated identity field name/value is encoded as the identity input, while non-identity field values are excluded. Exact byte composition remains a Define item. Oversized components fail before encoding. Event and Channel use separate UUID v5 domains.
 
 Permanent v1 one-byte primitive tags: Null `0x00` (no payload); String `0x01` (UTF-8); Bool `0x02` (one byte 0/1); int `0x10` (8-byte signed BE); int8 `0x11` (1-byte signed); int16 `0x12` (2-byte signed BE); int32 `0x13` (4-byte signed BE); int64 `0x14` (8-byte signed BE); uint `0x20` (8-byte unsigned BE); uint8 `0x21` (1-byte unsigned); uint16 `0x22` (2-byte unsigned BE); uint32 `0x23` (4-byte unsigned BE); uint64 `0x24` (8-byte unsigned BE); float32 `0x30` (4 raw IEEE bytes); float64 `0x31` (8 raw IEEE bytes). Go int/uint identity payloads are fixed 64-bit independent of architecture. Named primitives use underlying tags. Nullable nil uses Null, non-nil uses primitive tag. Unknown tags fail recovery; tag assignments are permanent and reserved ranges remain unused.
 
@@ -95,6 +95,7 @@ Compaction is reader-safe and generation-pinned: build replacement segments/inde
 ## Define details still open
 
 - Final Go-valid public interface/selector signatures, generic constraints, pointer/value conventions, reconstruction behavior, and occurrence representation.
+- Exact canonical byte composition of schema metadata and designated identity value (framing/tag/version rules are approved, final byte layout remains to be specified).
 - Internal prepared-value association, lifecycle, cancellation, reader/resource close, and terminal-error semantics.
 - Identity-field mutation transition details, snapshot consistency, and persistence/index effects.
 - Notification accessor/message/error API, backlog durability/retention/replay boundary, retry termination, ordering, and drain-failure behavior.

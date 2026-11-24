@@ -40,7 +40,7 @@ Duplicate reconciliation: recovery deduplicates same-sequence identical physical
 
 Persisted values use strict type-tagged JSON objects. Strings and bools are native JSON; integers are decimal strings to avoid parser precision loss; float32/float64 are lowercase raw IEEE bit-pattern hex (8/16 digits) preserving width and signed zero; null is type-only. JSON Schema validates representation; Go validates exact integer bounds and non-finite float rejection. Named primitive types use underlying kinds.
 
-Permanent v1 identity type tags: Null `0x00` (no payload), String `0x01` (UTF-8), Bool `0x02` (one byte 0/1), int `0x10` (8-byte signed BE), int8 `0x11` (1-byte signed), int16 `0x12` (2-byte signed BE), int32 `0x13` (4-byte signed BE), int64 `0x14` (8-byte signed BE), uint `0x20` (8-byte unsigned BE), uint8 `0x21` (1-byte unsigned), uint16 `0x22` (2-byte unsigned BE), uint32 `0x23` (4-byte unsigned BE), uint64 `0x24` (8-byte unsigned BE), float32 `0x30` (4 raw IEEE bytes), float64 `0x31` (8 raw IEEE bytes. Go int/uint are fixed 64-bit regardless of architecture; named types use underlying tags. Nullable nil uses Null, non-nil uses primitive tag. Unknown tags fail recovery; tags are permanent and reserved ranges remain unused.
+Permanent v1 identity type tags: Null `0x00` (no payload), String `0x01` (UTF-8), Bool `0x02` (one byte 0/1), int `0x10` (8-byte signed BE), int8 `0x11` (1-byte signed), int16 `0x12` (2-byte signed BE), int32 `0x13` (4-byte signed BE), int64 `0x14` (8-byte signed BE), uint `0x20` (8-byte unsigned BE), uint8 `0x21` (1-byte unsigned), uint16 `0x22` (2-byte unsigned BE), uint32 `0x23` (4-byte unsigned BE), uint64 `0x24` (8-byte unsigned BE), float32 `0x30` (4 raw IEEE bytes), float64 `0x31` (8 raw IEEE bytes). Go int/uint are fixed 64-bit regardless of architecture; named types use underlying tags. Nullable nil uses Null, non-nil uses primitive tag. Unknown tags fail recovery; tags are permanent and reserved ranges remain unused.
 
 UUID v5 namespace is `26612f1d-f648-483a-9cfe-59c18f113891`. Event domain prefix is `eventlog\\x00event\\x00v1\\x00`; Channel domain prefix is `eventlog\\x00channel\\x00v1\\x00`.
 
@@ -97,6 +97,7 @@ Use only Go standard library dependencies and local filesystem storage. Linux an
 ## Unresolved architectural details
 
 - Exact public Event/Channel interface, field selector signatures, generic constraints, pointer/value reconstruction convention and occurrence shape.
+- Exact canonical byte composition of schema metadata and designated identity value; framing, tag assignments and UUID namespace/domain prefixes are approved but final layout remains open.
 - Internal prepared-value association, Log lifecycle, cancellation, reader close/resource cleanup, terminal-error semantics.
 - Identity-field mutation detection and transition mechanics, snapshot consistency, occurrence/HEAD/index and Channel association effects.
 - Notification accessor/payload/error API, backlog durability/retention and replay boundary, retry termination, delivery/error order, scheduler interaction and shutdown drain failure.
