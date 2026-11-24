@@ -150,19 +150,20 @@ Use consumer-defined concrete Event and Channel types. Include the complete publ
 
 ## Benchmark execution strategy
 
-The approved execution strategy is designed around the resource limits of free GitHub-hosted runners for a public repository. It avoids requiring self-hosted runners, paid performance hardware, or expensive benchmark execution on every pull request.
+The approved execution strategy is designed around the resource limits of free GitHub-hosted runners for a public repository. It avoids requiring self-hosted runners, paid performance hardware, scheduled benchmark jobs, or expensive benchmark execution on every pull request.
 
-Three execution tiers are used:
+Two execution paths are used:
 
 1. **Pull-request smoke suite:** Run a small, fast, representative subset on Linux for early detection of obvious performance regressions. This is not a statistically strong performance gate.
-2. **Scheduled benchmark suite:** Run the full approved benchmark matrix on a schedule, using bounded workloads and repetitions that fit available runner resources. Include Windows coverage in scheduled execution.
-3. **Manual extended suite:** Run resource-intensive investigations on demand, including very large histories, sustained-load tests, high concurrency, slow-consumer/backpressure stress, and interruption/recovery workloads.
+2. **Manual benchmark runs:** Run the full approved benchmark matrix or selected extended workloads only when explicitly requested. This includes Windows coverage and resource-intensive investigations such as very large histories, sustained-load tests, high concurrency, slow-consumer/backpressure stress, and interruption/recovery workloads.
+
+There are no scheduled benchmark runs.
 
 The pull-request suite should cover representative operations across all eight benchmark layers: storage reads/writes; record encoding/decoding and transaction commit; metadata loading; Event append/retrieval; Reader replay; successful notification; runtime initialization/preparation; and end-to-end append/receive.
 
-Linux and Windows remain first-class correctness and benchmark platforms, but the expensive full matrix is not required on every pull request. Keep platform results separate and do not treat their absolute timings as directly comparable without accounting for runner and environment differences.
+Linux and Windows remain first-class correctness and benchmark platforms, but the full matrix is not required on every pull request. Keep platform results separate and do not treat their absolute timings as directly comparable without accounting for runner and environment differences.
 
-The exact scheduled cadence, workload sizes, repetition counts, and any performance regression gates remain to be established against actual free-runner limits and observed measurement noise. Benchmark execution must remain bounded and must not consume disproportionate CI capacity.
+The exact manual workload sizes, repetition counts, and any performance regression gates remain to be established against actual free-runner limits and observed measurement noise. Benchmark execution must remain bounded and must not consume disproportionate CI capacity.
 
 ## Remaining Define work
 
