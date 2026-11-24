@@ -64,7 +64,7 @@ eventlog is a lightweight, embedded, disk-backed append-only event log for gener
 
 ## Open details (not approved yet)
 - Internal lifecycle algorithms and the exact way PrepareLog associates returned event/channel values with the internally owned Log.
-- Field validation details, stable error categories, and detailed context/cancellation/resource semantics.
+- Detailed context/cancellation/resource semantics.
 - Internal typed-reader filtering and pointer/value reconstruction conventions.
 - Benchmark scenarios, performance/memory acceptance targets, and the detailed acceptance test matrix.
 
@@ -201,3 +201,17 @@ The user approved all proposed storage-directory validation rules:
 6. If the target exists but is not a directory, or directory creation fails, return an error.
 
 Path cleaning is lexical only; symlinks are not resolved. Config path resolution/cleaning does not create the storage directory or initialize the log.
+ 
+
+## Define decision — exported configuration errors (approved 2026-11-24)
+
+The exported configuration error sentinels are:
+
+```go
+var (
+    ErrConfigNotInitialized = errors.New("eventlog: configuration not initialized")
+    ErrConfigAlreadySet     = errors.New("eventlog: configuration already set")
+)
+```
+
+`PrepareLog` called before a successful `Config` returns an error matching `ErrConfigNotInitialized`. A repeated `Config` call, or one attempted after initialization has begun, returns an error matching `ErrConfigAlreadySet`. Invalid options return descriptive validation errors. Filesystem failures wrap their underlying causes so callers can use `errors.Is` and `errors.As`; context cancellation and deadline errors likewise remain discoverable. Failed Config validation leaves the runtime unconfigured and retryable.
