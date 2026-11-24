@@ -393,3 +393,8 @@ During `PrepareLog[TEvent, TChannel]` preparation, invoke the supplied Channel f
 ## Approved Channel factory contract — D-012
 
 The supplied Channel factory is a constructor only: it creates and initializes the candidate Channel value but does not start goroutines, open external resources, or perform other external side effects. `PrepareLog[TEvent, TChannel]` may discard a candidate when its canonical Channel identity resolves to an existing runtime, so discarded candidates must be safe to abandon. The library starts the Channel runtime only after adopting a candidate for a previously unresolved logical Channel. This is an internal lifecycle contract; the consumer-facing API remains unchanged.
+
+
+## Approved atomic Channel runtime resolution — D-013
+
+Channel runtime lookup and adoption are one atomic registry operation keyed by canonical Channel identity. For concurrent `PrepareLog[TEvent, TChannel]` calls that resolve to the same logical Channel identity, at most one candidate is adopted and at most one runtime/Reader is created. A competing preparation reuses the winning Channel pointer and runtime. This synchronization is internal and does not change the consumer-facing API.
