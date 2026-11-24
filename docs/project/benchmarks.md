@@ -1,8 +1,35 @@
 # Benchmark strategy
 
-**Status:** Benchmark workload scenarios approved during Define. Numeric performance and memory targets have not yet been approved. No benchmark implementation or measurements have started.
+**Status:** Benchmark workload scenarios, initial workload profiles, and per-process resource budgets are approved during Define. Numeric performance pass/fail thresholds and the statistical acceptance methodology remain unapproved. No benchmark implementation or measurements have started.
 
 This document defines the benchmark workloads used to evaluate the eventlog implementation. It is separate from the acceptance-test matrix: acceptance tests establish correctness, while benchmarks measure performance and resource behavior. A benchmark result is not valid unless its workload also verifies the relevant correctness guarantees.
+
+## Initial workload profiles and resource budgets
+
+The following profiles are approved as initial benchmark workload scales. They describe workloads to exercise, not guaranteed implementation performance or hard CI pass/fail thresholds.
+
+| Profile | Sustained/burst Event rate | Average Event size | Retained history | Channel count |
+|---|---:|---:|---:|---:|
+| Typical | 100 Events/second | 1 KiB | 100,000 Events | 10 |
+| Heavy | 1,000 Events/second | 1 KiB | 1,000,000 Events | 50 |
+| Stress | 5,000 Events/second burst | 1 KiB | 1,000,000 Events | 100 |
+
+- The Stress profile includes slow consumers and bounded notification backpressure.
+- Larger payloads are covered by separate size-variation workloads; the 1 KiB average is not a maximum Event size.
+- The profiles are starting points. Benchmark results may motivate revision, but changes must be documented rather than silently tuning workloads to improve results.
+
+Initial per-process resource budgets on the standard GitHub-hosted runner class used for these benchmarks:
+
+| Profile | Process memory budget |
+|---|---:|
+| Typical | 512 MiB |
+| Heavy | 1 GiB |
+| Stress | 2 GiB |
+
+- Benchmark data stored on the runner is capped at 4 GiB per workload execution.
+- These are initial engineering budgets, not measured capabilities or performance guarantees. They are diagnostic targets until representative measurements establish achievable baselines and acceptable variance.
+- Record the actual runner image/class, allocated CPU and memory, available disk, OS, filesystem, and toolchain version with every result. Runner specifications can change; record observed environment details rather than assuming a historical specification.
+- Run Linux and Windows separately. The profiles and resource budgets apply to both, but raw timings across different runner images/platforms must not be treated as directly comparable.
 
 ## Measurement methodology
 
@@ -17,7 +44,7 @@ Unless a workload specifies otherwise:
 - Document hardware, operating system, filesystem, runtime/toolchain version, configuration, and benchmark command so results can be compared meaningfully.
 - Run comparable workloads on Linux and Windows. Document environmental differences rather than treating unlike hardware or filesystems as directly comparable.
 - Include correctness checks and report failures; never count lost, duplicated, reordered, or incorrectly recovered data as successful throughput.
-- Numeric thresholds, target hardware, required repetitions, warm-up policy, and statistical acceptance rules remain to be agreed separately. No performance or memory target is implied by these workload definitions.
+- Hard performance pass/fail thresholds, required repetitions, warm-up policy, and statistical acceptance rules remain to be agreed separately. The initial workload profiles and resource budgets above are approved, but do not imply achieved performance.
 
 ## Layer 1 — Disk and storage
 
