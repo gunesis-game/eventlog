@@ -61,7 +61,7 @@ def validate_decision_register(path):
                 fail(f"{path.relative_to(ROOT)}: {decision_id} is Recorded without a verified commit/revision")
             revision_match = re.search(r"\b([0-9a-f]{7,40})\b", evidence)
             revision = revision_match.group(1)
-            artifact_path = Path(artifact)
+            artifact_path = Path(artifact.split()[0].rstrip(',;'))
             if artifact_path.is_absolute() or ".." in artifact_path.parts:
                 fail(f"{path.relative_to(ROOT)}: {decision_id} has an unsafe canonical artifact path")
             # Verify the revision is a real commit reachable from this checkout and contains the artifact.
