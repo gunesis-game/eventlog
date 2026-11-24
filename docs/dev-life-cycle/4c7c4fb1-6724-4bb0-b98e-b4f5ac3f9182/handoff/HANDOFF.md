@@ -10,10 +10,10 @@
 ## State
 - **Cycle:** 4c7c4fb1-6724-4bb0-b98e-b4f5ac3f9182 (sequence 1, execution order 1)
 - **Workflow / phase:** standard / define
-- **Registry:** in-progress at Define
-- **Execution lock:** active for ChatGPT-GPT-6; claim published at `3c2441787a46cad8ef202fea87bfd0ef33b5d5da`.
+- **Registry:** paused at Define
+- **Execution lock:** released at 2026-11-24T18:34:48.958Z; release published atomically with this checkpoint.
 - **Implementation:** none; no build or Go tests started.
-- **Latest checkpoint:** D-008 approval is recorded in canonical artifacts; decision register and handoff checkpoint are being reconciled.
+- **Latest checkpoint:** 2026-11-24T18:34:48.958Z — D-008 recorded in architecture, requirements, plan and decision register; Cycle 1 paused while awaiting the next design decision.
 
 ## Correction after user review
 The previous cleanup was wrong: it optimized for file size and stripped substantive requirements/design from active project docs, leaving the archive as the place to find them. The user explicitly said this was not simply moving content and that architecture must retain the complete design. This pass restores and curates the active docs. Active specifications must remain complete and topic-oriented; archives are provenance only.
@@ -340,3 +340,11 @@ Historical checkpoint statements below that describe `TEvent` as the common inte
 - **Canonical artifacts updated and fetched back:** `docs/project/architecture.md` at `cef7d96797081f049782815f84b908ba2decfce7`; `docs/project/requirements.md` at `dfde24dbc3f1ddf1e5ad0dc1edf0edc6df42bc94`; Cycle 1 `plan/PLAN.md` at `56fba4e297c14ee23a49c4a4471f77e7e757c6a1`.
 - **Verification:** approved text was fetched back and inspected. No implementation, lifecycle validator, Go build, or Go tests were run.
 - **Next:** continue Define with prepared-instance reuse and the remaining internal lifecycle decisions. Preserve the consumer API and include both generic type arguments in every example.
+
+
+## Pause after D-008 — 2026-11-24T18:34:48.958Z
+
+- D-008 is Recorded and verified in architecture, requirements, Cycle 1 plan and this handoff decision register.
+- Cycle 1 is paused at Define. The cycle registry and execution lock are updated together in the same main-branch commit; no worker retains ownership while awaiting the user's next decision.
+- No implementation, lifecycle validator, Go build, or Go tests were run.
+- Next Define topic: prepared-instance reuse — whether repeated `PrepareLog[TEvent, TChannel]` calls for the same Event/Channel type and schema return the same live pointer pair, and how incompatible reuse is handled. Preserve the approved consumer-facing API and include both generic type arguments in every example.
