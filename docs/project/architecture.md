@@ -277,3 +277,8 @@ On orderly shutdown, pending notifications are drained rather than discarded. Th
 ## Define decision — startup replay ordering approved (2026-11-24)
 
 Recovered persisted occurrences awaiting notification are delivered first, in persistence order. Newly detected/live notifications follow and must not overtake the recovered backlog. Exact replay boundary, ordering scope, and coordination mechanics remain open Define details. No implementation/build/tests have started; implementation still requires Define completion and explicit approval.
+
+
+## Define decision — persistence failure handling approved (2026-11-24)
+
+For temporary persistence errors, Eventlog retries internally with backoff without blocking the scheduler. No success notification is emitted until persistence succeeds. Continued failure is reported as a typed error through the consumer notification channel; occurrences are never silently abandoned. Retry limits/termination criteria, typed error API, scheduler interaction, and error delivery ordering remain open Define decisions. No implementation/build/tests have started; implementation still requires Define completion and explicit approval.
