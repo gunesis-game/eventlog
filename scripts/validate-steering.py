@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate the persisted development-cycle registry and decision records using Python stdlib."""
+"""Validate the persisted development-cycle registry and project decision ledger using Python stdlib."""
 from __future__ import annotations
 import json, re, sys, subprocess
 from datetime import datetime
@@ -30,15 +30,15 @@ def parse_time(value, label, nullable=True):
     except ValueError: fail(f"{label}: invalid ISO-8601 timestamp {value!r}")
 
 def validate_decision_register(path):
-    """Require each persisted material decision to be proposed or fully recorded."""
+    """Require each durable project decision to be proposed or fully recorded."""
     try:
         content = path.read_text(encoding="utf-8")
     except OSError as e:
-        fail(f"{path.relative_to(ROOT)}: cannot read handoff: {e}")
-    if "### Decision register" not in content:
-        fail(f"{path.relative_to(ROOT)}: missing Decision register")
+        fail(f"{path.relative_to(ROOT)}: cannot read decision ledger: {e}")
+    if "# Project decisions" not in content:
+        fail(f"{path.relative_to(ROOT)}: missing Project decisions heading")
     lines = content.splitlines()
-    header = "| ID | Decision | State (Proposed / Approved / Recorded) | Canonical artifact | Verified revision / evidence |"
+    header = "| ID | Decision | State | Specification | Verified revision |"
     try:
         start = lines.index(header) + 2
     except ValueError:
@@ -53,15 +53,14 @@ def validate_decision_register(path):
         if decision_id.startswith("<") or decision.startswith("<"):
             continue
         if state not in {"Proposed", "Recorded"}:
-            fail(f"{path.relative_to(ROOT)}: {decision_id} is {state}; approved decisions must be recorded before checkpointing or continuing")
+            fail(f"{path.relative_to(ROOT)}: {decision_id} has invalid state {state}; use Proposed or Recorded")
         if state == "Recorded":
-            if not artifact or artifact in {"—", "-", "<Path or —>"} or artifact.startswith("<"):
-                fail(f"{path.relative_to(ROOT)}: {decision_id} is Recorded without a canonical artifact path")
-            if not evidence or not re.search(r"\b[0-9a-f]{7,40}\b", evidence):
-                fail(f"{path.relative_to(ROOT)}: {decision_id} is Recorded without a verified commit/revision")
-            revision_match = re.search(r"\b([0-9a-f]{7,40})\b", evidence)
-            revision = revision_match.group(1)
-            artifact_path = Path(artifact.split()[0].rstrip(',;'))
+            if not artifact or artifact in {"—", "-"} or artifact.startswith("<"):
+                fail(f"{path.relative_to(ROOT)}: {decision_id} is Recorded without a specification path")
+            if not evidence or not re.fullmatch(r"[0-9a-f]{7,40}", evidence):
+                fail(f"{path.relative_to(ROOT)}: {decision_id} is Recorded without one verified commit/revision")
+            revision = evidence
+            artifact_path = Path(artifact)
             if artifact_path.is_absolute() or ".." in artifact_path.parts:
                 fail(f"{path.relative_to(ROOT)}: {decision_id} has an unsafe canonical artifact path")
             # Verify the revision is a real commit reachable from this checkout and contains the artifact.
@@ -109,7 +108,6 @@ def validate_registry(data):
         if w=="standard":
             cycle_dir=ROOT / "docs/dev-life-cycle" / cid
             if not (cycle_dir / "plan/PLAN.md").is_file() or not (cycle_dir / "handoff/HANDOFF.md").is_file(): fail(f"{label}: standard cycle requires plan and handoff files")
-            validate_decision_register(cycle_dir / "handoff/HANDOFF.md")
             if any(c.get(f) is not None for f in ("eligibility_reason","acceptance_criteria","verification_evidence","outcome")): fail(f"{label}: micro-only fields must be null for standard cycles")
             if st=="pending" and (ph!="assess" or o is not None or started is not None or completed is not None or c.get("status_reason") is not None): fail(f"{label}: pending cycle must be assess and have null order/timestamps/reason")
             if st in {"in-progress","paused","blocked"} and (o is None or started is None or completed is not None or ph=="complete"): fail(f"{label}: invalid started/paused/blocked standard-cycle state")
@@ -128,10 +126,10 @@ def validate_registry(data):
             elif ph!="complete" or completed is None or not c.get("verification_evidence") or not c.get("outcome"): fail(f"{label}: completed micro-cycle evidence missing")
 
 def main():
-    validate_decision_register(ROOT / "docs/dev-life-cycle/templates/HANDOFF.md")
+    validate_decision_register(ROOT / "docs/project/decisions.md")
     registry=read_json(REGISTRY)
     validate_registry(registry)
-    print("Steering cycle registry and decision records: valid")
+    print("Development-cycle registry and project decision ledger: valid")
 if __name__=="__main__":
     try: main()
     except ValueError as e:
