@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "status": "active",
-  "cycle_id": "4c7c4fb1-6724-4bb0-b98e-b4f5ac3f9182",
-  "workflow": "standard",
-  "worker_id": "ChatGPT-GPT-6",
-  "claimed_at": "2026-11-24T02:53:41.234Z",
-  "released_at": null,
-  "release_evidence": null
+  "status": "released",
+  "cycle_id": null,
+  "workflow": null,
+  "worker_id": null,
+  "claimed_at": null,
+  "released_at": "2026-11-24T02:57:16.841Z",
+  "release_evidence": "Documentation cleanup checkpoint persisted; Cycle 1 paused in Define for next session."
 }
