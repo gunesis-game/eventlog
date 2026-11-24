@@ -125,11 +125,74 @@ def validate_registry(data):
                 if ph!="implement" or completed is not None or c.get("verification_evidence") is not None or c.get("outcome") is not None: fail(f"{label}: invalid active micro-cycle state")
             elif ph!="complete" or completed is None or not c.get("verification_evidence") or not c.get("outcome"): fail(f"{label}: completed micro-cycle evidence missing")
 
+def validate_governance():
+    """Validate canonical standards, project companions, version metadata, and local links."""
+    required = [
+        "README.md", "TEMPLATE_VERSION", "steering.md",
+        "docs/standards/README.md", "docs/standards/coding.md",
+        "docs/standards/testing.md", "docs/standards/performance-engineering.md",
+        "docs/standards/git-workflow.md",
+        "docs/project/testing-strategy.md", "docs/project/performance-strategy.md",
+        "docs/project/git-workflow.md", "docs/project/commands.md",
+    ]
+    for relative in required:
+        if not (ROOT / relative).is_file():
+            fail(f"governance: required file is missing: {relative}")
+    if (ROOT / "docs/project/coding-standards.md").exists():
+        fail("governance: duplicate coding standard exists under docs/project; use docs/standards/coding.md")
+    version = (ROOT / "TEMPLATE_VERSION").read_text(encoding="utf-8").strip()
+    if not re.fullmatch(r"\\d+\\.\\d+\\.\\d+", version):
+        fail("TEMPLATE_VERSION: expected a semantic version (major.minor.patch)")
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    standards = (ROOT / "docs/standards/README.md").read_text(encoding="utf-8")
+    steering = (ROOT / "steering.md").read_text(encoding="utf-8")
+    git_policy = (ROOT / "docs/project/git-workflow.md").read_text(encoding="utf-8")
+    required_readme_links = [
+        "docs/standards/README.md", "docs/standards/coding.md",
+        "docs/standards/testing.md", "docs/standards/performance-engineering.md",
+        "docs/standards/git-workflow.md", "docs/project/testing-strategy.md",
+        "docs/project/performance-strategy.md", "docs/project/git-workflow.md",
+    ]
+    for target in required_readme_links:
+        if target not in readme:
+            fail(f"README.md: missing documentation reference to {target}")
+    for target in ("../project/testing-strategy.md", "../project/performance-strategy.md", "../project/git-workflow.md"):
+        if target not in standards:
+            fail(f"docs/standards/README.md: missing project companion reference {target}")
+    for target in ("docs/standards/README.md", "docs/standards/coding.md",
+                   "docs/standards/testing.md", "docs/standards/performance-engineering.md",
+                   "docs/standards/git-workflow.md", "docs/project/testing-strategy.md",
+                   "docs/project/performance-strategy.md", "docs/project/git-workflow.md"):
+        if target not in steering:
+            fail(f"steering.md: missing governance reference to {target}")
+    if "Working branch: main only" not in git_policy or "direct commits to main" not in git_policy:
+        fail("docs/project/git-workflow.md: repository main-only integration policy is not explicit")
+    if "GitHub MCP" not in git_policy:
+        fail("docs/project/git-workflow.md: required GitHub MCP repository protocol is missing")
+
+    # Check local Markdown links in the governance entry points and project policies.
+    markdown_files = [
+        ROOT / "README.md", ROOT / "steering.md", ROOT / "docs/standards/README.md",
+        ROOT / "docs/project/testing-strategy.md", ROOT / "docs/project/performance-strategy.md",
+        ROOT / "docs/project/git-workflow.md",
+    ]
+    link_pattern = re.compile(r"\\[[^]]+\\]\\(([^)]+)\\)")
+    for source in markdown_files:
+        content = source.read_text(encoding="utf-8")
+        for raw_target in link_pattern.findall(content):
+            target = raw_target.split("#", 1)[0].strip()
+            if not target or target.startswith(("https://", "http://", "mailto:")):
+                continue
+            resolved = (source.parent / target).resolve()
+            if not resolved.exists():
+                fail(f"{source.relative_to(ROOT)}: broken local link {raw_target}")
+
 def main():
     validate_decision_register(ROOT / "docs/project/decisions.md")
     registry=read_json(REGISTRY)
     validate_registry(registry)
-    print("Development-cycle registry and project decision ledger: valid")
+    validate_governance()
+    print("Development-cycle registry, decision ledger, and repository governance: valid")
 if __name__=="__main__":
     try: main()
     except ValueError as e:
