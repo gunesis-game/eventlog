@@ -174,10 +174,22 @@ remain unused.
 UUID v5 namespace is `26612f1d-f648-483a-9cfe-59c18f113891`. Event domain prefix is
 `eventlog\\x00event\\x00v1\\x00`; Channel domain prefix is `eventlog\\x00channel\\x00v1\\x00`.
 
-Canonical identity encoding is separate from JSON and architecture-independent: fixed encoding-format
-version, domain prefix, UTF-8 package path and concrete type name, exposed field-name schema, and
-designated identity field name/value. Non-identity values are excluded from logical identity. Schema
-field names sort bytewise UTF-8; variable component lengths/counts use uint32 big-endian framing. Exact field-schema/identity-value byte composition is approved; see the approved layout section below and remaining validation questions.
+Canonical identity encoding is separate from JSON: fixed encoding-format version, domain prefix,
+UTF-8 package path and runtime-provided concrete type name, exposed field-name schema, and designated
+identity field name/value. The concrete type is identified using the reflected type's `PkgPath()` and
+`Name()`. Go aliases do not create distinct identities: reflection resolves an alias to the aliased type,
+so its package path and name are those of the target type. For an instantiated generic named type, the
+runtime-provided instantiated name is used as an opaque UTF-8 component; eventlog does not parse,
+reconstruct, or separately encode generic type arguments. Non-identity values are excluded from logical
+identity. Schema field names sort bytewise UTF-8; variable component lengths/counts use uint32 big-endian
+framing. Exact field-schema/identity-value byte composition is approved; see the approved layout section
+below.
+
+This naming rule relies on Go reflection's runtime type naming, not a separately specified stable
+serialization format. Go does not guarantee that the reflected name of an instantiated generic type is
+byte-for-byte stable across Go toolchain versions. Consequently, v1 identity compatibility across
+toolchain versions is not guaranteed where the runtime-provided package path or name changes; such a
+change can prevent existing persisted type identities from matching.
 
 ## UUID identity representation
 
@@ -203,7 +215,7 @@ The UUID identity representation is specified in the UUID identity section below
 
 Metadata keys and values must be valid UTF-8. Reject invalid UTF-8 before persistence and during recovery; do not replace, normalize, or otherwise transform metadata bytes. Canonically equivalent but byte-distinct Unicode strings remain distinct. The UUID Go representation, byte extraction order, and dedicated tag `0x03` are settled.
 
-Still open: canonical naming of aliases/generic instantiated types and maximum framing sizes.
+Still open: maximum framing sizes.
 
 ## Append transaction flow
 
@@ -372,7 +384,7 @@ memory use and platform parity precede numeric performance targets.
 
 ## Unresolved architectural details
 
-- Canonical naming of aliases and instantiated generic types; maximum framing sizes.
+- Maximum framing sizes. Canonical type naming is settled by D-037: reflected package path and runtime-provided name, with aliases resolving to their target and instantiated generic names treated as opaque text.
 - Exact internal registry-key composition for prepared instances and the precise behavior for distinct
   logical Channels represented by the same concrete Channel Go type.
 - Numeric benchmark targets, memory targets, representative measurement environments, repetitions,
