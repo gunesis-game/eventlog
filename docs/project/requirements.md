@@ -185,3 +185,8 @@ The library must allow concurrent preparations for different concrete Event type
 ## Event decoder registration lifetime — D-015
 
 Once a concrete Event decoder has been registered successfully, the library MUST retain that registration for the lifetime of the Log runtime. Its availability MUST NOT depend on an individual `PrepareLog[TEvent, TChannel]` call remaining active, nor may it be removed when that call completes. Registration is associated with the concrete Event type and exposed field-name schema, not an individual Channel. The consumer-facing API MUST NOT expose an unregister operation or otherwise change.
+
+
+## Conflicting concrete Event decoder registrations — D-016
+
+The library MUST reuse an existing decoder registration when the same concrete Event Go type is registered with the same exposed field-name schema. Registering the same concrete Event Go type with a different exposed field-name schema MUST fail with a typed schema-conflict error. The failed registration MUST NOT replace or mutate the existing registration or affect Readers already using it. No consumer-facing API change is permitted.
