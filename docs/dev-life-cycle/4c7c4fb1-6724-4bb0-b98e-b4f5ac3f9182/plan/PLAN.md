@@ -838,3 +838,22 @@ The generic arguments in `PrepareLog[TEvent, TChannel](ctx)` identify the consum
 - User clarified that `PrepareLog[TEvent, TChannel](ctx)` already receives the consumer types through its generic arguments, and accepted a separate `eventlog.Config(...)`-style configuration facility for runtime settings.
 - Do not use generic type information as a source of storage-path configuration; environment variables are not required. A Config call may explicitly bind configuration to the context while preserving cancellation/deadline semantics; do not infer configuration from arbitrary context values.
 - Exact Config signature and configuration scope/defaults remain open. No implementation, build, or Go tests have started.
+
+
+## Latest Define decision — one-time immutable runtime configuration (2026-11-24)
+
+Configuration is process/runtime initialization state, not mutable runtime state and not context-bound state. A package-level `eventlog.Config(...)`-style call configures the runtime exactly once, before the first `PrepareLog` initialization. The configuration is validated, captured, and frozen; all later operations use that same immutable configuration. A second configuration attempt, or an attempt after runtime initialization has begun, must return an error and must never replace or mutate the active configuration. Consumers cannot change settings midway through execution by supplying another context or calling Config again.
+
+The approved preparation call remains unchanged:
+
+```go
+if err := eventlog.Config(
+    eventlog.WithStorageDirectory("./data/events"),
+); err != nil {
+    return err
+}
+
+event, channel, err := eventlog.PrepareLog[MyEvent, MyChannel](ctx)
+```
+
+Generic arguments select consumer Event and Channel types only. `context.Context` continues to provide cancellation/deadline semantics; it does not carry configuration. Environment variables are not required. The exact option names/defaults, behavior if Config is omitted, and synchronization/error details for concurrent Config versus first PrepareLog remain open for final API specification. No implementation, build, or Go tests have started.
