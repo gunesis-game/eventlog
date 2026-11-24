@@ -45,7 +45,7 @@ The current requirements, architecture, decisions, acceptance matrix, and benchm
 - **Project records reviewed in full:** `docs/project/requirements.md`, `architecture.md`, `decisions.md`, `acceptance.md`, and `benchmarks.md`.
 - **Cycle records reviewed:** this plan, current handoff, and `docs/dev-life-cycle/cycle-index.json`.
 - **Decision register:** D-001 through D-033 are Recorded; D-029 is refined by D-032 and D-030 is refined by D-031.
-- **Cross-document corrections made:** stale Channel snapshot, Reader wake-up, retry, backlog, and shutdown-drain open-item claims were removed or marked resolved; the duplicate runtime-shutdown section was consolidated; shutdown drain ordering now stops Reader advancement before allowing pending sends to drain.
+- **Cross-document corrections made:** stale Channel snapshot, Reader wake-up, retry, and backlog open-item claims were reconciled; the duplicate runtime-shutdown section was consolidated; D-034 replaces the former shutdown-drain sequence with process-lifetime runtime ownership and recovery after process termination.
 - **Validation boundary:** this is a semantic document reconciliation. No implementation, Go build, Go tests, or benchmark measurements have been run.
 
 | Candidate item | Classification | Current evidence / next action |
