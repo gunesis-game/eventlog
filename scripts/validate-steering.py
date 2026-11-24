@@ -141,7 +141,7 @@ def validate_governance():
     if (ROOT / "docs/project/coding-standards.md").exists():
         fail("governance: duplicate coding standard exists under docs/project; use docs/standards/coding.md")
     version = (ROOT / "TEMPLATE_VERSION").read_text(encoding="utf-8").strip()
-    if not re.fullmatch(r"\\d+\\.\\d+\\.\\d+", version):
+    if not re.fullmatch(r"\d+\.\d+\.\d+", version):
         fail("TEMPLATE_VERSION: expected a semantic version (major.minor.patch)")
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     standards = (ROOT / "docs/standards/README.md").read_text(encoding="utf-8")
@@ -176,7 +176,7 @@ def validate_governance():
         ROOT / "docs/project/testing-strategy.md", ROOT / "docs/project/performance-strategy.md",
         ROOT / "docs/project/git-workflow.md",
     ]
-    link_pattern = re.compile(r"\\[[^]]+\\]\\(([^)]+)\\)")
+    link_pattern = re.compile(r"\[[^]]+\]\(([^)]+)\)")
     for source in markdown_files:
         content = source.read_text(encoding="utf-8")
         for raw_target in link_pattern.findall(content):
