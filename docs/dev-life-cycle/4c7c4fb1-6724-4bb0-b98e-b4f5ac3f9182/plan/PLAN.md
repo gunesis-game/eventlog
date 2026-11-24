@@ -401,3 +401,8 @@ Different concrete Event types may be prepared concurrently for the same logical
 ## Approved D-015 — Event decoder registration lifetime
 
 A successful concrete Event decoder registration remains available for the lifetime of the Log runtime. It is independent of the lifetime/completion of the `PrepareLog[TEvent, TChannel]` call that registered it and is available to any Channel Reader whose committed history requires it. Registration is keyed by concrete Event type and exposed field-name schema, not by Channel. No consumer-facing unregister operation or API change.
+
+
+## Approved D-016 — conflicting Event decoder registrations
+
+Decoder registration is keyed by concrete Event Go type plus exposed field-name schema. Re-registering that type with the same schema reuses the existing registration. Re-registering it with a different schema returns a typed schema-conflict error and cannot replace/mutate the existing registration or affect Readers already using it. No consumer-facing API change.
