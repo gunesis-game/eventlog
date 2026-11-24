@@ -165,7 +165,9 @@ The exact canonical identity payload layout after the existing domain prefix is 
 
 The already-approved namespace, Event/Channel domain prefixes, primitive field tags, big-endian framing, UUID v5 derivation, and non-identity value exclusion remain unchanged. Identity payload is UUID-only; the UUID tag and accepted Go representation are still unresolved. Format byte is intentionally redundant with the domain prefix's v1 marker.
 
-Validation/test questions remain open: accepted UUID type/representation; canonical UUID byte order and UUID tag; metadata UTF-8 policy; canonical naming of aliases/generic instantiated types; and maximum framing sizes. Nullable and primitive identities are excluded. These are not silently decided by this approval.
+**D-024 — UUID identity representation (approved 2026-11-24):** A UUID identity field MUST have Go underlying type `[16]byte`. The unnamed `[16]byte` type and named types whose underlying type is `[16]byte` are accepted. Type aliases are accepted insofar as their Go underlying type is `[16]byte`. The canonical UUID payload is the 16 array elements in index order (`value[0]` through `value[15]`); no string parsing, textual normalization, integer endianness conversion, or external UUID dependency is involved. Nullable UUID identity fields and all other underlying types are rejected. This applies equally to Event and Channel identity fields.
+
+Still open: the dedicated UUID identity marker/tag assignment; metadata UTF-8 policy; canonical naming of aliases/generic instantiated types; and maximum framing sizes. The accepted representation and byte extraction order are no longer open.
 
 ## Append transaction flow
 
@@ -460,3 +462,8 @@ Each Log owns one bounded internal ingress queue for immutable snapshots capture
 Different logical Events may be persisted concurrently by multiple workers. This avoids serializing unrelated Event histories while preserving each Event's ordered history. Global sequence numbers are assigned centrally at the commit/serialization point; committed sequence order defines the total order observed by Readers and notifications.
 
 The queue, dispatcher, scheduling lanes and worker count are internal implementation details. The bounded-capacity backpressure policy remains D-022: monitoring/queueing work is paused or delayed when capacity is exhausted; consumer field assignments are never blocked; snapshots already enqueued are retained and never dropped. No consumer-facing queue, method, callback, configuration requirement or API change is introduced. The existing PrepareLog[TEvent, TChannel], Fields() Fields, Notifications() <-chan Event, and Errors() <-chan error contracts remain unchanged.
+
+
+## D-024 — UUID identity representation
+
+The UUID identity field must have underlying Go type `[16]byte`. Accept `[16]byte` and named types with that underlying type; reject nullable UUID fields and every other underlying type. Encode the UUID payload as the 16 bytes in array index order, without string parsing or integer byte-order conversion. This applies to both Event and Channel identity fields. The dedicated UUID identity marker/tag remains unresolved; D-024 does not assign a tag value or change the already-approved canonical identity framing.
