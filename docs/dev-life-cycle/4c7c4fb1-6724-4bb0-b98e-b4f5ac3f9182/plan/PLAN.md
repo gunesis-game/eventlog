@@ -130,13 +130,14 @@ Reconcile the cycle artifacts first: keep one current specification and one curr
 - Approved architecture decisions are consolidated in the current baseline above.
 - Reconciliation is focused on stale wording and lifecycle consistency; no implementation, build or Go tests have begun.
 
-## Latest resume checkpoint — 2026-11-24
+## Latest resume checkpoint — 2026-11-24 (continued)
 
-- User instructed continuation of Cycle 1; the cycle remains in Define and is now `in-progress`.
-- Execution lock is active on `main` for this cycle and was fetched back from the remote after commit `d3e71eed9ac9597f3b26d7141fbe26e468f69b3f`.
-- Registry status was resumed to `in-progress` in commit `e9449bc585fce20dde21188ac5dc21165dded1b9`; phase remains `define`.
-- User corrected the public API direction: `log.Append[TChannel,TEvent](selector)` and `log.Read[TChannel,TEvent]()` followed by `reader.Next()`. The consumer supplies the concrete channel and event struct types as generic arguments. The Append selector callback is part of the call and defines the selected fields. Eventlog owns allocation and reconstruction. A channel may contain multiple concrete Event types; the typed reader returns matching occurrences and advances past other types. Do not replace this with `Append(channel,event)` or a one-type `Read[T]` signature. Exact callback and interface syntax must be recovered from the agreed contract rather than invented.
-- No implementation, build, or Go tests have started.
+- User instructed continuation of Cycle 1 in Define. The released lock was claimed for this same in-progress cycle in lock-only commit `22cecdebbf12095c7e26b678c5dc9276b6a1044c`; the remote `main` branch was fetched back and confirmed to contain the active lock.
+- GitHub Actions run `45294380997` passed the registry/lock validator against the exact lock-claim commit.
+- The current requirements, plan, handoff, and architecture now explicitly supersede the stale `Append(channel, event)` wording and record the generic Log contract direction.
+- Go language constraint: methods cannot declare their own type parameters. The literal requested method call `log.Append[TChannel,TEvent](selector)` is not valid Go. A generic Log handle can carry `TChannel` and `TEvent` and expose `log.Append(selector)` / `log.Read()`; package-level generic functions are another option but change the call shape. This is a feasibility finding, not an approved API substitution.
+- The selector callback's value-input shape remains unresolved: the call shape `Append(selector)` must still explain how actual channel and event values enter the append operation. The next design discussion must use a concrete consumer example rather than infer a callback.
+- No implementation, build, or Go tests have started. Implementation remains prohibited until Define is complete and the user explicitly approves the public contract.
 
 ## Proposed acceptance matrix and benchmark scenarios (Define draft)
 
