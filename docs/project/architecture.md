@@ -323,3 +323,39 @@ memory use and platform parity precede numeric performance targets.
 - Delivery identity, occurrence identity, durable backlog, retries, replay bookkeeping, and acknowledgment of internal dispatch are private implementation details.
 - Since the consumer provides no acknowledgment, eventlog cannot claim exactly-once consumer processing. Delivery/recovery semantics must be stated honestly; duplicates may occur in a crash window if internal dispatch is durably recorded after sending.
 - The consumer-facing notification accessor is implemented by consumer-defined Channel types as `Notifications() <-chan Event`; this is settled and must not be reopened.
+
+
+## Approved PrepareLog generic and Channel error contract — 2026-11-24
+
+The approved generic contract distinguishes the concrete Event type being prepared from the common Event interface used by the heterogeneous Channel notification stream:
+
+```go
+func PrepareLog[
+    TEvent Event,
+    TChannel Channel,
+](
+    ctx context.Context,
+    newChannel func(chan Event) TChannel,
+) (TEvent, TChannel, error)
+```
+
+Here `TEvent` is a concrete Event type satisfying the `Event` interface; it is not the common interface type itself. `TChannel` is a consumer-defined concrete Channel type satisfying the `Channel` interface. The factory receives `chan Event`, allowing one Channel to receive different concrete Event implementations. The generic `TEvent` identifies the concrete Event type for internal preparation/decoder registration. This generic relationship does not authorize a consumer-facing API expansion.
+
+The Channel interface exposes:
+
+```go
+type Channel interface {
+    Notifications() <-chan Event
+    Errors() <-chan error
+}
+```
+
+The error stream is one-way, shared by the logical Channel runtime, and has buffer capacity one. The first fatal error is retained internally and sent non-blockingly on a best-effort basis; error delivery must not block persistence or indefinitely block the Reader. Fatal Reader errors terminate that Channel's Reader, after which eventlog closes `Notifications()` and then `Errors()`. A buffered fatal error remains readable before the closed error stream is exhausted. Recoverable errors do not terminate the Reader when safe continuation is possible.
+
+### Deferred concrete decoder resolution
+
+Concrete Event type registration is derived internally from the concrete `TEvent` generic argument supplied to `PrepareLog`; consumers do not call a separate registration API. Decoder registrations are maintained in an internal registry and notify waiting Channel runtimes when available.
+
+Historical notification replay must not begin until every concrete Event decoder required by the committed history for that logical Channel is available. The runtime may wait asynchronously for missing registrations; it must not block the first `PrepareLog` call in a way that prevents subsequent Event types from being prepared. Unknown or undecodable persisted Event types must fail closed and must never be silently skipped. The precise timeout/absence policy and the existing codec implementation's availability remain to be verified before implementation.
+
+No public `RegisterEventType`, `Activate`, `Start`, `Close`, Ack, or checkpoint method is permitted. The public Channel surface remains the two accessors above.
