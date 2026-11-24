@@ -33,11 +33,14 @@ configuration is not inferred from Context or environment.
 ## Logical components
 
 - **Public API:** The only approved public entry point is package-level generic `PrepareLog[TEvent,
-  TChannel](ctx)`, returning `(TEvent, TChannel, error)`. Consumers receive event and channel values, not
-  a Log handle. The package owns the internal `Log` instance and all append/read/next/lifecycle
-  operations; none of those operations are exposed to consumers at this stage. Consumer event and channel
-  types implement `Fields() Fields`; consumers set or change their own field values. A single process
-  owns a log at a time, with concurrent goroutine use coordinated internally.
+  TChannel](ctx, newChannel)`, returning `(TEvent, TChannel, error)`. `TEvent` is the common `Event`
+  interface and `newChannel` is the required `func(chan TEvent) TChannel` factory. The Channel interface
+  exposes `Notifications() <-chan Event`; one Channel stream carries multiple concrete Event types.
+  Consumers receive event and channel values, not a Log handle. The package owns the internal `Log`
+  instance and all append/read/next/lifecycle operations; none of those operations are exposed to consumers
+  at this stage. Consumer event and channel types implement `Fields() Fields`; consumers set or change their
+  own field values. A single process owns a log at a time, with concurrent goroutine use coordinated
+  internally.
 - **Field builder and validator:** Selector callback supplies typed field selectors for direct fields.
   `FieldOf` selects non-nullable primitives; `FieldOfNullable` selects nullable primitive pointers and
   returns pointer-to-pointer (nil is explicit Null). Field names are inferred. Resolve a selector by
