@@ -217,3 +217,12 @@ while existing readers continue on pinned generation; delete old files only afte
   termination, ordering, and drain-failure behavior.
 - Consumer synchronization and snapshot consistency details.
 - Benchmarks, performance/memory acceptance targets, and detailed acceptance test matrix.
+
+
+## Approved notification public API decision — 2026-11-24
+
+- The consumer-facing notification payload is the concrete Event type `T` only. No public `Notification[T]` wrapper, Event ID, Occurrence ID, delivery token, or consumer-facing Ack API.
+- Notifications are channel-scoped, accessed through the Channel abstraction. Public accessor shape remains to be reconciled with the initialization/ownership mechanism.
+- Delivery identity, occurrence identity, durable backlog, retries, replay bookkeeping, and acknowledgment of internal dispatch are private implementation details.
+- Since the consumer provides no acknowledgment, eventlog cannot claim exactly-once consumer processing. Delivery/recovery semantics must be stated honestly; duplicates may occur in a crash window if internal dispatch is durably recorded after sending.
+- API example: `for event := range channel.Notifications() { handle(event) }`.
