@@ -28,6 +28,41 @@ coordinated: concurrent PrepareLog callers await the same attempt and honor thei
 failed initialization may retry with frozen config. Context carries cancellation/deadline only;
 configuration is not inferred from Context or environment.
 
+## Preparation and registration
+
+The public preparation entry point is
+PrepareLog[TEvent, TChannel](ctx, newChannel) (TEvent, TChannel, error). Both generic arguments
+must be concrete pointer types satisfying Event and Channel; PrepareLog checks the pointer constraint
+at runtime and returns an error before exposing prepared values if either argument is not a pointer.
+The required factory is func(chan Event) TChannel. The common Event interface is implemented by every
+concrete Event type and is the element type of the heterogeneous notification stream.
+
+Compatible repeated preparations reuse the same live Event and Channel pointer instances. Event instance
+reuse follows canonical Event identity. Channel runtime reuse follows canonical Channel identity, not
+merely the concrete Channel Go type. Type/schema registration, Event instance identity, and Channel
+runtime identity are separate registry concerns. A concrete Channel type may represent multiple logical
+Channels; different concrete Event types may share one logical Channel runtime.
+
+Preparation invokes the supplied Channel factory to create a candidate and derives its canonical Channel
+identity from the candidate's exposed fields. Runtime lookup and candidate adoption are one atomic
+operation: an existing logical Channel reuses its existing pointer, runtime, and single Reader progression;
+otherwise the candidate is adopted and the runtime is created. The factory is a constructor only. It must
+not start goroutines, open external resources, or perform other external side effects, because its
+candidate may be discarded when an existing runtime is reused.
+
+Concrete Event decoder registration is derived internally from the concrete TEvent generic argument.
+A successful registration remains available for the Log runtime lifetime and is keyed by concrete Event
+type plus exposed field-name schema, not by Channel. Re-registering the same type/schema reuses the
+registration. Re-registering the same concrete type with a different schema fails with a typed
+schema-conflict error and does not replace or mutate the existing registration or Readers using it.
+
+Historical replay for a logical Channel waits asynchronously until every decoder required by its committed
+history is registered. A missing decoder causes an indefinite wait rather than an arbitrary timeout or a
+fatal error solely due to absence; replay proceeds when the decoder registers. The first preparation must
+not block subsequent Event-type preparations. Unknown or undecodable persisted Event types fail closed.
+No additional consumer-facing registration, activation, acknowledgement, start, stop, or close operation
+is part of the API.
+
 ## Logical components
 
 - **Public API:** The only approved public entry point is package-level generic `PrepareLog[TEvent,
@@ -88,6 +123,24 @@ configuration is not inferred from Context or environment.
   Event/Channel fields every 100 ms; no per-field goroutines. Cadence is internal/test-only. Consumer
   synchronizes its own mutations. Detected changes route to internal persistence.
 - **Notification dispatcher/backlog:** The Channel interface exposes `Notifications() <-chan Event` and `Errors() <-chan error`. One Channel owns one heterogeneous notification stream and one shared error stream. No `Notify` callback/sink method, public helper struct, or consumer embedding requirement is permitted. eventlog delivers immutable concrete Event snapshots after commit without blocking persistence/scheduler on slow consumers. Internal durable backlog/replay remains required. The error stream has capacity one, retains the first fatal error internally, and uses best-effort non-blocking delivery. A fatal Reader error terminates that Channel's Reader, then eventlog closes the notification stream and error stream after the buffered fatal error; safe recoverable errors may be retried/handled without terminating only when order and completeness are preserved. Exactly-once consumer processing is not guaranteed without consumer acknowledgment or transactional integration.
+
+## Field selection, reconstruction, and identity integrity
+
+Consumers select direct fields using typed selectors. FieldOf accepts func(*T) *V for a non-nullable
+field; FieldOfNullable accepts func(*T) **V for a nullable field. Field names are inferred, selectors
+must resolve to exactly one direct field, and named primitive types are supported. Nil remains distinct
+from a pointer to the zero value.
+
+Historical occurrences are reconstructed into fresh concrete Event pointers and never overwrite the
+prepared live Event pointer. Notification snapshots are immutable and independent of live values,
+persistence storage, and other notification snapshots. Historical Channel snapshots are likewise
+separate from the live Channel pointer. Concrete primitive types, widths, and nullability are preserved.
+
+After a prepared Event instance is registered under its canonical logical identity, its designated
+identity field is immutable for that instance's lifetime. Change detection rejects an identity-value
+mutation and reports a descriptive asynchronous error through the existing Channel error stream. It does
+not create another logical Event, rewrite identity, or alter existing occurrences or HEAD. A different
+logical Event requires a separate prepared Event instance.
 
 ## Record model and identity
 
@@ -151,6 +204,14 @@ version, domain prefix, UTF-8 package path and concrete type name, exposed field
 designated identity field name/value. Non-identity values are excluded from logical identity. Schema
 field names sort bytewise UTF-8; variable component lengths/counts use uint32 big-endian framing. Exact field-schema/identity-value byte composition is approved; see the approved layout section below and remaining validation questions.
 
+## UUID identity representation
+
+Event and Channel identity fields must have Go underlying type [16]byte. The unnamed [16]byte type and
+named types with that underlying type are accepted. The canonical UUID payload is the 16 array elements
+in index order (value[0] through value[15]). No string parsing, textual normalization, integer endianness
+conversion, or external UUID dependency is involved. Nullable UUID identity fields and all other
+underlying types are rejected. The dedicated UUID identity marker/tag assignment remains open.
+
 ## Canonical identity byte composition
 
 The exact canonical identity payload layout after the existing domain prefix is approved:
@@ -188,6 +249,24 @@ or Event is persisted on invalid fields. Write interruption/crash must not expos
 recovery truncates incomplete transaction from its start. Partial Commit is treated as incomplete
 transaction. Append returns an internal error; no consumer-facing Append API is approved. Recoverable
 atomicity is distinct from power-loss durability before sync.
+
+## Change observation and persistence scheduling
+
+Detected selected-field changes are captured as immutable snapshots and submitted to one bounded,
+Log-owned ingress queue. A Log-internal dispatcher schedules snapshots by canonical logical Event
+identity. Persistence for one logical Event is serial and preserves FIFO enqueue order; different logical
+Events may persist concurrently. Global sequence numbers are assigned centrally at commit.
+
+Only consecutive unchanged observed states are suppressed. A later transition back to an earlier value
+is a new occurrence. Enqueued snapshots are retained and are not silently dropped or replaced. Periodic
+observation cannot guarantee capture of intermediate states that change and revert between observations.
+
+When queue capacity is exhausted, eventlog pauses or delays internal monitoring/queueing work rather than
+blocking consumer assignments to ordinary Go struct fields. Consumers may continue mutating their
+structs while monitoring is paused; when monitoring resumes, the latest state it observes is captured,
+so intermediate unobserved states may be missed. Queue capacity, dispatch scheduling, and worker count
+are internal implementation details. Notifications become eligible only after the corresponding
+persistence transaction commits.
 
 ## Open and recovery flow
 
@@ -313,81 +392,3 @@ memory use and platform parity precede numeric performance targets.
   drain failure behavior.
 - Benchmarks, memory/performance targets, and measurable acceptance criteria.
 
-## Preparation and registration
-
-The public preparation entry point is
-PrepareLog[TEvent, TChannel](ctx, newChannel) (TEvent, TChannel, error). Both generic arguments
-must be concrete pointer types satisfying Event and Channel; PrepareLog checks the pointer constraint
-at runtime and returns an error before exposing prepared values if either argument is not a pointer.
-The required factory is func(chan Event) TChannel. The common Event interface is implemented by every
-concrete Event type and is the element type of the heterogeneous notification stream.
-
-Compatible repeated preparations reuse the same live Event and Channel pointer instances. Event instance
-reuse follows canonical Event identity. Channel runtime reuse follows canonical Channel identity, not
-merely the concrete Channel Go type. Type/schema registration, Event instance identity, and Channel
-runtime identity are separate registry concerns. A concrete Channel type may represent multiple logical
-Channels; different concrete Event types may share one logical Channel runtime.
-
-Preparation invokes the supplied Channel factory to create a candidate and derives its canonical Channel
-identity from the candidate's exposed fields. Runtime lookup and candidate adoption are one atomic
-operation: an existing logical Channel reuses its existing pointer, runtime, and single Reader progression;
-otherwise the candidate is adopted and the runtime is created. The factory is a constructor only. It must
-not start goroutines, open external resources, or perform other external side effects, because its
-candidate may be discarded when an existing runtime is reused.
-
-Concrete Event decoder registration is derived internally from the concrete TEvent generic argument.
-A successful registration remains available for the Log runtime lifetime and is keyed by concrete Event
-type plus exposed field-name schema, not by Channel. Re-registering the same type/schema reuses the
-registration. Re-registering the same concrete type with a different schema fails with a typed
-schema-conflict error and does not replace or mutate the existing registration or Readers using it.
-
-Historical replay for a logical Channel waits asynchronously until every decoder required by its committed
-history is registered. A missing decoder causes an indefinite wait rather than an arbitrary timeout or a
-fatal error solely due to absence; replay proceeds when the decoder registers. The first preparation must
-not block subsequent Event-type preparations. Unknown or undecodable persisted Event types fail closed.
-No additional consumer-facing registration, activation, acknowledgement, start, stop, or close operation
-is part of the API.
-
-## Field selection, reconstruction, and identity integrity
-
-Consumers select direct fields using typed selectors. FieldOf accepts func(*T) *V for a non-nullable
-field; FieldOfNullable accepts func(*T) **V for a nullable field. Field names are inferred, selectors
-must resolve to exactly one direct field, and named primitive types are supported. Nil remains distinct
-from a pointer to the zero value.
-
-Historical occurrences are reconstructed into fresh concrete Event pointers and never overwrite the
-prepared live Event pointer. Notification snapshots are immutable and independent of live values,
-persistence storage, and other notification snapshots. Historical Channel snapshots are likewise
-separate from the live Channel pointer. Concrete primitive types, widths, and nullability are preserved.
-
-After a prepared Event instance is registered under its canonical logical identity, its designated
-identity field is immutable for that instance's lifetime. Change detection rejects an identity-value
-mutation and reports a descriptive asynchronous error through the existing Channel error stream. It does
-not create another logical Event, rewrite identity, or alter existing occurrences or HEAD. A different
-logical Event requires a separate prepared Event instance.
-
-## Change observation and persistence scheduling
-
-Detected selected-field changes are captured as immutable snapshots and submitted to one bounded,
-Log-owned ingress queue. A Log-internal dispatcher schedules snapshots by canonical logical Event
-identity. Persistence for one logical Event is serial and preserves FIFO enqueue order; different logical
-Events may persist concurrently. Global sequence numbers are assigned centrally at commit.
-
-Only consecutive unchanged observed states are suppressed. A later transition back to an earlier value
-is a new occurrence. Enqueued snapshots are retained and are not silently dropped or replaced. Periodic
-observation cannot guarantee capture of intermediate states that change and revert between observations.
-
-When queue capacity is exhausted, eventlog pauses or delays internal monitoring/queueing work rather than
-blocking consumer assignments to ordinary Go struct fields. Consumers may continue mutating their
-structs while monitoring is paused; when monitoring resumes, the latest state it observes is captured,
-so intermediate unobserved states may be missed. Queue capacity, dispatch scheduling, and worker count
-are internal implementation details. Notifications become eligible only after the corresponding
-persistence transaction commits.
-
-## UUID identity representation
-
-Event and Channel identity fields must have Go underlying type [16]byte. The unnamed [16]byte type and
-named types with that underlying type are accepted. The canonical UUID payload is the 16 array elements
-in index order (value[0] through value[15]). No string parsing, textual normalization, integer endianness
-conversion, or external UUID dependency is involved. Nullable UUID identity fields and all other
-underlying types are rejected. The dedicated UUID identity marker/tag assignment remains open.
