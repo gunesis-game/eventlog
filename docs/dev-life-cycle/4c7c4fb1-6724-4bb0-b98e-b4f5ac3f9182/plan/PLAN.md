@@ -103,3 +103,33 @@ This section records recommendations to discuss and validate. It does not change
 - Linux/Windows CI, race detector, fuzz tests for record/schema/recovery parsing, and benchmarks (append, replay, tail latency, compaction, memory under stalled consumer). Numeric performance thresholds should be set only after baseline measurements.
 
 **Next:** review this proposal with the user; accept/reject each recommendation explicitly before promoting any to active requirements/architecture.
+
+## Define follow-up — concrete API and lifecycle recommendation (not approved)
+
+### Proposed pointer-type contract
+Use the existing generic return contract with pointer instantiations, e.g. `PrepareLog[*MyEvent, *MyChannel](ctx)`. Both type arguments must implement `Fields() Fields`; pointer receiver methods are supported. Reject non-pointer type arguments at preparation with a typed contract error rather than silently accepting values that cannot be monitored for mutation. Allocate fresh non-nil instances internally before exposing them. A nil/typed-nil input should never be accepted as a live object. The final selector/identity metadata mechanism still needs an API sketch and compile-time review before approval.
+
+### Proposed lifecycle rules
+- One process-wide configured directory and one initialized Log owner. Preparation for the same concrete Event/Channel pair/schema returns the same prepared live objects; incompatible pair/schema attempts fail with a typed conflict.
+- Shared initialization is owned by eventlog, not by the first caller's Context. Each caller can stop waiting on its own context; cancellation of one caller does not cancel initialization needed by other waiters.
+- A failed initialization releases partial resources and allows retry using the already-frozen Config. No prepared values are returned until initialization is fully successful.
+- Keep lifecycle state/errors private except for documented notification delivery failures; make failure details wrapped and errors.Is/As-compatible.
+- Consumer writes to returned Event/Channel fields must be externally synchronized. Polling is not a substitute for race-safe writes.
+
+### Identity mutation decision recommendation
+Event and Channel identity fields should be treated as immutable after preparation. Detect a changed identity before snapshotting; record a typed error, preserve the last persisted snapshot and identity, and stop change processing for the invalid object rather than repeatedly appending. Whether this should stop the entire Log or only that object is an explicit unresolved severity decision; recommend object-scoped quarantine to avoid taking down unrelated channels.
+
+### Notification API recommendations
+A read-only accessor should expose a receive-only typed channel. Delivery order follows commit order. Occurrence snapshots must be detached copies (not references to live consumer structs). A durable pending-delivery record should be committed alongside occurrence persistence so restart cannot lose a notification. Mark delivery complete only after the consumer-facing send succeeds; document that this is in-process handoff, not proof that consumer business processing completed. Use a separate typed error/status channel or lifecycle accessor for delivery failures; avoid closing a notification stream early while backlog remains.
+
+### Decision table (for review)
+| Topic | Recommendation | Still needs decision |
+|---|---|---|
+| Generic types | Instantiate with pointers | Enforce pointer-only at runtime vs compile time |
+| Prepared instance | One shared live instance per type/schema pair | Whether repeated PrepareLog returns identical pointer pair |
+| Context | Per-caller cancellation, shared initialization continues | Initialization timeout/ownership |
+| Identity mutation | Immutable; typed error and quarantine | Object-level vs Log-wide failure |
+| Notification | Receive-only channel, ordered durable backlog | Ack semantics, backlog policy, error accessor |
+| Schema | Stable after preparation | How to detect drift and how errors are surfaced |
+
+These are recommendations for Define, not active requirements. No implementation should begin until these are reviewed and promoted explicitly.
