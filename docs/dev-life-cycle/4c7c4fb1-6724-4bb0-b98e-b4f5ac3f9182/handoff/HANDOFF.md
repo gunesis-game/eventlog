@@ -422,3 +422,11 @@ This checkpoint's initial-snapshot-derived ID and prepared-value association wer
 - eventlog's synchronization remains internal and covers its own scheduler, change detection, persistence, and lifecycle coordination.
 - Consumers are responsible for synchronizing their own mutations of returned Event and Channel fields when concurrent access occurs. The 100 ms polling mechanism does not make unsynchronized ordinary Go struct field writes race-safe and must not be documented as doing so.
 - This decision rejects the proposed consumer-shared-lock configuration option and introduces no public API.
+
+## Define decision — canonical Channel identity and mutation (approved 2026-11-24)
+
+Channel identity follows the same canonical determination as Event identity: concrete type, exposed `Fields()` schema, designated identity field name/value, canonical encoding, and deterministic UUID v5. Non-identity field changes do not alter logical identity; Channel-only changes do not create Event occurrences. New Event occurrences use the latest Channel snapshot; historical associations remain fixed. Canonically identical Channel records are deduplicated and created/reused atomically with the first successful occurrence referencing them.
+
+## Define topic — consumer mutation of designated identity fields (principle approved; mechanics open)
+
+When the consumer mutates the designated identity field on returned Event or Channel instances, eventlog must handle the identity transition internally, without a public coordination API. Define exact detection, snapshot, occurrence, HEAD/index, association, and persistence behavior before implementation.
