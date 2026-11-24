@@ -4,7 +4,7 @@
 - **Cycle ID:** 4c7c4fb1-6724-4bb0-b98e-b4f5ac3f9182
 - **Sequence / execution order:** 1 / 1
 - **Workflow:** standard
-- **Status / phase:** paused / define
+- **Status / phase:** in-progress / define
 - **Created:** 2026-11-22
 - **Updated:** 2026-11-24
 
@@ -272,3 +272,15 @@ func NewOrdersChannel(send chan *OrderEvent) *OrdersChannel {
 }
 ```
 The Channel stores a receive-only field and returns it through `Notifications() <-chan *OrderEvent`. eventlog creates the bidirectional channel, retains send-side ownership, and supplies it to the constructor; the consumer does not send or close the channel. The required factory parameter ensures a constructor of the expected type is provided for each PrepareLog call. No `Notify` sink/callback, public helper/embedding, or notification wrapper payload is introduced. This is the approved construction direction; delivery/backlog/recovery/shutdown semantics remain separately open.
+
+## User correction — heterogeneous Channel notification stream (2026-11-24)
+
+**Approved contract clarification:**
+- `Notifications() <-chan Event` is defined by the Channel interface.
+- `Event` is the common interface implemented by concrete Event types.
+- One consumer-defined Channel may carry multiple concrete Event types (for example, `OrderCreated` and `OrderCancelled`) through the same notification stream.
+- The consumer-facing Channel API must remain unchanged. There is no `Notify` callback/sink method, no public helper/embedding requirement, and no per-concrete-type notification stream.
+
+**Correction to the earlier factory proposal:** The earlier example `func(chan TEvent) TChannel` cannot be interpreted as a per-concrete-Event factory for one heterogeneous Channel. It is type-compatible only if `TEvent` denotes the common Event interface. The relationship between `PrepareLog` type parameters, event-specific preparation, shared Channel resolution, and internal writable-channel construction must be reconciled without changing the approved consumer-facing API. Do not implement or publish a changed signature based on assumption.
+
+**Next Define work:** establish the generic type relationship and internal Channel construction/resolution model against the existing `PrepareLog` contract; ensure multiple event-specific preparations converge on one Channel runtime and one ordered heterogeneous stream. Then reconcile the requirements, architecture, plan and handoff. No implementation authorization is implied.
