@@ -127,6 +127,7 @@ from replay into live tailing. It is not tied to an event-sourcing framework or 
 Technical open questions and approved low-level decisions are tracked in
 [architecture.md](architecture.md) and the active Cycle 1 plan. They include final Go API/interface and
 selector signatures, pointer/value reconstruction conventions, initialization/lifecycle and cancellation
-details, identity mutation behavior, notification method/delivery/backlog/error/shutdown semantics,
-snapshot consistency, complete acceptance tests, and measurable performance/memory targets. Do not treat
+details, identity mutation behavior, notification delivery/backlog/error/shutdown semantics, snapshot
+consistency, complete acceptance tests, and measurable performance/memory targets. The common `Event`
+notification element and `Notifications() <-chan Event` accessor are settled. Do not treat
 proposals as approved decisions or begin implementation before explicit Define approval.
