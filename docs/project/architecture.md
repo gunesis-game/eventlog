@@ -209,3 +209,8 @@ The public configuration shape is `Config(options ...Option) error`, with export
 ## Define decision — exported configuration errors (approved 2026-11-24)
 
 The package exports `ErrConfigNotInitialized` and `ErrConfigAlreadySet` sentinel errors. `PrepareLog` before successful configuration returns an error matching the former. Repeated or late `Config` calls return an error matching the latter. Invalid options produce descriptive validation errors. Filesystem failures wrap underlying causes for `errors.Is`/`errors.As`; context cancellation and deadline errors remain discoverable. Validation failure does not publish configuration and remains retryable.
+
+
+## Define decision — internal polling cadence and scheduler (approved 2026-11-24)
+
+The internal change manager uses a 100 ms default polling interval. A single managed scheduler per prepared Log/change manager scans all selected event and channel field bindings; it does not spawn a goroutine per field. The cadence may be adjusted through internal implementation/test configuration only, not through a new public option or method. Each scan compares the selected-field state with the last observed/persisted snapshots and routes detected changes through internal persistence. Polling does not make unsynchronized writes to consumer-owned Go struct fields race-safe. Caller synchronization and snapshot consistency, event/channel change semantics, scheduler termination/retry, and internal persistence-error handling remain unresolved and must be specified before implementation.
