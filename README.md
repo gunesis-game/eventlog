@@ -15,6 +15,7 @@ A lightweight, disk-backed append-only log written in Go. Designed as the persis
 
 ## Documentation
 - [Requirements](docs/project/requirements.md)
+- [Project decisions](docs/project/decisions.md)
 - [Architecture](docs/project/architecture.md)
 - [Coding standards](docs/project/coding-standards.md)
 - [Commands](docs/project/commands.md)
