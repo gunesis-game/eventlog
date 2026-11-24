@@ -6,7 +6,8 @@
 - **Objective:** <One-line objective>
 - **Registry status:** <pending | in-progress | paused | blocked | cancelled | complete>
 - **Persisted phase:** <assess | define | implement | verify | reconcile | complete>
-- **Last updated:** <UTC ISO-8601 timestamp>\n- **Last progress checkpoint:** <UTC ISO-8601 timestamp; update after every material decision and at least every 15 minutes while actively working>
+- **Last updated:** <UTC ISO-8601 timestamp>
+- **Last progress checkpoint:** <UTC ISO-8601 timestamp; update after every material decision and at least every 15 minutes while actively working>
 
 ## Current repository state
 
@@ -21,19 +22,18 @@
 
 ## Decisions and constraints
 
-### Decision register
-
-Record each material decision. `Approved` is transient and must not remain in a persisted handoff; mark `Recorded` only after the canonical artifact is published and fetched back successfully.
-
-| ID | Decision | State (Proposed / Approved / Recorded) | Canonical artifact | Verified revision / evidence |
-|---|---|---|---|---|
-| <D-001> | <Decision and rationale> | <Proposed> | <Path or —> | <Pending approval or —> |
-
 - **Verified facts:** <Facts established by inspection or execution>
-- **Decisions:** <Decision and rationale>
 - **Assumptions:** <Provisional assumptions requiring confirmation>
 - **Unknowns:** <Information not established>
 - **Constraints:** <Relevant project constraints>
+
+### Decision register
+
+Record every material decision here. `Approved` is a transient state and must never be treated as `Recorded`. Replace it with `Recorded` only after the canonical artifact and this handoff have been published and fetched back successfully at the verified revision. An approved-but-unrecorded decision is a hard stop: do not ask the next design question, implement dependent work, or advance the phase.
+
+| ID | Decision | State (Proposed / Approved / Recorded) | Canonical artifact | Verified revision / evidence |
+|---|---|---|---|---|
+| <D-001> | <Decision and concise rationale> | <Proposed> | <Path or —> | <Pending approval or —> |
 
 ## Verification evidence
 
@@ -66,4 +66,4 @@ Record each material decision. `Approved` is transient and must not remain in a 
 
 ## Continuation instructions
 
-<What the next contributor/agent should inspect or do first. Validate this handoff against the current repository before relying on it. The repository-wide execution claim is managed only by docs/dev-life-cycle/execution-lock.json.>
+<What the next contributor/agent should inspect or do first. Validate this handoff against the current repository before relying on it. Contributors coordinate through ordinary Git collaboration; there is no repository-wide execution lock or exclusive owner.>
