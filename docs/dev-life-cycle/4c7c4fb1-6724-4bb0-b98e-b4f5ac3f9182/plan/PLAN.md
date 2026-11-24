@@ -439,3 +439,14 @@ Approved model, recorded canonically in docs/project/architecture.md at commit e
 6. Queue capacity, dispatch scheduling and worker count remain internal. D-022 backpressure applies: pause/delay monitoring when capacity is exhausted, never drop already-enqueued snapshots, and never block consumer field assignments.
 
 This decision introduces no consumer-facing queue, method, callback, configuration requirement or API change. The existing consumer-facing API remains unchanged. Implementation remains out of scope until the Define exit criteria are met and Define is explicitly approved.
+
+
+## Approved D-024 — UUID identity representation (2026-11-24)
+
+User approved the UUID representation recommendation:
+- Event and Channel identity fields accept Go `[16]byte` and named types whose underlying type is `[16]byte`.
+- Canonical UUID payload bytes are the array elements in index order (`value[0]` through `value[15]`), with no string parsing or integer byte-order conversion.
+- Nullable UUID identities and all other underlying types are rejected.
+- The UUID identity marker/tag value remains open; this approval does not assign a tag or alter the approved canonical identity framing.
+
+D-024 is a Define decision only. It does not authorize implementation or change the consumer-facing API. Continue Define with the remaining identity encoding and lifecycle/acceptance details.
