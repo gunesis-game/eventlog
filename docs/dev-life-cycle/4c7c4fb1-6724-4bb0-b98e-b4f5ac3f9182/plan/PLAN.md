@@ -227,7 +227,7 @@ This is a sketch to validate during final API design, not committed implementati
 **Supersedes the embedded `eventlog.Notifications[T]` helper proposal above.** The public API must not introduce a library-provided notification helper struct or require consumers to embed one. The consumer defines their own Channel struct, and the Channel interface requires a notification method/function implemented by that consumer-defined type. eventlog uses that method for notification delivery/access. Exact method signature and internal delivery mechanics remain to be designed; do not assume or promote an embedded helper. This user-confirmed requirement takes precedence over the earlier proposal.
 
 
-## Define proposal — canonical identity byte composition (not approved)
+## Approved canonical identity byte composition — 2026-11-24
 The permanent UUID v5 namespace, Event/Channel domain prefixes, primitive tags, big-endian framing and schema sorting are already approved. This proposal only fills the exact composition gap; it does not alter those constants.
 
 Proposed byte layout after the existing domain prefix:
@@ -240,4 +240,4 @@ Proposed byte layout after the existing domain prefix:
 
 Edge cases to explicitly decide/test: identity nil-pointer validity; float negative-zero distinction (raw IEEE currently implies -0 and +0 distinct); string byte-length vs rune count; invalid UTF-8 (Go strings may contain arbitrary bytes, so should reject invalid UTF-8 or define byte-preserving semantics); package/type names for aliases and generic instantiated types; overflow/framing limits.
 
-Suggested golden-vector suite: one vector per permanent primitive tag, nil and non-nil nullable values, named primitives, type/schema variation, Event-vs-Channel domain separation, stable ID when non-identity values change, and sensitivity to identity value/type/schema changes. Keep this as a proposal pending user approval.
+Suggested golden-vector suite: one vector per permanent primitive tag, nil and non-nil nullable values, named primitives, type/schema variation, Event-vs-Channel domain separation, stable ID when non-identity values change, and sensitivity to identity value/type/schema changes. **User approved this byte layout on 2026-11-24.** Remaining edge-case validation questions are listed in active requirements and are not yet decided.

@@ -145,8 +145,21 @@ UUID v5 namespace is `26612f1d-f648-483a-9cfe-59c18f113891`. Event domain prefix
 Canonical identity encoding is separate from JSON and architecture-independent: fixed encoding-format
 version, domain prefix, UTF-8 package path and concrete type name, exposed field-name schema, and
 designated identity field name/value. Non-identity values are excluded from logical identity. Schema
-field names sort bytewise UTF-8; variable component lengths/counts use uint32 big-endian framing. Exact
-field-schema/identity-value byte composition remains open.
+field names sort bytewise UTF-8; variable component lengths/counts use uint32 big-endian framing. Exact field-schema/identity-value byte composition is approved; see requirements for canonical layout and remaining validation questions.
+
+## Approved canonical identity byte composition — 2026-11-24
+
+The exact canonical identity payload layout after the existing domain prefix is approved:
+1. Format version byte `0x01`.
+2. Type package path: UTF-8 bytes framed by u32 BE byte length.
+3. Concrete type name: UTF-8 bytes framed by u32 BE byte length.
+4. Schema field count: u32 BE, followed by each field name sorted bytewise by UTF-8 bytes and framed by u32 BE byte length.
+5. Identity field name: UTF-8 bytes framed by u32 BE byte length.
+6. Identity value: existing permanent primitive tag followed by canonical payload. Nullable nil uses Null tag only; named primitive types use their underlying tag. Identity field must be part of exposed schema and value type must match.
+
+The already-approved namespace, Event/Channel domain prefixes, permanent primitive tags, big-endian framing, UUID v5 derivation, and non-identity value exclusion remain unchanged. Format byte is intentionally redundant with the domain prefix's v1 marker.
+
+Validation/test questions remain open: nullable nil identities allowed or forbidden; raw IEEE distinguishes negative zero from positive zero; invalid UTF-8 Go strings rejected or treated as arbitrary bytes; canonical naming of aliases/generic instantiated types; and maximum framing sizes. These are not silently decided by this approval.
 
 ## Append transaction flow
 

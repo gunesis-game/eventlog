@@ -106,3 +106,7 @@ User approved the public payload simplification: consumers receive only `T Event
 
 ## Next Define topic — canonical identity byte layout proposal
 A detailed framing proposal was appended to PLAN (not approved). Existing UUID constants and primitive tags are unchanged. Review the proposed payload composition and edge cases (nil identity, -0, UTF-8, type naming, framing overflow) before promoting to requirements/architecture. No implementation work.
+
+
+## Approval checkpoint — canonical identity encoding
+User approved the exact payload byte layout in PLAN. Promoted to active requirements and architecture. Remaining edge cases (nil identity, negative zero, invalid UTF-8 policy, Go type naming, framing limit) remain open and require focused decisions; no implementation yet.

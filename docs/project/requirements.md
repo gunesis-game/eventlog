@@ -77,8 +77,7 @@ encoding-format version and identity-domain prefix. Type identity is UTF-8 packa
 struct type name. Inputs include the exposed field-name schema (not non-identity field values) and
 designated identity field name/value. Schema fields sort bytewise by UTF-8 name. Every variable-length
 component and count uses unsigned 32-bit big-endian framing. The schema records names; the designated
-identity name/value is the identity input, and non-identity field values are excluded. Exact byte
-composition remains a Define item. Oversized components fail before encoding. Event and Channel use
+identity name/value is the identity input, and non-identity field values are excluded. Exact byte composition is approved in the following section. Oversized components fail before encoding. Event and Channel use
 separate UUID v5 domains.
 
 Permanent v1 one-byte primitive tags: Null `0x00` (no payload); String `0x01` (UTF-8); Bool `0x02` (one
@@ -94,6 +93,20 @@ UUID v5 namespace is `26612f1d-f648-483a-9cfe-59c18f113891`; Event prefix is UTF
 `eventlog\\x00event\\x00v1\\x00`, Channel prefix `eventlog\\x00channel\\x00v1\\x00`. Logical identity is
 type + exposed field-name schema + designated identity field name/value, and remains stable across
 non-identity changes. Canonical physical-record deduplication is separate from logical identity.
+
+## Approved canonical identity byte composition — 2026-11-24
+
+The exact canonical identity payload layout after the existing domain prefix is approved:
+1. Format version byte `0x01`.
+2. Type package path: UTF-8 bytes framed by u32 BE byte length.
+3. Concrete type name: UTF-8 bytes framed by u32 BE byte length.
+4. Schema field count: u32 BE, followed by each field name sorted bytewise by UTF-8 bytes and framed by u32 BE byte length.
+5. Identity field name: UTF-8 bytes framed by u32 BE byte length.
+6. Identity value: existing permanent primitive tag followed by canonical payload. Nullable nil uses Null tag only; named primitive types use their underlying tag. Identity field must be part of exposed schema and value type must match.
+
+The already-approved namespace, Event/Channel domain prefixes, permanent primitive tags, big-endian framing, UUID v5 derivation, and non-identity value exclusion remain unchanged. Format byte is intentionally redundant with the domain prefix's v1 marker.
+
+Validation/test questions remain open: nullable nil identities allowed or forbidden; raw IEEE distinguishes negative zero from positive zero; invalid UTF-8 Go strings rejected or treated as arbitrary bytes; canonical naming of aliases/generic instantiated types; and maximum framing sizes. These are not silently decided by this approval.
 
 ### Append and transaction guarantees
 - The only approved public API is `eventlog.PrepareLog[TEvent, TChannel](ctx) (TEvent, TChannel,
