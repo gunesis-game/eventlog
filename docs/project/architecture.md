@@ -413,3 +413,41 @@ A successful concrete Event decoder registration is retained for the lifetime of
 ## Conflicting concrete Event decoder registrations — D-016
 
 Concrete Event decoder registration is keyed by the concrete Event Go type and its exposed field-name schema. If that concrete Event type is registered again with the same exposed field-name schema, the existing registration is reused. If it is presented with a different exposed field-name schema, registration fails with a typed schema-conflict error; it must not replace or mutate the existing registration or affect Readers already using it. This is an internal registration rule and does not change the approved consumer-facing API.
+
+
+
+## Approved field selector contract — D-017
+
+The consumer-facing field selector forms are approved:
+
+```go
+func FieldOf[T any, V Primitive](selector func(*T) *V) Field
+func FieldOfNullable[T any, V Primitive](selector func(*T) **V) Field
+```
+
+Selectors receive a pointer to the owning struct. `FieldOf` selects a non-nullable primitive field; `FieldOfNullable` selects a nullable primitive pointer and preserves nil separately from a pointer to the zero value. The field name is inferred by resolving the selector against a zero-value probe and matching exactly one direct field address. Nested fields and selectors that do not resolve uniquely are rejected. Named primitive types remain supported. This does not change the approved `Fields() Fields` consumer method or `PrepareLog` signature.
+
+
+## Approved pointer reconstruction and snapshot isolation — D-018
+
+Both generic preparation arguments remain pointers to concrete struct types. Historical Event occurrences are reconstructed into newly allocated pointers to their concrete Event types; historical reconstruction must not overwrite the consumer's prepared live Event pointer. Notification payloads are independent immutable snapshots and must not share mutable Event storage with the prepared live Event, persistence state, or another notification snapshot. Historical Channel snapshots are likewise separate from the live Channel pointer. Reconstruction preserves concrete named primitive types, widths, nullability, and nil-versus-zero distinctions. This is internal behavior and does not change the consumer-facing API.
+
+
+## Approved Event identity immutability — D-019
+
+After a prepared Event instance has been registered under its canonical logical identity, its designated identity field is immutable for that prepared instance's lifetime. Internal change detection must detect an identity-value change before persisting it, reject the change, and report a descriptive asynchronous error through the existing Channel `Errors() <-chan error` stream. It must not create a second logical Event, rewrite identity, or alter existing occurrences/HEAD. A consumer representing a different logical Event prepares a separate Event instance. No public API change is permitted.
+
+
+## Approved internal change queue and snapshot handoff — D-020
+
+Detected selected-field changes are captured as immutable snapshots and submitted to an internal eventlog-owned change queue. Persistence workers dequeue and persist those snapshots independently of the change-monitoring mechanism. A queued snapshot is immutable after enqueue. A notification is eligible only after the corresponding occurrence has committed. This queue is entirely internal: consumers continue mutating their prepared Event/Channel values through the existing API; no public queue, callback, lock, or method is introduced. Direct struct-field assignments cannot be intercepted, so monitoring detects changes on its managed cadence.
+
+
+## Approved per-Event queue ordering and duplicate suppression — D-021
+
+For each logical Event, snapshots are processed in FIFO enqueue order. An already-enqueued snapshot must not be silently discarded or replaced by a newer snapshot. Monitoring suppresses a snapshot only when the currently observed selected state is unchanged from the last observed state enqueued for that logical Event. A transition away from a value and later back to it is a distinct occurrence and must be retained when observed. Global sequence numbers are assigned centrally at commit time; per-Event processing must preserve enqueue order. Because consumers mutate ordinary Go fields directly and monitoring is periodic, intermediate states that change and revert between observations cannot be guaranteed to be recorded.
+
+
+## Approved bounded queue and backpressure policy — D-022
+
+The internal change queue is bounded to keep memory use predictable. When capacity is exhausted, eventlog applies backpressure to its internal monitoring/queueing work; it does not block or intercept consumer assignments to ordinary Go struct fields. Consumers may continue mutating their structs while monitoring is paused. When monitoring resumes, it captures the latest state it observes; intermediate states that occurred while monitoring was paused may be missed. Already-enqueued snapshots remain queued and are not dropped. Queue capacity and worker scheduling are internal configuration/implementation details, not consumer-facing API. Persistence failures are reported through the existing asynchronous error contract and must not be disguised as successful commits.
