@@ -1,8 +1,12 @@
 # Architecture
 
-**Status:** Define-phase design baseline (Cycle 1). This is the active curated architecture
-specification. Approved decisions are integrated by topic; historical checkpoints are provenance only. It
-describes intended design, not implementation or verification evidence.
+**Status:** Define-phase design baseline (Cycle 1). This active document owns approved technical design:
+components, responsibilities, boundaries, interfaces, algorithms, data/storage representations, lifecycle,
+and design trade-offs. Requirements are owned by [requirements.md](requirements.md); this document must
+trace to and satisfy them rather than redefine product behavior. Approved decisions are integrated by
+topic; historical checkpoints are provenance only. Proposals and unresolved alternatives must be clearly
+labeled and never presented as approved. It describes intended design, not implementation or verification
+evidence.
 
 ## System boundary
 
@@ -147,7 +151,7 @@ UUID v5 namespace is `26612f1d-f648-483a-9cfe-59c18f113891`. Event domain prefix
 Canonical identity encoding is separate from JSON and architecture-independent: fixed encoding-format
 version, domain prefix, UTF-8 package path and concrete type name, exposed field-name schema, and
 designated identity field name/value. Non-identity values are excluded from logical identity. Schema
-field names sort bytewise UTF-8; variable component lengths/counts use uint32 big-endian framing. Exact field-schema/identity-value byte composition is approved; see requirements for canonical layout and remaining validation questions.
+field names sort bytewise UTF-8; variable component lengths/counts use uint32 big-endian framing. Exact field-schema/identity-value byte composition is approved; see the approved layout section below and remaining validation questions.
 
 ## Approved canonical identity byte composition — 2026-11-24
 
@@ -159,7 +163,7 @@ The exact canonical identity payload layout after the existing domain prefix is 
 5. Identity field name: UTF-8 bytes framed by u32 BE byte length.
 6. Identity value: existing permanent primitive tag followed by canonical payload. Nullable nil uses Null tag only; named primitive types use their underlying tag. Identity field must be part of exposed schema and value type must match.
 
-The already-approved namespace, Event/Channel domain prefixes, permanent primitive tags, big-endian framing, UUID v5 derivation, and non-identity value exclusion remain unchanged. Format byte is intentionally redundant with the domain prefix's v1 marker.
+The already-approved namespace, Event/Channel domain prefixes, primitive field tags, big-endian framing, UUID v5 derivation, and non-identity value exclusion remain unchanged. Identity payload is UUID-only; the UUID tag and accepted Go representation are still unresolved. Format byte is intentionally redundant with the domain prefix's v1 marker.
 
 Validation/test questions remain open: accepted UUID type/representation; canonical UUID byte order and UUID tag; metadata UTF-8 policy; canonical naming of aliases/generic instantiated types; and maximum framing sizes. Nullable and primitive identities are excluded. These are not silently decided by this approval.
 
@@ -305,7 +309,7 @@ memory use and platform parity precede numeric performance targets.
 ## Approved notification public API decision — 2026-11-24
 
 - The consumer-facing notification payload is the concrete Event type `T` only. No public `Notification[T]` wrapper, Event ID, Occurrence ID, delivery token, or consumer-facing Ack API.
-- Notifications are channel-scoped, accessed through the Channel abstraction. Public accessor shape remains to be reconciled with the initialization/ownership mechanism.
+- Notifications are channel-scoped. Consumer-defined Channel types implement the notification method required by the Channel interface. Exact signature, accessor and ownership mechanism remain unresolved.
 - Delivery identity, occurrence identity, durable backlog, retries, replay bookkeeping, and acknowledgment of internal dispatch are private implementation details.
 - Since the consumer provides no acknowledgment, eventlog cannot claim exactly-once consumer processing. Delivery/recovery semantics must be stated honestly; duplicates may occur in a crash window if internal dispatch is durably recorded after sending.
-- API example: `for event := range channel.Notifications() { handle(event) }`.
+- The consumer-facing notification method is implemented by consumer-defined Channel types; its exact signature/accessor shape remains unresolved and must not be assumed.
