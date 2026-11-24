@@ -37,7 +37,7 @@ Both generic arguments are concrete pointer types constrained by their respectiv
 ## Remaining Define work
 
 - Runtime process scope, preparation Context scope, shared-worker ownership, and terminal Reader error behavior are approved and recorded as D-026. The exact internal shutdown trigger and ordered graceful cleanup remain unresolved.
-- Channel mutation and snapshot-consistency details.
+- Channel snapshots now use the same identity-keyed bounded FIFO dispatch mechanism as Event snapshots (D-027); consumer synchronization remains required for concurrent multi-field mutation.
 - Backlog/replay boundaries, recoverable retry termination, and shutdown-drain failure behavior.
 - Complete acceptance matrix and benchmark/performance/memory targets.
 - Final consistency review and explicit approval to exit Define.
@@ -48,4 +48,4 @@ Both generic arguments are concrete pointer types constrained by their respectiv
 
 ## Next action
 
-Next, define the internal lifecycle/cancellation and resource cleanup model: how preparation, append workers, Channel Readers, delivery workers, and storage ownership stop or fail, with clear terminal-error handling. D-025 and D-026 are recorded and verified. Do not begin implementation until Define is complete and the user explicitly approves exit.
+Next, define the internal lifecycle/cancellation and resource cleanup model: how preparation, append workers, Channel Readers, delivery workers, and storage ownership stop or fail, with clear terminal-error handling. D-025, D-026, and D-027 are recorded and verified. Do not begin implementation until Define is complete and the user explicitly approves exit.
