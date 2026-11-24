@@ -207,3 +207,11 @@ part of the API. The remaining issue is internal writable-channel ownership and 
 - **Still open:** the registration barrier's completion signal; exact internal preparation/Channel-convergence state machine; identity-mutation response; remaining delivery retry/error/backlog details; acceptance matrix and benchmark thresholds. Identity-mutation proposals remain proposals, not approved policy.
 - **Verification:** lifecycle workflow passed on `4b45ccd4f20de98f39228f5e4b024fcb9eb9c2f1` (run 45446601240). This is registry/lock validation only. The run for the latest plan-only cleanup commit is pending/not yet observed.
 - **Next:** resolve the internal barrier and lifecycle state machine without adding public consumer methods; then reconcile identity and delivery semantics. No Go source exists yet, so implementation/build/tests remain unstarted.
+
+## Progress checkpoint — 2026-11-24T17:16:47Z (replay-barrier proposal)
+
+- **Last progress checkpoint:** 2026-11-24T17:16:47Z
+- **Proposal persisted (not approved):** use the existing process-wide Event type/codec registry as the pre-replay barrier. Recover the system of record, enumerate concrete Event types in committed history, and require decoders for all of them before Channel resolution or Reader activation. Missing decoders fail closed. Event-specific `PrepareLog` calls then attach registrations to the shared Channel runtime; new Event types must be registered before their first committed append.
+- **Why this is only a proposal:** repository inspection found no Go source, codec implementation, or registry code. It is not yet established that the existing registry is process-wide, available before recovery, or enumerable by persisted type ID. Do not promote or implement this mechanism until confirmed.
+- **Verification:** workflow passed on handoff commit `eb07d653513539e02d66ddb4362ed0d5f5b12915` (run 45446734047). Latest plan proposal commit `64bb679a1a823a770968d4bdc715dd7330c24cad` has not yet been observed in the workflow list.
+- **Next:** confirm the scope/availability of the existing Event codec registry; then finalize the barrier. After that, settle identity mutation, delivery retries/errors/backlog, and acceptance/benchmark matrix.
