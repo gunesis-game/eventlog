@@ -140,7 +140,7 @@ from replay into live tailing. It is not tied to an event-sourcing framework or 
 Remaining design questions are maintained in [architecture.md](architecture.md), with decision provenance
 in [decisions.md](decisions.md). The UUID identity marker/tag, metadata UTF-8 policy, canonical naming of
 aliases and instantiated generic types, and v1 canonical identity framing limits are settled by D-035–D-038.
-The exact internal registry-key details remain an internal design question. Process-lifetime runtime
+The exact internal registry-key representation is intentionally an implementation detail under D-039; the observable registration, identity, reuse, and Channel-isolation rules remain specified in architecture.md. Process-lifetime runtime
 ownership with no library-managed shutdown or graceful process-exit drain is settled by D-034; Channel
 snapshot ordering/consistency, delivery retry behavior, and bounded notification backlog are recorded in
 D-027 and D-032–D-034. The acceptance scenarios are recorded in [acceptance.md](acceptance.md).
