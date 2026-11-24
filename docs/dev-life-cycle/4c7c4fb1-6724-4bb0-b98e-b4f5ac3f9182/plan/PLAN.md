@@ -307,3 +307,14 @@ These decisions are recorded from the design discussion and are not permission t
 **API constraint:** The consumer-facing API remains unchanged. Do not add `Activate()`, `Start()`, `RegisterEventType()`, `Close()`, acknowledgments, or consumer checkpoints. Eventlog owns Reader activation and shutdown. `PrepareLog` is event-specific; Channel resolution, notification delivery, and runtime lifecycle are Channel-specific. All event-specific preparations for the same Channel must converge on the same runtime Channel and Reader progression.
 
 **Unresolved mechanism:** Sequential `PrepareLog` calls do not provide a completion signal proving that every Event type for a Channel has been registered. No existing completion boundary has yet been established from repository evidence. Determine whether an existing internal boundary can serve or whether an internal coordination mechanism is required. Do not invent a consumer-facing completion method or start implementation until this is resolved.
+
+## Proposed resolution — registry-driven replay barrier (not approved)
+
+The only API-compatible candidate identified so far is to make the existing Event type/codec registry the authoritative decoder source before Channel replay:
+
+1. Initialize/load the existing process-wide Event type/codec registry before the first `PrepareLog` can activate any Channel Reader.
+2. Recover and validate the authoritative event log first. Enumerate concrete Event type identifiers present in committed history and require a decoder for every referenced type. Missing/unknown decoders fail closed; no Channel runtime is resolved and no historical replay starts.
+3. Only after recovery and decoder validation succeed, resolve/create the Channel runtime and attach the event-specific `PrepareLog` registration to that Channel. All such registrations reuse the same Channel runtime and Reader progression.
+4. Start the unified Reader only after the preceding checks. New Event types must be registered through the existing codec mechanism before an append of that type can commit.
+
+This would provide a deterministic historical-replay barrier without a consumer-facing `Activate`, `Start`, or `RegisterEventType` method and without treating sequential `PrepareLog` calls as a completion signal. **It is not approved yet:** the repository currently contains no Go source or codec implementation, so it is not established that the existing registry is process-wide, available before recovery, or enumerable by persisted type ID. Verify those facts before promoting this proposal or implementing it.
