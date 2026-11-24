@@ -414,3 +414,11 @@ This checkpoint's initial-snapshot-derived ID and prepared-value association wer
 5. Specify polling scheduler shutdown/retry and internal persistence-error handling without adding public operational API.
 6. Complete initialization, cancellation, resource/reader, terminal error, benchmark, and acceptance criteria.
 7. Finish Define consistency review and seek approval before implementation.
+
+
+## Define decision — internal-only synchronization (approved 2026-11-24)
+
+- Preserve the existing public API; do not introduce any lock, mutex, synchronization interface, or configuration option for consumer-field mutation.
+- eventlog's synchronization remains internal and covers its own scheduler, change detection, persistence, and lifecycle coordination.
+- Consumers are responsible for synchronizing their own mutations of returned Event and Channel fields when concurrent access occurs. The 100 ms polling mechanism does not make unsynchronized ordinary Go struct field writes race-safe and must not be documented as doing so.
+- This decision rejects the proposed consumer-shared-lock configuration option and introduces no public API.
