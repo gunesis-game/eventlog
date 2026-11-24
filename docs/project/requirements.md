@@ -188,3 +188,16 @@ Concurrent calls to `PrepareLog[TEvent, TChannel](ctx)` during the first storage
 ## Latest Define decision — Config option validation (2026-11-24)
 
 `Config(options ...Option)` accepts multiple distinct options. The storage-directory option is mandatory; calling `Config()` without it fails. A nil option fails. Supplying the same setting more than once fails; options never use last-option-wins behavior. A failed Config validation leaves runtime configuration uninitialized and may be retried. The package controls option implementations through an unexported application method; consumers configure settings using exported option constructors such as `WithStorageDirectory(path)`.
+
+## Latest Define decision — storage directory validation approved (2026-11-24)
+
+The user approved all proposed storage-directory validation rules:
+
+1. Reject empty and whitespace-only paths.
+2. Accept relative paths, resolve them to absolute paths during `Config`, and freeze the absolute result for the process lifetime.
+3. Lexically clean the resolved absolute path with Go path-cleaning semantics (equivalent to `filepath.Clean`). This removes redundant `.` and `..` path elements; it does not resolve symbolic links.
+4. Do not require the directory to exist during `Config`.
+5. During `PrepareLog` initialization, create the directory if it does not exist.
+6. If the target exists but is not a directory, or directory creation fails, return an error.
+
+Path cleaning is lexical only; symlinks are not resolved. Config path resolution/cleaning does not create the storage directory or initialize the log.
