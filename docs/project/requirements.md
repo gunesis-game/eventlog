@@ -170,3 +170,8 @@ Preparation MUST obtain a candidate Channel from the supplied factory, derive it
 ## Channel factory side-effect contract — D-012
 
 The Channel factory MUST act only as a constructor: it creates and initializes a candidate Channel value and MUST NOT start goroutines, open external resources, or perform other external side effects. A candidate may be discarded when an existing logical Channel runtime is reused; therefore, discarding a candidate MUST be safe. The library starts the runtime only after adopting a candidate for a new logical Channel. This requirement MUST NOT change the consumer-facing API.
+
+
+## Atomic Channel runtime resolution — D-013
+
+The Channel runtime registry MUST resolve lookup and candidate adoption atomically by canonical Channel identity. Concurrent preparations for the same logical Channel MUST result in one adopted Channel pointer and one runtime/Reader; all competing preparations MUST reuse that winner. Duplicate runtimes or Readers for one logical Channel identity are forbidden. This is an internal synchronization requirement and MUST NOT change the consumer-facing API.
