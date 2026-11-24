@@ -4,9 +4,16 @@
 **Workflow:** Standard  
 **Phase:** Define  
 **Status:** In progress  
-**Execution lock:** Active on `main`, owned by ChatGPT GPT-6 (authenticated GitHub user `gunesis-game-owner`). The active lock was confirmed from the remote after commit `d3e71eed9ac9597f3b26d7141fbe26e468f69b3f`.
+**Execution lock:** Active on `main`, owned by ChatGPT GPT-6 (authenticated GitHub user `gunesis-game-owner`). The current claim is confirmed on the remote at commit `22cecdebbf12095c7e26b678c5dc9276b6a1044c`.
 
 ## Latest checkpoint
+
+## Resume checkpoint — 2026-11-24
+
+- User instructed continuation of Cycle 1 in Define. The execution lock was claimed in a lock-only commit, `22cecdebbf12095c7e26b678c5dc9276b6a1044c`, and the remote `main` branch was fetched back to confirm that exact head and active lock owner.
+- GitHub Actions `Steering state validation` run `45294380997` completed successfully for that exact commit. The `Validate cycle registry and execution lock` step passed.
+- The prior release commit's validation run `45294221825` failed; the subsequent active-lock claim restored registry/lock consistency and the new validation passed.
+- No implementation, build, or Go tests have started.
 
 ## Session handoff — public generic Log contract (2026-11-24)
 
@@ -34,7 +41,7 @@ Important constraints from the user's latest clarification:
 - Append's selector callback is part of the public Append call. Do not replace it with `Append(channel, event)`, and do not relocate the selector contract solely into `Fields()`.
 - Channels may contain multiple concrete Event struct types.
 - Read is channel-scoped and typed by both TChannel and TEvent; the reader advances through the channel and yields the requested event type. The exact filtering/typing semantics should be walked through with examples in the next session rather than inferred further.
-- The exact declarations of `Channel`, `Event[TChannel]`, `Log[TChannel,TEvent]`, the selector callback, and the method signatures are not yet fully written down. Next session should start from concrete Go examples and derive the interfaces together.
+- The exact declarations of `Channel`, `Event[TChannel]`, `Log[TChannel,TEvent]`, the selector callback, and the method signatures are not yet fully written down. Next session should start from concrete Go examples and derive the interfaces together. The interface sketch above is a candidate shape, not an approved signature.
 - Do not make further API substitutions or start implementation before that discussion and explicit Define approval.
 - Go language constraint to discuss carefully: ordinary methods on a non-generic receiver cannot introduce their own type parameters. The user has nevertheless stated the public interface shape above as the required contract; explore a valid Go encoding that preserves the intended consumer-facing API rather than changing the contract unilaterally.
 
@@ -59,7 +66,7 @@ func (r *Reader[...]) Next() /* reconstructed event */
 func (r *Reader[...]) Close() error
 ```
 
-The generic API direction above is the user's correction. Go does not permit methods to declare their own type parameters on a non-generic receiver, so the exact Go declaration may require a generic Log type or package-level generic functions; preserve the intended call shape in the API design discussion and resolve this language constraint deliberately. Do not substitute the former non-generic `Append(channel, event)` contract. The selector callback's exact type and body must be recovered from the agreed selector design rather than guessed.
+The generic API direction above preserves the user's proposed generic Log contract as a candidate. Go does not permit methods to declare their own type parameters; the generic handle approach keeps the Channel/Event relationship at compile time but changes the call to `log.Append(selector)` / `log.Read()` after generic construction. A package-level generic API is another option. Resolve the call-site trade-off explicitly before finalizing the public contract. Do not substitute the former non-generic `Append(channel, event)` contract. The selector callback's exact type and body must be recovered from the agreed selector design rather than guessed.
 
 The generic read shape is illustrative; whether `Read` is a package function or a `Log` method depends on Go's generic-method constraints and the final API layout. The consumer supplies the concrete event type as T; eventlog creates and decodes values internally. Finalize whether T is the pointer type (likely, if `Fields()` has a pointer receiver), how the persisted type key is matched, and the occurrence wrapper. A channel may contain other event types; the reader skips those while scanning. Also finalize nil validation, context cancellation, terminal errors, close semantics, Flush/Compact, and the stable error taxonomy. Do not implement until Define is complete and approved.
 
