@@ -398,3 +398,8 @@ The supplied Channel factory is a constructor only: it creates and initializes t
 ## Approved atomic Channel runtime resolution — D-013
 
 Channel runtime lookup and adoption are one atomic registry operation keyed by canonical Channel identity. For concurrent `PrepareLog[TEvent, TChannel]` calls that resolve to the same logical Channel identity, at most one candidate is adopted and at most one runtime/Reader is created. A competing preparation reuses the winning Channel pointer and runtime. This synchronization is internal and does not change the consumer-facing API.
+
+
+## Concurrent Event-type preparation for one logical Channel — D-014
+
+When concurrent `PrepareLog[TEvent, TChannel]` calls register different concrete Event types that resolve to the same logical Channel, each concrete Event type is registered independently. Channel runtime resolution remains keyed by canonical Channel identity and uses the atomic lookup/adoption rule: all such preparations converge on the one adopted Channel pointer, runtime and Reader progression. A preparation does not synchronously wait for another Event type's registration to complete. Historical replay remains asynchronous and waits until every decoder required by the committed history for that logical Channel is registered; registration of a required decoder allows replay to proceed. This does not add a consumer-facing registration or activation API and does not change the approved consumer-facing API.
