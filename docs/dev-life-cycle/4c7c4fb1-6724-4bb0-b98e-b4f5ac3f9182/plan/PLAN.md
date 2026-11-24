@@ -40,11 +40,11 @@ Approved project decisions are recorded in the project decision register and int
 
 ### Reconciliation evidence
 
-- **Repository revision inspected before this decision:** `b9727230b154a2fff9c840b3109e7dbf076feb95` (`main`).
+- **Repository revision inspected before this decision:** `1f4966773a878dfee493b6167f843b5fa06d0510` (`main`).
 - **Project records reviewed in full:** `docs/project/requirements.md`, `architecture.md`, `decisions.md`, `acceptance.md`, and `benchmarks.md`.
 - **Cycle records reviewed:** this plan, current handoff, and `docs/dev-life-cycle/cycle-index.json`.
 - **Decision register:** D-001 through D-035 are Recorded; D-029 is refined by D-032 and D-030/D-031 are historical and superseded for process termination by D-034.
-- **Cross-document corrections made:** stale Channel snapshot, Reader wake-up, retry, and backlog open-item claims were reconciled; the duplicate runtime-shutdown section was consolidated; D-034 replaces the former shutdown-drain sequence with process-lifetime runtime ownership and recovery after process termination; D-035 assigns UUID identity tag `0x03`. 
+- **Cross-document corrections made:** stale Channel snapshot, Reader wake-up, retry, and backlog open-item claims were reconciled; the duplicate runtime-shutdown section was consolidated; D-034 replaces the former shutdown-drain sequence with process-lifetime runtime ownership and recovery after process termination; D-035 assigns UUID identity tag `0x03`.
 - **Validation boundary:** this is a semantic document reconciliation. No implementation, Go build, Go tests, or benchmark measurements have been run.
 
 | Candidate item | Classification | Current evidence / next action |
@@ -52,10 +52,11 @@ Approved project decisions are recorded in the project decision register and int
 | Channel snapshot ordering, identity immutability, concurrent mutation boundary | Resolved | D-027 and architecture section “Channel mutation and snapshot consistency” |
 | Reader progression and wake-up rechecking | Resolved | D-028 and architecture section “Reader behavior” |
 | Delivery retry and terminal failure | Resolved | D-029 refined by D-032 |
-| Process-lifetime runtime ownership and process-termination recovery | Resolved | D-034 supersedes D-030/D-031 graceful-drain behavior for process termination; D-035 settles the UUID identity tag as `0x03` |
+| Process-lifetime runtime ownership and process-termination recovery | Resolved | D-034 supersedes D-030/D-031 graceful-drain behavior for process termination |
 | Bounded notification backlog and Reader backpressure | Resolved | D-033 |
 | Acceptance scenarios and benchmark workload scenarios | Resolved | `acceptance.md` and `benchmarks.md` |
-| metadata UTF-8 policy, alias/generic naming, maximum framing sizes | Unresolved | Resolve explicitly or record a bounded deferral |
+| UUID identity marker/tag | Resolved | D-035 and architecture sections “UUID identity representation” and “Canonical identity byte composition” |
+| Metadata UTF-8 policy, alias/generic naming, maximum framing sizes | Unresolved | Resolve explicitly or record a bounded deferral |
 | Exact internal registry-key composition | Unresolved/internal design detail | Confirm whether existing identity/registration rules are sufficient and defer exact representation to implementation if no observable contract depends on it |
 | Numeric performance/memory targets and measurement criteria | Unresolved | Agree target environments, resource ceilings, repetitions, warm-up, and acceptance methodology |
 
