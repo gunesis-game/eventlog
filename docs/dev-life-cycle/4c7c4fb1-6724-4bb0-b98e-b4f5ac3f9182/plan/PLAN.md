@@ -866,3 +866,7 @@ Generic arguments select consumer Event and Channel types only. `context.Context
 ## Latest Define decision — concurrent PrepareLog callers wait (2026-11-24)
 
 Concurrent `PrepareLog` calls wait for the first shared storage initialization attempt to complete; they do not fail with an initialization-in-progress error or initialize storage independently. Each waiting caller may cancel its own wait through its context. If initialization fails, the successful immutable configuration remains set and a later call may retry. Config remains unavailable for changes once initialization has begun.
+
+## Define decision — storage path resolution and capture (2026-11-24)
+
+The storage-directory option accepts a non-empty path, including a relative path. A successful `Config(...)` resolves the path against the process working directory and stores the resulting absolute path in the immutable runtime configuration. All subsequent initialization uses that captured absolute path, so a later working-directory change cannot alter the storage target. Empty or whitespace-only paths are rejected. Exact path cleaning, symlink behavior, filesystem existence/permission validation, and whether validation may inspect the filesystem remain open. Path resolution itself does not create or initialize storage; storage initialization remains part of `PrepareLog`.
