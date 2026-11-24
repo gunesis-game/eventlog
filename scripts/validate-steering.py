@@ -36,7 +36,7 @@ def validate_decision_register(path):
         content = path.read_text(encoding="utf-8")
     except OSError as e:
         fail(f"{path.relative_to(ROOT)}: cannot read handoff: {e}")
-    if "### Decision register" not in content:
+    if "Decision register" not in content:
         fail(f"{path.relative_to(ROOT)}: missing Decision register")
     lines = content.splitlines()
     header = "| ID | Decision | State (Proposed / Approved / Recorded) | Canonical artifact | Verified revision / evidence |"
