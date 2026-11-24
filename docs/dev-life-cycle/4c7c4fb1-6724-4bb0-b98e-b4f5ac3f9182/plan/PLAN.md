@@ -989,3 +989,14 @@ Consumer changes to the designated identity field on Event or Channel instances 
 - Live notifications follow the recovered backlog; newly detected occurrences must not overtake recovered pending occurrences.
 - Exact replay boundary, ordering scope, and coordination mechanics remain open Define details.
 - No implementation/build/tests have started; implementation still requires Define completion and explicit approval.
+
+
+## Define decision — persistence failure handling approved (2026-11-24)
+
+- On temporary persistence errors, Eventlog retries internally with backoff.
+- Retry work must not block the scheduler; scheduler remains operational.
+- No success notification is emitted until persistence succeeds.
+- If retries continue failing, Eventlog reports a typed error through the consumer notification channel.
+- Failed occurrences are never silently abandoned.
+- Retry limits/termination criteria, typed error shape, scheduler interaction, and error delivery ordering remain open Define decisions.
+- No implementation/build/tests have started; implementation still requires Define completion and explicit approval.
