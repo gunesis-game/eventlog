@@ -129,7 +129,7 @@ def validate_governance():
     """Validate canonical standards, project companions, version metadata, and local links."""
     required = [
         "README.md", "TEMPLATE_VERSION", "steering.md",
-        "docs/standards/README.md", "docs/standards/coding.md",
+        "docs/dev-life-cycle/README.md", "docs/standards/README.md", "docs/standards/coding.md",
         "docs/standards/testing.md", "docs/standards/performance-engineering.md",
         "docs/standards/git-workflow.md",
         "docs/project/testing-strategy.md", "docs/project/performance-strategy.md",
@@ -145,6 +145,7 @@ def validate_governance():
         fail("TEMPLATE_VERSION: expected a semantic version (major.minor.patch)")
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     standards = (ROOT / "docs/standards/README.md").read_text(encoding="utf-8")
+    lifecycle = (ROOT / "docs/dev-life-cycle/README.md").read_text(encoding="utf-8")
     steering = (ROOT / "steering.md").read_text(encoding="utf-8")
     git_policy = (ROOT / "docs/project/git-workflow.md").read_text(encoding="utf-8")
     required_readme_links = [
@@ -156,6 +157,8 @@ def validate_governance():
     for target in required_readme_links:
         if target not in readme:
             fail(f"README.md: missing documentation reference to {target}")
+    if "docs/project/coding-standards.md" in lifecycle or "docs/standards/coding.md" not in lifecycle:
+        fail("docs/dev-life-cycle/README.md: coding-standard ownership must point to docs/standards/coding.md")
     for target in ("../project/testing-strategy.md", "../project/performance-strategy.md", "../project/git-workflow.md"):
         if target not in standards:
             fail(f"docs/standards/README.md: missing project companion reference {target}")
@@ -172,7 +175,7 @@ def validate_governance():
 
     # Check local Markdown links in the governance entry points and project policies.
     markdown_files = [
-        ROOT / "README.md", ROOT / "steering.md", ROOT / "docs/standards/README.md",
+        ROOT / "README.md", ROOT / "steering.md", ROOT / "docs/dev-life-cycle/README.md", ROOT / "docs/standards/README.md",
         ROOT / "docs/project/testing-strategy.md", ROOT / "docs/project/performance-strategy.md",
         ROOT / "docs/project/git-workflow.md",
     ]
