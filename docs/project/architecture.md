@@ -214,3 +214,8 @@ The package exports `ErrConfigNotInitialized` and `ErrConfigAlreadySet` sentinel
 ## Define decision — internal polling cadence and scheduler (approved 2026-11-24)
 
 The internal change manager uses a 100 ms default polling interval. A single managed scheduler per prepared Log/change manager scans all selected event and channel field bindings; it does not spawn a goroutine per field. The cadence may be adjusted through internal implementation/test configuration only, not through a new public option or method. Each scan compares the selected-field state with the last observed/persisted snapshots and routes detected changes through internal persistence. Polling does not make unsynchronized writes to consumer-owned Go struct fields race-safe. Caller synchronization and snapshot consistency, event/channel change semantics, scheduler termination/retry, and internal persistence-error handling remain unresolved and must be specified before implementation.
+
+
+## Define decision — event-field mutation creates a new occurrence (approved 2026-11-24)
+
+When polling observes a changed selected Event field snapshot, the change manager persists a new physical event occurrence. Persisted history is append-only: the prior occurrence is immutable and retained; no in-place rewrite is permitted. This decision does not resolve whether a changed field snapshot maps to the same logical event ID or a new ID. The current identity rule derives event ID from event type plus exposed fields, so the interaction between changed field values, logical identity, HEAD promotion, and ordering must be explicitly reconciled in Define before implementation.
