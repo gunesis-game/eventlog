@@ -315,3 +315,13 @@ This provisional decision incorrectly used the initial exposed-field snapshot as
 - Newly detected/live notifications must not overtake recovered pending notifications.
 - Exact replay boundary, ordering scope, and coordination mechanics remain open Define details.
 - No implementation/build/tests have started; implementation still requires Define completion and explicit approval.
+
+
+## Define decision — persistence failure handling approved (2026-11-24)
+
+- Eventlog retries temporary persistence errors internally with backoff.
+- Retry handling must not block the scheduler.
+- Success notification is emitted only after persistence succeeds.
+- Continued failure is reported as a typed error through the consumer notification channel; failed occurrences must not be silently abandoned.
+- Retry limits/termination criteria, typed error API, scheduler interaction, and error ordering remain open Define decisions.
+- No implementation/build/tests have started; implementation still requires Define completion and explicit approval.
