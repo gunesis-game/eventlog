@@ -1,51 +1,93 @@
 # Project requirements
 
-**Status:** Define draft (Cycle 1). These requirements describe approved intent, not implemented behavior.
+**Status:** Define-phase requirements (Cycle 1). This active document is the curated source of current requirements. Later approved decisions are integrated below; archived checkpoints are provenance only. Intended behavior is not implementation evidence.
 
 ## Purpose
-eventlog is an embedded Go library for append-only, disk-backed event occurrence history, ordered replay and transition into live tailing.
 
-## Ownership and concurrency
-One process owns storage. Concurrent goroutines are supported with internal coordination. Multi-process/distributed writers are out of scope. Consumers must synchronize their own concurrent Event/Channel field mutations; polling does not make unsynchronized writes race-safe.
+eventlog is a lightweight, embedded, disk-backed append-only event log for general-purpose event-oriented applications. It provides persistent event occurrences, ordered history replay, and a unified transition from replay into live tailing. It is not tied to an event-sourcing framework or a specific domain.
 
-## Event, Channel and Fields
-Consumer types implement library-owned `Fields()`. Only explicitly selected fields persist. Supported primitives are string, bool, signed/unsigned integer widths (including byte/rune aliases), float32/64 and named primitive types; uintptr and complex are excluded. Nullable primitive pointers are supported. Invalid names, duplicates, unsupported/nested fields, out-of-range integers and non-finite floats fail validation before writing. Names are case-sensitive, not trimmed; canonical order is bytewise UTF-8. Selectors use `FieldOf`/`FieldOfNullable` and must resolve uniquely to direct fields.
+## Functional requirements
 
-Channel identity is canonical from type, exposed field schema and designated identity field name/value, with UUID v5. Channels are created atomically with their first committed Event; channel-only records are not allowed. Channel-only changes do not create Event occurrences; subsequent occurrences use the latest Channel snapshot while prior associations remain fixed. Identical physical records are deduplicated.
+### Ownership and concurrency
+- A single process owns a log at a time; multi-process and distributed writer coordination are out of scope.
+- Multiple goroutines may concurrently use the API. The library coordinates writes and preserves ordering/transaction integrity.
 
-Logical Event identity is global and independent of channel. It uses concrete Event type, exposed field-name schema and consumer-designated identity field name/value, canonical encoding and UUID v5. Non-identity changes create immutable new occurrences under the same logical ID; history is retained and latest occurrence determines HEAD. Identity-field mutation is an integrity case; exact response is open.
+### Event and channel model
+- Consumers provide event and channel types implementing library-owned interfaces that expose `Fields() Fields`.
+- Only explicitly returned fields are persisted. The library must not inspect or persist the consumer's full struct, and no automatic redaction layer is required.
+- Every event occurrence is associated with exactly one channel.
+- Channel identity is based on its consumer type and exposed fields. Channels are created implicitly and atomically with the first successful append that uses them. A channel without an event must not be persisted; no standalone channel-creation API is provided.
+- Logical Event identity is global and independent of channel. Derive it from the concrete Go Event type name, all field names explicitly exposed through `Fields()`, and the consumer-designated identity field name/value. Canonically encode these identity inputs and derive a deterministic UUID v5. Changes to non-identity fields do not change the logical Event ID, but each detected data change is a new immutable occurrence. Repeated occurrences retain history and channel associations; the latest occurrence determines HEAD/current state.
 
-## Public API and configuration
-Only approved preparation call:
+### Fields and validation
+- Fields are heterogeneous, typed primitive values.
+- Supported primitive kinds: string, bool, all signed and unsigned integer widths (including byte/rune aliases), float32, float64, and named types over supported primitives. uintptr and complex types are excluded.
+- Nullable primitive pointers are supported. Non-finite floats are rejected. Integer values must fit the declared Go primitive type exactly.
+- Empty and duplicate field names are invalid. Names are case-sensitive and are not trimmed. Canonical field ordering is bytewise UTF-8.
+- Field construction uses typed selectors (`FieldOf` for non-nullable and `FieldOfNullable` for nullable). Selectors must identify direct primitive fields; nested structs are not selectable. Reflection-based field-name resolution must be unique. Validation occurs during append and fails atomically before persistence.
 
-```go
-event, channel, err := eventlog.PrepareLog[MyEvent, MyChannel](ctx)
-```
+### Append and transaction guarantees
+- The only approved public API is `eventlog.PrepareLog[TEvent, TChannel](ctx) (TEvent, TChannel, error)`. The internal Log owns append and read operations; consumers receive only event and channel values. No consumer-facing Append, Read, Next, or Log handle is exposed at this stage.
+- An append validates channel and event before writing. If the channel is new, channel and event records are one transaction; otherwise the transaction contains the event occurrence. A commit marker is written last.
+- Transaction records are not exposed until their commit marker is validated. Recovery discards incomplete trailing transactions by truncating back to their start.
+- Every persisted record has a global sequence, including commit markers. Transaction ID is the sequence of its first transaction record. Transaction record count excludes the commit marker.
+- Commit checksum is SHA-256 over exact serialized transaction record bytes, including each record's terminating newline; commit marker bytes and its newline are excluded.
+- Recoverable transaction atomicity is not the same as durability against power loss: Append may be buffered until the sync policy runs.
 
-The internal Log owns append/read/recovery/lifecycle; consumers receive values, not a Log handle or operational methods. Exact Go-valid signatures, selectors, constraints and reconstruction conventions remain open.
+### Persistence and recovery
+- v1 persistence uses built-in JSON in newline-delimited JSON (NDJSON). New logs start as zero-byte files; no header record is written.
+- Every channel, event, and commit record carries `schema_version: 1`. Unsupported schema versions are rejected.
+- Versioned JSON Schema Draft 2020-12 documents the record/value format. Schema files are standalone and canonical and embedded at build time via `go:embed`.
+- Persisted field values use explicit typed JSON representations: strings and bools are native JSON values, integers are decimal strings, float32/float64 values are raw IEEE bit-pattern hex strings, and null is type-only. Float hex preserves width and signed zero; non-finite values are rejected.
+- A complete newline-terminated invalid record is corruption; the log must not silently skip it. Incomplete trailing transaction data is rolled back to transaction start. `Open()` creates a missing zero-byte log and recovers existing storage.
 
-Mandatory one-time `Config(options ...Option) error` requires `WithStorageDirectory(path)`. Nil, duplicate, missing and invalid options fail; failed validation remains retryable. Successful config is immutable; repeated/late calls match `ErrConfigAlreadySet`. PrepareLog before Config matches `ErrConfigNotInitialized`. Relative paths resolve and lexically clean to absolute during Config; symlinks are not resolved. Config does not create storage; PrepareLog creates it and rejects non-directory targets/creation errors. Concurrent PrepareLog shares initialization; each waiter honors context cancellation. Failed initialization can be retried using frozen config.
+### Reading
+- One unified reader supports replay and live tailing. It delivers committed history in order, catches concurrent appends during replay, and transitions to live tailing without gaps or duplicates.
+- Every reader is scoped to exactly one consumer-provided `Channel` value; there is no all-channel reader.
+- Global sequence, cursor, segment offset, and tailing coordination are internal; consumers neither provide nor receive storage cursors or sequence numbers.
+- Context cancellation and explicit errors are required.
+- Read/replay and live tailing are internal responsibilities of the Log instance. Consumers do not obtain readers or call Next. The internal reader remains channel-scoped, reconstructs typed consumer events, and handles nonmatching event types internally.
+- Re-appended logical events are delivered as separate occurrences.
 
-## Persistence and typed values
-Strict versioned NDJSON channel/event/commit records (schema version 1); initial log is zero bytes without header. JSON Schema Draft 2020-12 is canonical and embedded via `go:embed`. Strings/bools are native JSON, integers decimal strings, floats IEEE bit-pattern hex (float32 8 chars, float64 16), null type-only. Global sequence includes commit markers; transaction ID is the first transaction record sequence. Count/checksum exclude commit marker. SHA-256 covers exact transaction record bytes including newline; commit is written last. Complete malformed records and unsupported schemas fail; incomplete trailing transaction truncates to its start.
+### Durability and maintenance
+- Automatic synchronization occurs every 1 second or 1 MiB of pending writes, whichever threshold is reached first.
+- Explicit `Flush()` is a durability boundary; `Close()` flushes and syncs.
+- Segment files are the source of truth; index metadata is derived and rebuildable.
+- Segment rotation occurs only at transaction boundaries against a fixed target size. An oversized transaction may occupy its own segment.
+- Compaction creates and validates replacement segments, syncs them, finalizes them, atomically replaces the index, and only then removes old segments. Recovery may clean temporary compaction files only after finalized source segments validate.
 
-## Durability, storage and recovery
-Automatic sync every 1 second or 1 MiB pending writes. Append before sync is not guaranteed power-loss durable; Flush/Close are sync boundaries.
+## Constraints and non-goals
+- Standard-library-only Go; local filesystem storage.
+- Supported platforms: Linux and Windows at equal priority. macOS is excluded. Core features must not be platform-exclusive.
+- No distributed coordination, multi-process writers, broker/database functionality, custom codecs, or domain-specific behavior.
+- Correctness, recovery, predictable memory use, and cross-platform parity are prioritized. Numeric performance targets await benchmarks.
 
-Manifest selects active segment generation. Segment IDs increase and are not reused; finalized segments are immutable. Rotate only between transactions; oversized transaction may occupy a segment alone. Index is derived, generation-bound and rebuildable, storing IDs, associations, HEAD, sequence, segment and offsets. Open validates manifest, segments, records, sequences and transactions; rolls back incomplete tail; rebuilds invalid index. Ambiguous recovery fails rather than guessing. Compaction validates/syncs replacements, atomically switches manifest/index, and retains old files while readers pin their generation.
+## Define details still open
+- Final Go-valid public interface/selector signatures, generic constraints, pointer/value conventions, and occurrence representation.
+- Internal prepared-value association, lifecycle, cancellation, reader/resource close, and terminal-error semantics.
+- Identity-field mutation transition details, snapshot consistency, and persistence/index effects.
+- Notification accessor/message/error API, backlog durability/retention/replay boundary, retry termination, ordering, and drain-failure behavior.
+- Benchmarks, performance/memory acceptance targets, and detailed acceptance matrix.
 
-## Reading and notifications
-Reader is channel-scoped: committed history transitions gap-free and duplicate-free to live tailing. Cursor/sequence/offset remain internal. Typed reconstruction filters nonmatching event types while advancing; corruption and matching-type decode failures are explicit errors. Context cancellation is required.
+## Approved runtime configuration contract (integrated decisions)
 
-Channel notification accessor is approved but its signature is open. Success notifications carry immutable concrete Event snapshots, only after persistence. Every persisted occurrence must eventually be visible; buffer capacity cannot drop data. Persistence/scheduler must not block on slow consumers. Recovered backlog is delivered first in persistence order. Orderly shutdown drains before closing; crash recovery resumes pending delivery. Temporary persistence errors retry with backoff; no success notification before commit; persistent failure is surfaced as a typed error and occurrences are never silently abandoned. Retry termination, error ordering and drain failure details remain open.
+Configuration is mandatory, separate from generic type selection and Context. The public shape is `Config(options ...Option) error`, requiring `WithStorageDirectory(path)`. Config validates the complete option set before publishing immutable runtime state: nil options, duplicate settings, missing storage-directory option, empty/whitespace path, and invalid values fail. Failed validation is retryable. Successful Config is one-time; repeated or late calls match `ErrConfigAlreadySet` and cannot replace settings. `ErrConfigNotInitialized` is exported and PrepareLog before successful Config matches it. Relative paths are resolved against the working directory, made absolute and lexically cleaned at Config time; symlinks are not resolved. Config does not create or require the storage directory; PrepareLog creates it and errors if an existing target is not a directory or creation fails. Config and first initialization are coordinated as a state machine: concurrent PrepareLog callers wait on one initialization attempt and each waiter honors its Context; failure permits retry with frozen settings. Context is for cancellation/deadline only; no configuration is inferred from it or environment variables.
 
-## Platforms and non-goals
-Standard library only, local filesystem; Linux and Windows equal priority, macOS excluded. No distributed coordination, broker/database, custom codecs or domain semantics. Correctness, recovery, bounded memory and parity precede numeric performance targets.
+## Approved change detection and notification contract
 
-## Open details
-- Final Go-valid API, constraints/selectors, pointer/value reconstruction and occurrence shape.
-- Internal lifecycle/value association, reader cancellation/resource cleanup, terminal errors.
-- Identity-field mutation response and precise Channel change behavior.
-- Notification accessor/error shape, backlog durability/replay boundary, retry termination, ordering and shutdown failure.
-- Snapshot consistency and consumer synchronization contract.
-- Benchmark and acceptance matrix, memory/performance targets.
+The internal change manager polls selected Event and Channel fields at 100 ms using one managed scheduler per prepared Log/change manager—not a goroutine per field. Cadence is internal/test-only. Polling does not make consumer-owned field mutations race-safe; consumers synchronize their own concurrent accesses.
+
+Channel has a notification Go channel exposed through an accessor (signature TBD). Occurrence messages carry the actual concrete Event value as an immutable snapshot captured at the persistence boundary. Messages are emitted only after persistence succeeds. Every persisted occurrence must eventually be visible; buffer capacity cannot cause loss. Persistence and scheduler work must not block on slow/unread consumers, so an internal backlog/replay mechanism is required. Recovered backlog is delivered first in persistence order and new notifications cannot overtake it. Orderly shutdown drains before closing the channel; interrupted delivery is recovered on next initialization. Temporary persistence failures retry with backoff; persistent failures surface as typed errors and occurrences are not silently abandoned. Retry limits, error shapes/order, backlog persistence/retention, replay boundary and drain failure remain open. The older drop-on-full proposal is superseded.
+
+## Approved storage, manifest, index and compaction detail
+
+The storage directory contains `manifest.json`, rebuildable `index.json`, and `segments/` with monotonic segment IDs that are never reused (including compaction). Only the active segment is writable; finalized segments are immutable. Record sequence is global across segments. Rotation is transaction-boundary-only; an oversized transaction may occupy a segment alone.
+
+The versioned manifest selects the active finalized segment set/generation and next segment ID, and contains no payloads. Manifest replacement is the atomic generation-switch point: write temporary, validate, sync, atomically replace; retain old files until finalized. Unreferenced segments are candidates for safe recovery, not automatically authoritative. Ambiguous/multiple plausible generations cause recovery failure rather than filename-based guessing.
+
+The index is derived and generation-bound. It records Event IDs, Channel associations, latest occurrence/HEAD, global sequence, segment and byte offsets. Missing/stale/inconsistent index is rebuilt from validated authoritative segments and atomically replaced; index never overrides segments.
+
+Open/recovery order: exclusive ownership; validate manifest and generation; validate segments, schema and sequences; validate commit boundaries/count/checksums; truncate incomplete trailing transaction from transaction start; rebuild/replace index as needed; clean temporary/orphan artifacts only after authoritative sources validate; then open for append and internal readers. Existing directory with missing/corrupt manifest may be recovered only if exactly one complete generation is unambiguous; otherwise fail closed.
+
+Compaction is reader-safe and generation-pinned: build replacement segments/index without altering pinned data; validate and sync; finalize; atomically switch manifest/index; new readers use the new generation while existing readers continue on pinned generation; delete old files only after last pin releases.
+

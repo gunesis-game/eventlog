@@ -5,42 +5,29 @@
 - **Sequence / execution order:** 1 / 1
 - **Workflow / phase:** standard / define
 - **Registry:** in-progress
-- **Lock:** active for ChatGPT-GPT-6, published on shared `main` in claim commit `54d0f5fb897aa7ef0aa416776093b881af4d73f6`.
+- **Lock:** active for ChatGPT-GPT-6, claim commit `b230cc83bc522b6a5f7cbc13107c4f34dfc503a7`.
 - **Implementation:** none; no build or Go tests started.
-- **Cleanup/reconciliation:** current plan, handoff, requirements, and architecture consolidated; all prior plan, handoff, requirements, and architecture snapshots preserved in `history/`.
-- **Documentation cleanup commit:** `98a3b17784c13419ccda7c2ac78e0081b770967e` (shared `main`, confirmed).
-- **Lifecycle CI:** run `45315940750` succeeded for that exact cleanup commit; `Validate cycle registry and execution lock` passed. This validates lifecycle records, not documentation semantics or Go code.
 
-## Public API/configuration approved
-```go
-event, channel, err := eventlog.PrepareLog[MyEvent, MyChannel](ctx)
-```
-Only this preparation call is approved. Consumers receive Event/Channel values; internal Log owns operations and lifecycle. Runtime configuration is mandatory via one-time immutable `Config(options ...Option) error` and required `WithStorageDirectory(path)`. Validation rejects nil/duplicate/missing/invalid settings. Paths resolve and clean to absolute during Config; storage creation occurs in PrepareLog. `ErrConfigNotInitialized` and `ErrConfigAlreadySet` are approved. Context is for cancellation/deadline, not configuration.
+## Correction after user review
+The earlier cleanup was wrong: it reduced active docs by stripping requirements/design and leaving substance mainly in history. User clarified that this was not a simple relocation exercise. Active project docs must be fully curated and complete; the architecture must retain the complete design. Shortened summaries and archive-only requirements are unacceptable. History is secondary provenance, never the place to look up current specification.
 
-## Approved design checkpoint
-- Single-process ownership, concurrent goroutines, primitive explicit `Fields()` selectors.
-- Canonical UUID v5 Event/Channel identity. Event ID includes type/schema/consumer-designated identity field name+value; non-identity data changes create immutable occurrences. Latest occurrence is HEAD. Deduplicate identical physical records.
-- Versioned NDJSON channel/event/commit records; global sequence; commit markers; checksum; strict corruption detection and incomplete-tail rollback.
-- Manifest-selected immutable segment generations, rebuildable index, transaction-boundary rotation and reader-pinned compaction.
-- Sync every 1 second or 1 MiB; Flush/Close are durability boundaries.
-- Channel-scoped replay/live reader, internal cursor, type reconstruction/filtering and gap-free transition.
-- One 100 ms internal polling scheduler; consumer synchronizes own field changes.
-- Notifications: immutable snapshots emitted only after persistence, guaranteed eventual delivery, no persistence/scheduler blocking, recovered backlog first, orderly shutdown drain, crash replay and typed errors after persistent failure.
+## Curation approach
+- Restored the comprehensive baseline requirements and architecture sections from pre-cleanup source.
+- Integrated later approved decisions by topic, replacing superseded proposals rather than repeating chronology.
+- Kept active requirements and architecture as full specifications: API/config, fields, identity, occurrence semantics, persistence formats, transaction integrity, recovery, reader behavior, scheduler/notifications, durability, segments/index/manifest, compaction and platform constraints.
+- Open details remain explicitly open; intended behavior is not represented as implementation evidence.
+- Preserved historical archives; no checkpoint deletion.
 
-## Remaining Define work
-1. Settle Go-valid API/interface signatures, selector contract, generic constraints, pointer/value and occurrence shapes.
-2. Define prepared-value association, lifecycle, cancellation, reader/resource cleanup and terminal errors.
-3. Specify identity-field mutation handling and Channel mutation semantics.
-4. Finalize notification API/error shapes, backlog durability, replay boundary, retry termination, error ordering and drain-failure semantics.
-5. Specify snapshot consistency and consumer synchronization.
-6. Complete acceptance matrix and benchmarks; reconcile documents and seek explicit Define approval before implementation.
+## Review still required
+- Compare restored active requirements/architecture against original snapshots and the full decision trail to ensure every durable detail is included and contradictions are resolved.
+- Check that outdated reader API direction was removed from the current architecture and only the approved PrepareLog public surface remains.
+- Inspect diff, lifecycle state and links; run/await CI for exact final commit.
+- After validation, pause Cycle 1 in Define and release the lock with a durable checkpoint.
 
-## Documentation cleanup and checkpoint preservation
-Pre-cleanup plan and handoff were preserved verbatim in the cycle's `history/` directory. Active plan/handoff now contain only current baseline, open decisions and resume steps. Historical notes are evidence, not instructions; later approved decisions supersede earlier conflicting proposals.
-
-## Reconciliation
-- [ ] Verify project docs, plan, handoff and registry state.
-- [ ] Run lifecycle validator if available; otherwise document limitation.
-- [ ] Review changed files and link targets.
-- [ ] Record cleanup commit and verification.
-- [ ] Keep Cycle 1 in Define; do not implement.
+## Next Define work
+1. Resolve final API/interface/selector signatures, constraints, pointer/value and occurrence conventions.
+2. Specify prepared-value association and internal lifecycle/cancellation/resource/error behavior.
+3. Resolve designated identity-field mutation mechanics and snapshots/index/Channel association.
+4. Finish notification accessor/payload/error, backlog persistence/replay boundary, retry termination, ordering and shutdown drain failure.
+5. Define snapshot consistency and consumer synchronization details.
+6. Complete acceptance matrix and benchmark plan; reconcile and seek explicit Define approval before implementation.
