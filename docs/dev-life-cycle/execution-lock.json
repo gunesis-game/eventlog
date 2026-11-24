@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "status": "released",
-  "cycle_id": null,
-  "workflow": null,
-  "worker_id": null,
-  "claimed_at": null,
-  "released_at": "2026-11-24T18:41:59.190Z",
-  "release_evidence": "Cycle 1 paused at Define after recording D-009; handoff checkpoint published in the same atomic commit."
+  "status": "claimed",
+  "cycle_id": "4c7c4fb1-6724-4bb0-b98e-b4f5ac3f9182",
+  "workflow": "standard",
+  "worker_id": "chatgpt-design-session",
+  "claimed_at": "2026-11-24T18:44:15.101Z",
+  "released_at": null,
+  "release_evidence": null
 }
