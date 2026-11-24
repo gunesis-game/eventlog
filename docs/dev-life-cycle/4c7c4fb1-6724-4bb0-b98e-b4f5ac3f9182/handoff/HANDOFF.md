@@ -495,7 +495,7 @@ Status: Proposed; awaiting explicit user approval. The proposal is recorded in t
 - D-020 through D-023 preserve the existing consumer-facing API. No Go implementation, build or Go tests have started.
 
 
-| D-024 | Event and Channel identity fields accept `[16]byte` and named types with underlying `[16]byte`; canonical payload is the 16 array bytes in index order; nullable and other underlying types are rejected; UUID tag remains open | Recorded | docs/project/architecture.md, requirements.md and Cycle 1 plan | pending fetch-back |
+| D-024 | Event and Channel identity fields accept `[16]byte` and named types with underlying `[16]byte`; canonical payload is the 16 array bytes in index order; nullable and other underlying types are rejected; UUID tag remains open | Recorded | docs/project/architecture.md, requirements.md and Cycle 1 plan | architecture `aa3fede134f317487585548056fa878486d6b3da`; requirements `d20cf5d6ce31df46f22183163c9e8b29bcedafe7`; plan `f0a30c159dbed7f7ceb415ef1eb58be06e71f616` |
 
 ## D-024 approval and reconciliation — 2026-11-24
 
