@@ -198,13 +198,13 @@ def validate_workflows():
         relative = path.relative_to(ROOT)
         if "python3 scripts/cleanup-workflow-runs.py" not in content:
             fail(f"{relative}: every workflow must invoke shared history cleanup at startup")
-        if re.search(r"(?m)^\\s*schedule\\s*:", content):
+        if re.search(r"(?m)^\s*schedule\s*:", content):
             fail(f"{relative}: scheduled workflow runs are prohibited")
-        if re.search(r"(?m)^\\s*pull_request(?:_target)?\\s*:", content):
+        if re.search(r"(?m)^\s*pull_request(?:_target)?\s*:", content):
             fail(f"{relative}: pull-request workflow triggers conflict with the main-only policy")
         if "if: github.ref == 'refs/heads/main'" not in content:
             fail(f"{relative}: workflow jobs must be restricted to main")
-        if re.search(r"(?m)^  push\\s*:", content) and "branches:\\n      - main" not in content:
+        if re.search(r"(?m)^  push\s*:", content) and "branches:\n      - main" not in content:
             fail(f"{relative}: push triggers must be restricted to main")
 
 def main():
