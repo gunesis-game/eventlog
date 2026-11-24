@@ -8,7 +8,7 @@
       "execution_order": 1,
       "workflow": "standard",
       "description": "Define eventlog's initial product requirements and core design decisions before implementation.",
-      "status": "blocked",
+      "status": "in-progress",
       "created_at": "2026-11-22T16:00:00+02:00",
       "started_at": "2026-11-22T16:00:00+02:00",
       "completed_at": null,
@@ -17,7 +17,7 @@
       "acceptance_criteria": null,
       "verification_evidence": null,
       "outcome": null,
-      "status_reason": "Awaiting user confirmation of a Go-valid generic API surface: Go does not permit type parameters on methods, so the literal log.Append[TChannel,TEvent](selector) call cannot compile. Confirm whether to bind the types on a generic Log handle (log.Append(selector), log.Read()) or use package-level generic functions."
+      "status_reason": "Define work resumed. User approved eventlog.PrepareLog[TEvent, TChannel](ctx) as the only public API at this stage; the internal Log owns append, read, next, and lifecycle operations. Remaining internal lifecycle and API semantics are being specified."
     }
   ]
 }
