@@ -44,7 +44,7 @@ Permanent v1 identity type tags: Null `0x00` (no payload), String `0x01` (UTF-8)
 
 UUID v5 namespace is `26612f1d-f648-483a-9cfe-59c18f113891`. Event domain prefix is `eventlog\\x00event\\x00v1\\x00`; Channel domain prefix is `eventlog\\x00channel\\x00v1\\x00`.
 
-Canonical identity encoding is separate from JSON and architecture-independent: fixed encoding-format version, domain prefix, UTF-8 package path and concrete type name, exposed field-name/type schema, and designated identity field name/value. Non-identity values are excluded from logical identity. Schema field names sort bytewise UTF-8; variable component lengths/counts use uint32 big-endian framing. Exact field-schema/identity-value byte composition remains open.
+Canonical identity encoding is separate from JSON and architecture-independent: fixed encoding-format version, domain prefix, UTF-8 package path and concrete type name, exposed field-name schema, and designated identity field name/value. Non-identity values are excluded from logical identity. Schema field names sort bytewise UTF-8; variable component lengths/counts use uint32 big-endian framing. Exact field-schema/identity-value byte composition remains open.
 
 ## Append transaction flow
 
@@ -60,13 +60,19 @@ Validation failure leaves the log unchanged. New Channel and Event are fully ato
 
 ## Open and recovery flow
 
-A missing storage structure is initialized automatically during PrepareLog; a new active segment starts as a zero-byte NDJSON file, with no header record. Existing storage is recovered before it becomes available.
+A missing storage structure is initialized automatically during PrepareLog. The first active segment is a zero-byte NDJSON file; no header record is written. Existing storage is recovered before it becomes available.
 
-- Validate the manifest and selected generation; validate complete records/schema, segment sequence continuity, transaction boundaries, Commit IDs/count/checksums. A complete newline-terminated malformed record, unknown kind/tag, unsupported schema, duplicate/invalid sequence, missing Channel reference, or invalid fields is corruption; never silently skip it.
-- Expose only fully committed transactions. An incomplete trailing transaction or partial Commit marker is truncated from transaction start.
-- Segments are authoritative. Validate the index; if missing, stale, or inconsistent, rebuild from validated committed segment records and atomically replace it. Index never overrides segments.
-- Existing storage with missing/corrupt manifest can be recovered only if exactly one complete generation is unambiguous; otherwise fail closed. Do not choose a generation by filename.
-- Recovery ignores temporary compaction files. Cleanup waits until finalized authoritative source segments validate.
+Recovery order:
+1. Acquire exclusive single-process ownership.
+2. Validate the manifest and identify its active generation/segment set.
+3. Validate active segment files, record schemas and sequence continuity.
+4. Validate transaction boundaries, Commit IDs, record counts and checksums.
+5. Truncate an incomplete trailing transaction (including partial Commit) from its transaction start.
+6. Validate or rebuild the generation-bound index from validated authoritative segments; atomically replace it if needed.
+7. Clean orphan/temp artifacts only after finalized source segments validate and cleanup is safe.
+8. Open for append and initialize the mandatory channel-scoped readers/change manager.
+
+A complete newline-terminated malformed record, unknown kind/tag, unsupported schema, duplicate/invalid sequence, missing Channel reference, or invalid fields is corruption; never silently skip it. Expose only fully committed transactions. Segments are authoritative; index never overrides them. Existing storage with missing/corrupt manifest can recover only if exactly one complete generation is unambiguous; otherwise fail closed. Never choose a generation by filename. Recovery ignores temporary compaction files and cleans them only after finalized source segments validate.
 
 Duplicate reconciliation: identical physical copies at the same sequence are deduplicated. Same sequence with different content is corruption. Channel records with same ID and identical data may deduplicate; conflicting data for one ID is corruption. Same logical Event ID at distinct sequences represents valid history and is retained; highest sequence determines HEAD, latest association and ordering. Compaction preserves original sequences and must not promote older occurrences because duplicate copies.
 
@@ -82,13 +88,36 @@ The reader stays internal under the currently approved public API; public signat
 
 Automatic sync occurs every 1 second or 1 MiB of pending writes, whichever first. Flush and Close are durability boundaries; Close flushes and syncs. Append before sync is not promised to survive power loss.
 
-Storage layout contains `manifest.json`, generation-bound rebuildable `index.json`, and `segments/`. Segment IDs are monotonic and never reused (including compaction), distinct from global record sequences. Finalized segments are immutable; only the active segment is writable. Rotate only at transaction boundaries against a fixed target size; oversized transaction may occupy its own segment.
+Storage layout:
 
-The versioned manifest identifies the active finalized segment set/generation and next segment ID; it contains no event payloads. Manifest replacement is the atomic generation-switch/compaction commit point: write temporary manifest, validate, sync, atomically replace. Old files remain until switch is finalized. Orphans are recovery candidates, not authoritative. Ambiguous complete generations fail rather than guessing.
+```text
+eventlog/
+├── manifest.json
+├── index.json
+└── segments/
+    ├── segment-000001.ndjson
+    ├── segment-000002.ndjson
+    └── ...
+```
+
+Segment IDs are monotonic and never reused (including compaction), distinct from global record sequences. Finalized segments are immutable; only the active segment is writable. Rotate only at transaction boundaries against a fixed target size; oversized transaction may occupy its own segment.
+
+The versioned manifest identifies the active finalized segment set/generation and next segment ID; it contains no event payloads. Example:
+
+```json
+{
+  "format_version": 1,
+  "generation": 3,
+  "segments": ["segment-000004.ndjson", "segment-000005.ndjson"],
+  "next_segment_id": 6
+}
+```
+
+Manifest replacement is the atomic generation-switch/compaction commit point: write temporary manifest, validate, sync, atomically replace. Old files remain until switch is finalized. Orphans are recovery candidates, not authoritative. Ambiguous complete generations fail rather than guessing.
 
 The index is derived, generation-bound and rebuildable. It contains Event IDs, Channel associations, HEAD/latest occurrence, global sequence, segment ID and byte offsets. Missing/stale/inconsistent index rebuilds from validated authoritative segments and is atomically replaced.
 
-Compaction protocol: build replacement segments/index without modifying reader-pinned files → validate/checksum → sync → finalize/rename → atomically switch manifest/index → retain old generation while readers pin it → delete after last pin releases. Temporary files are ignored during recovery and cleaned only after finalized source segments validate.
+Compaction protocol: build replacement segments/index without modifying reader-pinned files → validate/checksum → sync → finalize/rename → atomically switch manifest/index → retain old generation while readers pin it → delete after last pin releases. Temporary files are ignored during recovery and cleaned only after finalized source segments validate. New readers bind to the switched generation; existing readers continue on their pinned generation.
 
 ## Portability and dependencies
 
