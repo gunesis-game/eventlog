@@ -3,14 +3,13 @@ name: Steering state validation
 on:
   push:
     paths:
-      - 'docs/dev-life-cycle/**'
-      - 'docs/project/requirements.md'
-      - 'docs/project/architecture.md'
       - 'steering.md'
+      - 'docs/dev-life-cycle/**'
       - 'scripts/validate-steering.py'
       - '.github/workflows/steering-validation.yml'
   pull_request:
     paths:
+      - 'steering.md'
       - 'docs/dev-life-cycle/**'
       - 'scripts/validate-steering.py'
       - '.github/workflows/steering-validation.yml'
@@ -18,31 +17,13 @@ on:
 
 permissions:
   contents: read
-  actions: write
 
 jobs:
   validate:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Validate cycle registry and execution lock
+        with:
+          fetch-depth: 0
+      - name: Validate cycle registry and decision records
         run: python3 scripts/validate-steering.py
-      - name: Keep only the latest four workflow runs
-        if: github.event_name != 'pull_request'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        shell: bash
-        run: |
-          gh api --paginate "repos/${GITHUB_REPOSITORY}/actions/workflows/steering-validation.yml/runs?per_page=100" --jq '.workflow_runs[].id' \
-            | awk 'NR > 4' \
-            | while read -r run_id; do
-                [ -n "$run_id" ] || continue
-                if ! delete_output=$(gh api --method DELETE "repos/${GITHUB_REPOSITORY}/actions/runs/${run_id}" 2>&1); then
-                  if [[ "$delete_output" == *"HTTP 404"* ]]; then
-                    echo "Run ${run_id} was already removed; continuing."
-                  else
-                    printf '%s\n' "$delete_output" >&2
-                    exit 1
-                  fi
-                fi
-              done
