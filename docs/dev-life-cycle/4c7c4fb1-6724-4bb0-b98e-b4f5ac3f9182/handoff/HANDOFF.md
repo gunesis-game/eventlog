@@ -10,7 +10,7 @@
 
 - User confirmed generic arguments identify the consumer Event and Channel types; runtime settings such as storage location must be configured separately.
 - A separate `eventlog.Config(...)`-style API is acceptable. Environment-variable configuration is not required.
-- Keep `PrepareLog[TEvent, TChannel](ctx)` unchanged. Context is for cancellation/deadlines and operation lifetime, not hidden configuration.
+- Keep `PrepareLog[TEvent, TChannel](ctx)` unchanged. A Config call may explicitly bind configuration to the context while preserving cancellation/deadline semantics; do not infer configuration from arbitrary context values.
 - Exact Config signature, whether configuration is context-bound or represented explicitly, storage-directory option/default, and missing-config behavior remain open.
 - Execution lock remains active; no implementation, build, or Go tests have started.
 
