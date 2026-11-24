@@ -18,9 +18,9 @@ This cycle establishes the library's product and technical baseline: public cont
 
 ## Authoritative project documents
 
-- [Requirements](../../../../project/requirements.md) define product behavior and acceptance expectations.
-- [Architecture](../../../../project/architecture.md) defines the approved technical design.
-- [Project decisions](../../../../project/decisions.md) is the durable decision register and provenance record.
+- [Requirements](../../../project/requirements.md) define product behavior and acceptance expectations.
+- [Architecture](../../../project/architecture.md) defines the approved technical design.
+- [Project decisions](../../../project/decisions.md) is the durable decision register and provenance record.
 
 The specifications contain curated current rules. This plan tracks cycle scope and unresolved work; it does not reproduce the decision ledger or append approval/checkpoint narratives.
 
