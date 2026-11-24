@@ -5,10 +5,11 @@
 - The previous released lock was structurally invalid: it retained non-null owner fields despite `status: released`. Repaired it to the schema-valid released shape in lock-only commit `9ab19931586cca2be42fcabe4b77d6fb59143656`.
 - Claimed Cycle 1 with a separate lock-only commit `33603d1e87fad469555837a30e6b146f849d6cd6`.
 - Re-fetched shared `main` and confirmed that exact claim commit is the remote head and `execution-lock.json` is active for this cycle, workflow `standard`, worker `ChatGPT-GPT-6`.
-- GitHub Actions Steering state validation run `45301455577` is in progress for the exact claim commit; no passing result has been observed yet.
-- Registry remains `in-progress`, phase `define`, matching the active lock. No registry or project-source changes were made in the claim commit.
+- The approved configuration error contract has since been recorded in requirements, architecture, plan, and this handoff; see the latest session checkpoint below.
+- Registry remains `in-progress`, phase `define`, matching the active lock.
+- Documentation commits are on shared `main`; latest confirmed head is `377fe94bcf2389f07d25e42bc6ca39013d6cf127`.
+- Steering validation was queued for intermediate documentation commit `ca51f64a27c462c1aa448bd20ffe389d53195747`; no validation run for the latest head was found at the time of this checkpoint.
 - No implementation, build, or Go tests have started.
-- Continue Define from the exported error contract proposal below. The proposal is not approved yet.
 
 **Cycle ID:** `4c7c4fb1-6724-4bb0-b98e-b4f5ac3f9182`
 **Workflow:** Standard
@@ -43,23 +44,17 @@ The user has approved the following direction and rules:
 - Concurrent PrepareLog calls wait for the first shared initialization attempt. Each waiter can cancel its own wait through its context. If initialization fails, frozen configuration remains set and a later PrepareLog call may retry.
 - `context.Context` is used for cancellation/deadlines, not as a configuration carrier.
 
-## Next unresolved Define decision
+## Latest approved error contract
 
-The next discussion item is the exported error contract. A proposal was made but **not yet approved**:
-
-```go
-var (
-    ErrConfigNotInitialized = errors.New("eventlog: configuration not initialized")
-    ErrConfigAlreadySet     = errors.New("eventlog: configuration already set")
-)
-```
-
-Proposed semantics: PrepareLog without Config returns ErrConfigNotInitialized; repeated/late Config returns ErrConfigAlreadySet; invalid options return descriptive validation errors; filesystem failures wrap underlying errors for errors.Is/errors.As; context cancellation/deadline errors remain discoverable. Resume by asking the user to approve or revise this proposal. Do not treat it as an accepted decision yet.
+The exported sentinels and semantics are approved and recorded below in the latest session checkpoint. This is no longer an open decision.
 
 ## Remaining Define work
 
-1. Finalize the exported error taxonomy and wrapping contract.
-2. Continue the internal initialization lifecycle and concurrency contract details.
+1. Continue specifying the internal initialization lifecycle and concurrency contract.
+2. Finalize remaining API, cancellation, reader/resource lifecycle, and terminal error semantics.
+3. Review benchmark scenarios, memory/performance targets, and the acceptance test matrix.
+4. Reconcile all active requirements, architecture, plan, and handoff text; resolve stale or contradictory historical material.
+5. Complete the Define consistency review and obtain explicit user approval before implementation.
 3. Reconcile all active requirements, architecture, plan, and handoff text; older contradictory checkpoint notes below are historical and superseded by the current approved decisions above.
 4. Finish the remaining API, lifecycle, cancellation, resource, benchmark, and acceptance criteria.
 5. Complete the Define consistency review and obtain explicit user approval before implementation.
