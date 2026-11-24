@@ -3,10 +3,10 @@
 ## State
 - **Cycle:** 4c7c4fb1-6724-4bb0-b98e-b4f5ac3f9182 (sequence 1, execution order 1)
 - **Workflow / phase:** standard / define
-- **Registry:** blocked at Define
-- **Execution lock:** released at 2026-11-24T17:17:13Z after blocked checkpoint
+- **Registry:** in-progress at Define
+- **Execution lock:** active for ChatGPT since 2026-11-24T20:02:00+02:00; claim verified on main
 - **Implementation:** none; no build or Go tests started.
-- **Latest checkpoint:** 2026-11-24T19:19:00+02:00 — session handoff confirmed; Cycle 1 remains blocked at Define and the execution lock is released for the next session. Earlier checkpoints and history remain preserved.
+- **Latest checkpoint:** 2026-11-24T20:02:00+02:00 — resumed Cycle 1 to reconcile approved decisions and adopt template v1.1.0 governance. Earlier checkpoints and history remain preserved.
 
 ## Correction after user review
 The previous cleanup was wrong: it optimized for file size and stripped substantive requirements/design from active project docs, leaving the archive as the place to find them. The user explicitly said this was not simply moving content and that architecture must retain the complete design. This pass restores and curates the active docs. Active specifications must remain complete and topic-oriented; archives are provenance only.
@@ -236,3 +236,26 @@ part of the API. The remaining issue is internal writable-channel ownership and 
 - **Blocking question:** confirm whether the existing Event type/codec registry is process-wide and loaded before the first `PrepareLog`, with decoders available for all concrete Event types encountered during recovery. The registry-driven replay barrier in the plan is a proposal only because no Go/codec source exists to verify it.
 - **Implementation status:** no Go source, `go.mod`, build, or Go tests. Do not implement until Define decisions are reconciled and the user explicitly approves Define exit.
 - **Next session:** claim the released lock for this same Cycle 1 using the prescribed governance flow, resolve the codec-registry/barrier question, then continue the remaining API/lifecycle, identity-mutation, notification error/retry/backlog, acceptance-matrix and benchmark decisions.
+
+
+## Decision register
+
+This is the authoritative decision ledger for Cycle 1. Every material user-approved decision must be recorded in its canonical artifact before the next independent decision is introduced. A persisted `Approved` state is a governance failure; use `Recorded` only after the artifact is published and fetched back at the stated revision.
+
+| ID | Decision | State (Proposed / Approved / Recorded) | Canonical artifact | Verified revision / evidence |
+|---|---|---|---|---|
+| D-001 | Concrete `TEvent Event`, `TChannel Channel`; factory `func(chan Event) TChannel`; heterogeneous notification payload | Recorded | docs/project/architecture.md | d4fe4e197b07385e95159d7090e8110f4805b68f |
+| D-002 | Channel exposes receive-only `Notifications() <-chan Event` | Recorded | docs/project/requirements.md | 4b7bc62c6cf851bf62a86bd7a11286c761063f02 |
+| D-003 | Channel exposes one-way shared `Errors() <-chan error`, capacity one, first fatal error retained and best-effort non-blocking delivery | Recorded | docs/project/requirements.md | 4b7bc62c6cf851bf62a86bd7a11286c761063f02 |
+| D-004 | Fatal Reader error terminates Channel Reader and closes notification/error streams after reporting; safe recoverable errors may continue | Recorded | docs/project/architecture.md | d4fe4e197b07385e95159d7090e8110f4805b68f |
+| D-005 | Concrete decoder registration derives from generic `TEvent`; historical replay waits asynchronously for all decoders required by committed Channel history; no public registration/activation API | Recorded | docs/project/architecture.md | d4fe4e197b07385e95159d7090e8110f4805b68f |
+| D-006 | Exact behavior for a required decoder that is never registered, including timeout/terminal error policy | Proposed | — | Awaiting focused design review |
+
+## Governance correction checkpoint — 2026-11-24T20:02+02:00
+
+- Cycle 1 resumed at Define under the existing cycle ID and execution order. Lock claim was published and fetched back at commit `8a489bf4e842f758bdf79ff6772ef16b068a6ca8`; registry resumed at commit `f2bde95cf5506a379a5ee8a9efacdbabe2248076`.
+- Governance process deviation: the initial discovery call fetched files in parallel before reading the execution lock first, contrary to the mandatory read-order rule. The lock was then read and found released before the claim. No conflicting active owner was observed. Future sessions must read the lock as the first repository operation.
+- D-001 through D-005 are recorded in canonical requirements/architecture documents with verified revisions; D-006 remains proposed.
+- Plan reconciled and fetched back at `b7a15b525239e5f0a376516489f59f847263b7f8`.
+- No implementation, build or Go tests were started.
+
