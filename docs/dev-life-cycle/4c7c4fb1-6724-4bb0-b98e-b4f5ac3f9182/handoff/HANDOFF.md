@@ -35,13 +35,29 @@ The public consumer API remains:
     Errors() <-chan error
 Both generic arguments are concrete pointer types constrained by their respective interfaces. The Channel notification stream carries heterogeneous concrete Event values through the common Event interface. The approved identity, registration, persistence, recovery, Reader, and internal queue design is captured in the architecture.
 
-## Remaining Define work
+## Authoritative-state reconciliation
 
-- Runtime process scope, preparation Context scope, shared-worker ownership, and terminal Reader error behavior are approved and recorded as D-026. The exact internal shutdown trigger and ordered graceful cleanup remain unresolved.
-- Channel snapshots now use the same identity-keyed bounded FIFO dispatch mechanism as Event snapshots (D-027); consumer synchronization remains required for concurrent multi-field mutation.
-- Delivery retry policy is approved and recorded as D-032: retry the same pending occurrence with internal bounded backoff and a finite retry limit; do not advance the Reader or deliver later occurrences while retrying. Retry exhaustion terminates that Channel Reader and reports through Errors(); committed pending history remains recoverable, and other Channel Readers continue independently. Numeric limits and classification remain internal. D-030 defines shutdown-drain failure reporting; D-031 defines a fixed internal graceful-drain grace period, timeout abort, best-effort Errors() reporting, retained pending history, and sender exit before stream closure. No public timeout setting.
-- Acceptance matrix is agreed and recorded in [acceptance.md](../../../project/acceptance.md). Benchmark workloads and measurable performance/memory targets remain to be defined.
-- Final consistency review and explicit approval to exit Define.
+The current requirements, architecture, decisions, acceptance matrix, and benchmark strategy have been checked together. The following is the reconciled Define state.
+
+### Resolved
+
+- D-026: process-scoped runtime ownership, preparation Context scope, shared-worker ownership, and terminal Reader error behavior.
+- D-027: Channel snapshots use the identity-keyed bounded FIFO mechanism; consumer synchronization is required for concurrent multi-field mutation.
+- D-028: one continuous committed-sequence Reader progression; wake-up hints only trigger authoritative-log rechecks.
+- D-030–D-031: shutdown-drain failure reporting, fixed internal grace period, timeout behavior, retained pending history, and sender exit before stream closure.
+- D-032: retry the same pending occurrence with bounded backoff and finite retry limit; no Reader advancement or overtaking; retry exhaustion terminates only the affected Channel Reader.
+- D-033: bounded notification backlog with Reader backpressure; persistence continues and the authoritative append log remains the recovery source.
+- The acceptance matrix and benchmark workload scenarios are agreed and recorded in [acceptance.md](../../../project/acceptance.md) and [benchmarks.md](../../../project/benchmarks.md).
+
+### Unresolved
+
+- Exact internal runtime-shutdown trigger. The public API has no shutdown method, and process-wide signal interception is not approved.
+- Remaining architecture details: UUID identity marker/tag, metadata UTF-8 policy, canonical alias/instantiated-generic naming, maximum framing sizes, and exact internal registry-key details.
+- Measurable performance and memory targets, representative target environments, and benchmark measurement/acceptance criteria.
+
+### Next action
+
+Resolve the genuine remaining design questions, agree measurable performance/memory targets and measurement criteria, then perform the final cross-document consistency review. Do not begin implementation or exit Define until the remaining work is settled and you explicitly approve the phase transition.
 
 ## Verification
 
