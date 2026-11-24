@@ -109,9 +109,9 @@ from replay into live tailing. It is not tied to an event-sourcing framework or 
 - The Channel interface defines `Notifications() <-chan Event`, where `Event` is the common interface implemented by concrete Event types. `TEvent` in `PrepareLog` is instead a concrete Event type constrained by `Event`; the required factory accepts `func(chan Event) TChannel` so one Channel can receive heterogeneous concrete Event values. Notifications carry concrete Event values as immutable snapshots after successful persistence. There is no `Notify` callback/sink method.
 - Notifications are channel-scoped, ordered, and lossless across buffer pressure or recovery. Slow
   consumers must not stall persistence. Pending deliveries are recovered and delivered before newer ones.
-- Shutdown stops new preparation/appends, coordinates outstanding commits, cancels Reader/delivery workers,
-  waits for senders to stop, drains pending notifications according to the shutdown policy, closes the
-  notification stream only after sending has stopped, and then releases storage resources. Lifecycle
+- Shutdown stops new preparation/appends and coordinates outstanding commits. It then stops Reader
+  advancement and attempts a bounded notification drain; delivery is cancelled on grace-period expiry.
+  Senders must exit before notification/error streams close, after which storage resources are released. Lifecycle
   failure is reported and recoverable pending state is retained. Without consumer acknowledgment or
   transactional integration, exactly-once consumer processing is not guaranteed and duplicates may occur.
 
