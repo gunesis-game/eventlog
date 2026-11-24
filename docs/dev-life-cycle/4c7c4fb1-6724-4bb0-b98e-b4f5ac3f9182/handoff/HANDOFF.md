@@ -496,3 +496,11 @@ Channel's public API will expose a notification Go channel through an accessor (
 - If retries continue failing, report a typed error via the consumer notification channel; never silently abandon an occurrence.
 - Retry termination criteria, error type/API, scheduler interaction, and error delivery ordering remain open Define decisions.
 - No implementation/build/tests have started; implementation still requires Define completion and explicit approval.
+
+
+## Session close — 2026-11-24
+
+- Approved and recorded persistence failure handling: temporary storage failures are retried internally with backoff without blocking the scheduler; no success notification before persistence succeeds; continued failure is surfaced as a typed error through the consumer notification channel; no occurrence is silently abandoned.
+- Execution lock released for next session; verified `docs/dev-life-cycle/execution-lock.json` status `released` in commit `010ee5e6569f0b07f502f8bfe9c8f997e9ddac38`.
+- Cycle remains 1 — Define. No implementation, builds, or tests have begun.
+- Next session should claim the lock, resume Define, and resolve remaining open items: retry limits/termination criteria; typed error shape and delivery ordering; replay boundary/ordering details; internal backlog durability/retention; shutdown drain failure semantics; then assess Definition completeness before proposing implementation.
