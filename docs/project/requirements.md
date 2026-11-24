@@ -176,3 +176,7 @@ Generic arguments select consumer Event and Channel types only. `context.Context
 ## Latest Define decision — configuration is mandatory (2026-11-24)
 
 `Config(...)` is mandatory. If no successful `Config(...)` call has completed, `PrepareLog[TEvent, TChannel](ctx)` must fail with an explicit configuration-not-initialized error. It must not select a default storage directory, infer configuration from the environment, or silently initialize with implicit settings. A failed Config call does not count as successful initialization; only a successful one-time Config establishes the immutable runtime configuration. This decision resolves the previously open behavior when Config is omitted.
+
+## Latest Define decision — concurrent preparation waits for initialization (2026-11-24)
+
+Concurrent calls to `PrepareLog[TEvent, TChannel](ctx)` during the first storage initialization wait for that single initialization attempt to finish; they do not fail merely because initialization is in progress and must not initialize storage independently. Each waiting caller may stop waiting when its own context is cancelled or its deadline expires. If the initialization attempt fails, the immutable successful configuration remains set and a later `PrepareLog` call may retry initialization. Configuration remains one-time and cannot be changed after initialization has begun.
