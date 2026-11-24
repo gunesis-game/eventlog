@@ -425,3 +425,23 @@ All six decisions preserve the existing consumer-facing API, including `PrepareL
 
 Eventlog adopts the lock-free governance baseline from `gunesis-game/project-steering-template` 1.3.0. There is no repository-wide execution lock, worker claim, exclusive ownership or single-worker restriction. Multiple contributors and cycles may proceed concurrently; the registry and handoff record progress, while contributors coordinate through ordinary Git collaboration, review and conflict resolution. The existing Cycle 1 ID, sequence, execution order and Define phase are preserved.
 
+
+
+## Proposed D-023 — Log-wide queue ownership and persistence concurrency (not approved)
+
+**Question:** Should eventlog use one internal queue owned by each Log, with multiple persistence workers processing different logical Events concurrently while preserving serial processing for each individual logical Event?
+
+Proposed model:
+
+1. Each Log owns one bounded internal ingress queue for immutable snapshots captured by its monitors.
+2. A Log-internal dispatcher dequeues snapshots and schedules them by canonical logical Event identity.
+3. At most one persistence operation for a given logical Event runs at a time. Its snapshots retain FIFO enqueue order; a later snapshot for that Event cannot overtake an earlier one.
+4. Different logical Events may be persisted concurrently by multiple workers, avoiding unnecessary serialization between unrelated Events.
+5. Global sequence numbers are assigned centrally at the commit/serialization point. The committed sequence defines the total order observed by Readers and notifications.
+6. Queue capacity, dispatch lanes/scheduling and worker count remain internal implementation details. Backpressure follows D-022: pause/delay monitoring when bounded capacity is exhausted; never drop already-enqueued snapshots and never block consumer field assignments.
+
+This proposal composes with approved D-020 through D-022. It introduces no consumer-facing queue, method, callback, configuration requirement or API change.
+
+**Trade-off to confirm:** the shared ingress queue and scheduler add internal coordination complexity, but allow unrelated logical Events to make persistence progress concurrently while preserving each Event's own history. A simpler single persistence worker would serialize unrelated Events unnecessarily.
+
+Status: Proposed only. Do not implement or update the canonical architecture until the user explicitly approves this decision.
