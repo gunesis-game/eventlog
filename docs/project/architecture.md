@@ -96,12 +96,14 @@ contains ID/type/fields, Event payload contains ID/channel_id/type/fields, and C
 transaction ID/count/checksum. Versioned JSON is stored as NDJSON; there is no log header.
 
 - **Channel identity:** concrete Channel type, exposed field-name schema, and designated identity field
-  name/value, canonically encoded and UUID v5. Non-identity changes retain logical identity but update
+  name/value, canonically encoded and UUID v5. The selected identity field must contain a UUID;
+  nullable or arbitrary primitive identity types are forbidden. Non-identity changes retain logical identity but update
   the Channel snapshot. A Channel-only mutation does not create an Event occurrence; the next Event
   occurrence uses the latest Channel snapshot. Earlier occurrences keep their original Channel
   association. Identical physical Channel records are deduplicated.
 - **Event identity:** global and independent of Channel. It is based on concrete Go Event type, exposed
-  field-name schema, and designated identity field name/value, canonical encoding and UUID v5.
+  field-name schema, and designated identity field name/value, canonical encoding and UUID v5. The
+  consumer-selected identity field must contain a UUID, not an arbitrary primitive or nullable value.
   Non-identity data changes keep logical ID and create new physical occurrences.
 - **Occurrence/HEAD:** each append or detected selected Event-field change creates an immutable physical
   occurrence associated with one Channel. Older occurrences remain in history. Highest-sequence
@@ -159,7 +161,7 @@ The exact canonical identity payload layout after the existing domain prefix is 
 
 The already-approved namespace, Event/Channel domain prefixes, permanent primitive tags, big-endian framing, UUID v5 derivation, and non-identity value exclusion remain unchanged. Format byte is intentionally redundant with the domain prefix's v1 marker.
 
-Validation/test questions remain open: nullable nil identities allowed or forbidden; raw IEEE distinguishes negative zero from positive zero; invalid UTF-8 Go strings rejected or treated as arbitrary bytes; canonical naming of aliases/generic instantiated types; and maximum framing sizes. These are not silently decided by this approval.
+Validation/test questions remain open: accepted UUID type/representation; canonical UUID byte order and UUID tag; metadata UTF-8 policy; canonical naming of aliases/generic instantiated types; and maximum framing sizes. Nullable and primitive identities are excluded. These are not silently decided by this approval.
 
 ## Append transaction flow
 

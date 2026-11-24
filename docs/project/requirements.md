@@ -33,7 +33,8 @@ from replay into live tailing. It is not tied to an event-sourcing framework or 
   association.
 - Logical Event identity is global and independent of channel. Derive it from the concrete Go Event type
   name, all field names explicitly exposed through `Fields()`, and the consumer-designated identity field
-  name/value. Canonically encode these identity inputs and derive a deterministic UUID v5. Changes to
+  name/value. The selected identity field **must contain a UUID**; arbitrary primitive, string, numeric,  nullable, or non-UUID identity values are forbidden. Canonically encode these identity inputs and derive
+  a deterministic UUID v5. Changes to
   non-identity fields do not change the logical Event ID, but each detected data change is a new
   immutable occurrence. Repeated occurrences retain history and channel associations; the latest
   occurrence determines HEAD/current state.
@@ -102,11 +103,11 @@ The exact canonical identity payload layout after the existing domain prefix is 
 3. Concrete type name: UTF-8 bytes framed by u32 BE byte length.
 4. Schema field count: u32 BE, followed by each field name sorted bytewise by UTF-8 bytes and framed by u32 BE byte length.
 5. Identity field name: UTF-8 bytes framed by u32 BE byte length.
-6. Identity value: existing permanent primitive tag followed by canonical payload. Nullable nil uses Null tag only; named primitive types use their underlying tag. Identity field must be part of exposed schema and value type must match.
+6. Identity value: UUID-specific encoding (UUID tag value TBD) followed by the UUID's canonical 16 bytes. Identity field must be part of the exposed schema and UUID-typed; nullable or arbitrary primitive identity values are forbidden.
 
 The already-approved namespace, Event/Channel domain prefixes, permanent primitive tags, big-endian framing, UUID v5 derivation, and non-identity value exclusion remain unchanged. Format byte is intentionally redundant with the domain prefix's v1 marker.
 
-Validation/test questions remain open: nullable nil identities allowed or forbidden; raw IEEE distinguishes negative zero from positive zero; invalid UTF-8 Go strings rejected or treated as arbitrary bytes; canonical naming of aliases/generic instantiated types; and maximum framing sizes. These are not silently decided by this approval.
+Validation/test questions remain open: accepted UUID Go type/representation; canonical UUID byte order and UUID tag assignment; metadata UTF-8 policy; canonical naming of aliases/generic instantiated types; and maximum framing sizes. Nullable and primitive identities are excluded.
 
 ### Append and transaction guarantees
 - The only approved public API is `eventlog.PrepareLog[TEvent, TChannel](ctx) (TEvent, TChannel,

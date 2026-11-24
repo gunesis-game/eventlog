@@ -243,12 +243,11 @@ Edge cases to explicitly decide/test: identity nil-pointer validity; float negat
 Required golden-vector suite: one vector per permanent primitive tag, nil and non-nil nullable values, named primitives, type/schema variation, Event-vs-Channel domain separation, stable ID when non-identity values change, and sensitivity to identity value/type/schema changes. **User approved this byte layout on 2026-11-24.** Remaining edge-case validation questions are listed in active requirements and are not yet decided.
 
 
-## Define edge-case proposal — identity values (not approved)
-Recommendations for the remaining canonical identity edge cases:
-- **Nullable identity:** Permit nil for nullable primitive identity fields and encode with the existing Null tag only. Nil is a distinct identity from any concrete zero/empty value; consumers are responsible for choosing whether nil's logical uniqueness is appropriate.
-- **Floating negative zero:** Preserve raw IEEE bits; `-0` and `+0` are distinct identity values, consistent with the already approved primitive encoding.
-- **UTF-8:** Reject invalid UTF-8 for string identity values and field/type metadata, rather than accepting byte strings that JSON would normalize differently. String length/framing is measured in UTF-8 bytes.
-- **Type names:** Use runtime concrete named type identity (package path and type name). Type aliases resolve to the aliased concrete type. Generic instantiations use the runtime concrete type name as returned by Go reflection; verify behavior with golden tests across supported Go versions.
-- **Framing limits:** Enforce uint32 framing limits for each component and schema count, with an additional documented practical maximum before allocating; define the exact practical cap alongside benchmark/validation work.
+## Identity edge-case proposal — updated after user correction (not approved)
+- **UUID-only identity:** Consumer-selected Event and Channel identity fields must contain a UUID. Primitive, string, numeric, nullable, or otherwise non-UUID identity values are forbidden. This is a user-directed requirement, not an optional proposal.
+- **UUID encoding:** Use the UUID's canonical 16-byte representation; UUID-specific tag value and accepted Go UUID type/representation remain open.
+- **UTF-8 metadata:** Recommend rejecting invalid UTF-8 in type/field metadata. UUID identity payload is binary, not UTF-8.
+- **Type names:** Use runtime concrete named type identity (package path and type name). Type aliases resolve to the aliased concrete type. Generic instantiations use runtime concrete type names; verify with golden tests.
+- **Framing limits:** Enforce uint32 framing limits and a documented practical maximum before allocation; define the exact cap with benchmarks.
 
-These recommendations are intentionally conservative and need explicit approval before becoming active requirements. Add targeted golden tests for each.
+Do not re-propose nil or primitive identity values. Add UUID-focused golden tests and metadata/type/framing tests.

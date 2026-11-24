@@ -114,3 +114,7 @@ User approved the exact payload byte layout in PLAN. Promoted to active requirem
 
 ## Identity edge cases next for review
 A recommendation-only subsection in the current PLAN addresses nil identity, raw IEEE negative-zero, invalid UTF-8 policy, Go type-name identity, and practical framing limits. These have not been promoted; user review/approval is required. Byte layout itself is already approved and active.
+
+
+## User correction checkpoint — UUID-only identity (2026-11-24)
+User clarified that the consumer-selected identity field for both Event and Channel **must be a UUID**. Identity may not be nullable or any arbitrary primitive/string/numeric value. The active requirements and architecture are being updated accordingly. UUID payload should be represented canonically as 16 bytes; UUID tag assignment and accepted Go UUID type/representation remain Define questions. Primitive tags remain available for ordinary persisted Fields, not identities. No implementation/build/tests started.
