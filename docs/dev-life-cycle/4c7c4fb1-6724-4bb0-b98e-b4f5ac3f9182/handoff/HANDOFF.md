@@ -41,11 +41,11 @@ The current requirements, architecture, decisions, acceptance matrix, and benchm
 
 ### Reconciliation evidence
 
-- **Repository revision inspected before this decision:** `072eb1216a52492867a826cafbc7b320da2c8d78` (`main`).
+- **Repository revision inspected before this decision:** `1c7c58e680eda3f3aad3dd20d93912a5ada972f3` (`main`).
 - **Project records reviewed in full:** `docs/project/requirements.md`, `architecture.md`, `decisions.md`, `acceptance.md`, and `benchmarks.md`.
 - **Cycle records reviewed:** this plan, current handoff, and `docs/dev-life-cycle/cycle-index.json`.
-- **Decision register:** D-001 through D-038 are Recorded; D-029 is refined by D-032 and D-030/D-031 are historical and superseded for process termination by D-034.
-- **Cross-document corrections made:** stale Channel snapshot, Reader wake-up, retry, and backlog open-item claims were reconciled; the duplicate runtime-shutdown section was consolidated; D-034 replaces the former shutdown-drain sequence with process-lifetime runtime ownership and recovery after process termination; D-035 assigns UUID identity tag `0x03`; D-036 requires valid UTF-8 metadata keys and values and rejects invalid bytes without normalization; D-037 settles reflected Go type naming, alias resolution, opaque instantiated generic names, and the cross-toolchain compatibility limitation. D-038 sets explicit v1 canonical identity framing limits.
+- **Decision register:** D-001 through D-039 are Recorded; D-029 is refined by D-032 and D-030/D-031 are historical and superseded for process termination by D-034.
+- **Cross-document corrections made:** stale Channel snapshot, Reader wake-up, retry, and backlog open-item claims were reconciled; the duplicate runtime-shutdown section was consolidated; D-034 replaces the former shutdown-drain sequence with process-lifetime runtime ownership and recovery after process termination; D-035 assigns UUID identity tag `0x03`; D-036 requires valid UTF-8 metadata keys and values and rejects invalid bytes without normalization; D-037 settles reflected Go type naming, alias resolution, opaque instantiated generic names, and the cross-toolchain compatibility limitation. D-038 sets explicit v1 canonical identity framing limits; D-039 leaves exact registry-key representation as an implementation detail while preserving the observable registration, identity, reuse, and Channel-isolation rules.
 - **Validation boundary:** this is a semantic document reconciliation. No implementation, Go build, Go tests, or benchmark measurements have been run.
 
 | Candidate item | Classification | Current evidence / next action |
@@ -60,7 +60,7 @@ The current requirements, architecture, decisions, acceptance matrix, and benchm
 | Canonical alias/generic type naming | Resolved | D-037 and architecture section “Canonical identity encoding” |
 | Metadata UTF-8 policy | Resolved | D-036 and architecture section “Metadata UTF-8 policy” |
 | Maximum framing sizes | Resolved | D-038 and architecture section “Canonical identity framing limits (v1)” |
-| Exact internal registry-key composition | Unresolved/internal design detail | Confirm whether existing identity/registration rules are sufficient and defer exact representation to implementation if no observable contract depends on it |
+| Exact internal registry-key composition | Resolved/deferred to implementation | D-039: representation is internal; architecture specifies required registration, identity, reuse, and Channel-isolation behavior |
 | Numeric performance/memory targets and measurement criteria | Unresolved | Agree target environments, resource ceilings, repetitions, warm-up, and acceptance methodology |
 
 ### Resolved
@@ -75,7 +75,7 @@ The current requirements, architecture, decisions, acceptance matrix, and benchm
 
 ### Unresolved
 
-- Remaining architecture details: exact internal registry-key details.
+- The exact internal registry-key representation is intentionally deferred to implementation under D-039; observable registration and reuse behavior is specified.
 - Measurable performance and memory targets, representative target environments, and benchmark measurement/acceptance criteria.
 
 ### Next action
