@@ -6,7 +6,7 @@
 - **Registry:** paused at Define after this handoff
 - **Execution lock:** released after checkpoint
 - **Implementation:** none; no build or Go tests started.
-- **Latest resume checkpoint:** lock claim commit `901769611bbd6469accaddac74bd843c2607d423`; cycle resumed in Define, then paused pending user direction/continued design work.
+- **Latest checkpoint:** proposal commit `c57fbdf2f336d0c3c6370233249bdf59a8f22896`; handoff update `68b42ab313c84617dd13832e529ee8f01ee82846`; registry pause commit `1d2d691350e71f7b7d2f11349d57951aa5e36074`; lock release commit `e0dd9ad1a53777376f3eae3d36394b8897bbcfd2`.
 
 ## Correction after user review
 The previous cleanup was wrong: it optimized for file size and stripped substantive requirements/design from active project docs, leaving the archive as the place to find them. The user explicitly said this was not simply moving content and that architecture must retain the complete design. This pass restores and curates the active docs. Active specifications must remain complete and topic-oriented; archives are provenance only.
