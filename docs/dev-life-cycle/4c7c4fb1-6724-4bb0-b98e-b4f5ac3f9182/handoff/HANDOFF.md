@@ -360,3 +360,21 @@ The next session must re-fetch shared `main` and verify `docs/dev-life-cycle/exe
 4. Finalize initialization, cancellation, reader/resource, terminal error, benchmark, and acceptance criteria.
 5. Reconcile requirements, architecture, plan, and handoff; remove stale active contradictions while retaining historical decisions only when clearly marked superseded.
 6. Complete Define consistency review and obtain explicit user approval before implementation.
+
+
+## Latest session checkpoint — event-field changes append occurrences (2026-11-24)
+
+- User approved that a detected change to selected Event fields creates a new persisted event occurrence.
+- Earlier occurrences remain immutable and retained in history. The internal polling manager must not overwrite an earlier persisted occurrence.
+- Important unresolved interaction: current logical Event identity is derived from Event type plus exposed fields. A changed field set therefore appears to derive a different ID under the existing rule, while the new decision speaks in terms of a changed occurrence. Do not assume continuity of logical identity or HEAD promotion; explicitly reconcile event identity, occurrence history, and index ordering in Define before implementation.
+- The 100 ms default polling interval and one manager-owned scheduler remain approved.
+- Execution lock was re-fetched and is active for Cycle 1 under ChatGPT-GPT-6. No implementation, build, or Go tests have started.
+
+### Next Define tasks
+
+1. Resolve how changed Event field values interact with logical Event identity, occurrence association, HEAD, and ordering.
+2. Define Channel-field changes and whether they create a new channel identity, move current associations, or require another internal persistence behavior.
+3. Define caller synchronization and snapshot consistency; polling does not make unsynchronized struct writes race-safe.
+4. Specify scheduler shutdown/retry and internal persistence-error handling without adding public operational APIs.
+5. Complete initialization/cancellation/resource, benchmark, acceptance, and cross-document consistency review.
+6. Obtain explicit user approval before implementation.
