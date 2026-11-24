@@ -176,3 +176,22 @@ The execution lock has been released. Resume this same cycle through the normal 
 ## Configuration decision — 2026-11-24
 
 Generic arguments to `PrepareLog[TEvent, TChannel](ctx)` select the consumer-defined types, not runtime storage configuration. A separate package-level `eventlog.Config(...)`-style facility is acceptable. Avoid requiring environment variables. Keep context semantics focused on cancellation/deadlines rather than using context as a hidden configuration store. The precise Config signature and scope/defaults need a concrete example and confirmation before implementation.
+
+
+## Latest Define decision — one-time immutable runtime configuration (2026-11-24)
+
+Configuration is process/runtime initialization state, not mutable runtime state and not context-bound state. A package-level `eventlog.Config(...)`-style call configures the runtime exactly once, before the first `PrepareLog` initialization. The configuration is validated, captured, and frozen; all later operations use that same immutable configuration. A second configuration attempt, or an attempt after runtime initialization has begun, must return an error and must never replace or mutate the active configuration. Consumers cannot change settings midway through execution by supplying another context or calling Config again.
+
+The approved preparation call remains unchanged:
+
+```go
+if err := eventlog.Config(
+    eventlog.WithStorageDirectory("./data/events"),
+); err != nil {
+    return err
+}
+
+event, channel, err := eventlog.PrepareLog[MyEvent, MyChannel](ctx)
+```
+
+Generic arguments select consumer Event and Channel types only. `context.Context` continues to provide cancellation/deadline semantics; it does not carry configuration. Environment variables are not required. The exact option names/defaults, behavior if Config is omitted, and synchronization/error details for concurrent Config versus first PrepareLog remain open for final API specification. No implementation, build, or Go tests have started.
