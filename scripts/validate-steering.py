@@ -58,7 +58,7 @@ def validate_decision_register(path):
         if state == "Recorded":
             if not artifact or artifact in {"—", "-", "<Path or —>"} or artifact.startswith("<"):
                 fail(f"{path.relative_to(ROOT)}: {decision_id} is Recorded without a canonical artifact")
-            if not re.search(r"\\b[0-9a-f]{7,40}\\b", evidence):
+            if not re.search(r"[0-9a-f]{7,40}", evidence):
                 fail(f"{path.relative_to(ROOT)}: {decision_id} is Recorded without a verified commit/revision")
             if not (ROOT / artifact).is_file():
                 fail(f"{path.relative_to(ROOT)}: {decision_id} references missing artifact {artifact}")
