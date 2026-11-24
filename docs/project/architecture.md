@@ -23,7 +23,7 @@ eventlog is an embedded Go library using local filesystem storage. A single proc
 The persisted envelope has three kinds: `channel`, `event`, and `commit`. Each record has a `schema_version: 1` and a global sequence number; there is no log header.
 
 - **Channel identity:** channel type plus all exposed channel fields.
-- **Logical event identity:** global and independent of channel. Derive the initial ID from event type plus the initial exposed-field snapshot, then retain that ID for the lifetime of the prepared Event value as its fields change. Do not recompute the logical ID from later snapshots.
+- **Logical Event identity:** global and independent of channel. Derive the UUID v5 from the concrete Go Event type name, exposed `Fields()` field-name schema, and consumer-designated identity field name/value, canonically encoded. Non-identity field changes retain the logical ID but create new occurrences.
 - **Occurrence:** every append or detected selected-field change produces a new immutable physical occurrence associated with one channel. Field changes retain the Event's original logical ID; earlier occurrences remain in history. Latest occurrence defines HEAD/current channel and ordering.
 - **Transaction ID:** sequence of the first transaction record.
 - **Transaction order:** channel record if new, then event occurrence, then commit marker. Existing-channel append writes event then commit.
@@ -221,9 +221,9 @@ The internal change manager uses a 100 ms default polling interval. A single man
 When polling observes a changed selected Event field snapshot, the change manager persists a new physical event occurrence. Persisted history is append-only: the prior occurrence is immutable and retained; no in-place rewrite is permitted. This decision does not resolve whether a changed field snapshot maps to the same logical event ID or a new ID. The current identity rule derives event ID from event type plus exposed fields, so the interaction between changed field values, logical identity, HEAD promotion, and ordering must be explicitly reconciled in Define before implementation.
 
 
-## Define decision — stable logical Event ID across field changes (approved 2026-11-24)
+## Define decision — stable Event ID from initial snapshot (superseded 2026-11-24)
 
-The initial logical Event ID is derived from the concrete Event type and the initial selected-field snapshot. Once associated with a prepared consumer Event value, that ID remains stable for its lifetime; later field snapshots must not recalculate it. Every detected selected-field change persists a new immutable occurrence carrying the same logical Event ID. The previous occurrence remains authoritative history, while the new occurrence becomes HEAD and determines the current channel and ordering. Channel identity remains independent. This supersedes the earlier current-fields-derived Event ID rule. The internal association and recovery representation must preserve the stable ID without exposing a new public API.
+This provisional rule was incorrect: Event identity is not based on an initial full-field snapshot or on retaining an ID for a prepared struct instance. The consumer-designated identity field defines the logical entity identity, together with the Event type and exposed field-name schema. Non-identity data changes create new occurrences under the same logical ID.
 
 
 ## Define decision — identity and occurrence are distinct (approved 2026-11-24)
