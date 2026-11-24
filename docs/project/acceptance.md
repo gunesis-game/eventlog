@@ -132,7 +132,7 @@ The notification stream is not an acknowledgement mechanism. A successful send d
 
 ## Layer 7 — Runtime lifecycle
 
-Tests verify the process-scoped runtime, initialization, concurrent use, cancellation, shutdown, and resource cleanup.
+Tests verify process-lifetime runtime ownership, initialization, concurrent use, caller-scoped cancellation, and recovery after process termination.
 
 | ID | Scenario | Pass condition |
 |---|---|---|
@@ -141,17 +141,16 @@ Tests verify the process-scoped runtime, initialization, concurrent use, cancell
 | RT-03 | Repeated configuration | Configuration calls follow the approved configuration contract. |
 | RT-04 | Concurrent preparation | Concurrent `PrepareLog` calls safely obtain the appropriate runtime instances. |
 | RT-05 | Preparation cancellation | Cancelling a caller's Context stops that caller's preparation or wait without cancelling shared runtime workers. |
-| RT-06 | Runtime resource ownership | Shared resources are not prematurely released while still in use. |
-| RT-07 | Graceful shutdown | Runtime attempts to drain pending deliveries within its fixed bounded grace period. |
-| RT-08 | Shutdown timeout | Runtime aborts delivery after the grace period expires. |
-| RT-09 | Shutdown failure reporting | Lifecycle failure is reported best-effort through the affected Channel's `Errors()` stream. |
-| RT-10 | Pending history after shutdown | Undelivered committed occurrences remain recoverable. |
-| RT-11 | Sender termination | Sender goroutines exit before their notification streams are closed. |
-| RT-12 | Resource cleanup | Files and other runtime resources are released correctly. |
-| RT-13 | Independent Reader failure | A failed Channel Reader does not cause unrelated Readers to fail. |
-| RT-14 | Repeated lifecycle cycles | Repeated initialization, shutdown, and recovery do not leak resources or corrupt history. |
+| RT-06 | Runtime resource ownership | Shared runtime resources remain owned by the process and are not tied to an individual preparation caller. |
+| RT-07 | Process-lifetime workers | Cancelling or completing one caller's Context does not stop shared append, Reader, or delivery workers. |
+| RT-08 | Process termination during append | An incomplete trailing transaction is discarded from its beginning during recovery; no partial transaction is exposed. |
+| RT-09 | Pending delivery after process termination | Committed undelivered occurrences still present in the authoritative append log are recovered and delivered before newer occurrences on restart. |
+| RT-10 | Delivery crash window | Tests permit duplicate consumer delivery around process termination and do not claim exactly-once processing. |
+| RT-11 | No graceful process-exit contract | No library-managed process-exit hook, signal handler, graceful drain, final sync, or stream-closure guarantee is required. |
+| RT-12 | Independent Reader failure | A failed Channel Reader does not cause unrelated Readers to fail. |
+| RT-13 | Repeated process lifetimes | Repeated process starts and recovery do not leak persistent state or corrupt committed history. |
 
-These tests must exercise the approved lifecycle contract. They must not introduce a public shutdown method, configurable shutdown timeout, or new consumer-facing cancellation mechanism.
+These tests must exercise the process-lifetime contract. They must not introduce a public shutdown method, configurable shutdown timeout, process-wide signal interception, or new consumer-facing cancellation mechanism. Process termination is tested through subprocess boundaries rather than an in-process runtime shutdown API.
 
 ## Layer 8 — Public API and end-to-end integration
 
