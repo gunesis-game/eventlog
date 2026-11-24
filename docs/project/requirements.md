@@ -184,3 +184,7 @@ Concurrent calls to `PrepareLog[TEvent, TChannel](ctx)` during the first storage
 ## Latest Define decision — absolute storage path captured at configuration time (2026-11-24)
 
 `WithStorageDirectory(path)` accepts a non-empty path. During a successful `Config(...)` call, eventlog resolves that path against the process working directory and captures the resulting absolute path in the immutable runtime configuration. This means a relative input such as `./data/events` is accepted, but the resolved absolute path—not the original relative string—is retained and used for the process lifetime. A later working-directory change cannot redirect storage. An empty or whitespace-only path is invalid. The exact path cleaning, symlink, filesystem existence, and permission-validation rules remain open; `Config` must not silently create or initialize the log storage as part of path resolution.
+
+## Latest Define decision — Config option validation (2026-11-24)
+
+`Config(options ...Option)` accepts multiple distinct options. The storage-directory option is mandatory; calling `Config()` without it fails. A nil option fails. Supplying the same setting more than once fails; options never use last-option-wins behavior. A failed Config validation leaves runtime configuration uninitialized and may be retried. The package controls option implementations through an unexported application method; consumers configure settings using exported option constructors such as `WithStorageDirectory(path)`.
