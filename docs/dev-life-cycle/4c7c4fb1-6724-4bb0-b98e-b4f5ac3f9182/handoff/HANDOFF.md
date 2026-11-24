@@ -76,7 +76,7 @@ User approved the public payload simplification: consumers receive only `T Event
 
 ## Resume checkpoint — notification construction and remaining design proposals (2026-11-24)
 - Re-read active requirements/architecture, Cycle 1 plan and handoff after lock claim. Cycle remains Define; no implementation/build/test started.
-- Proposed notification accessor mechanism: Channel embeds library-owned `eventlog.Notifications[TEvent]`, initialized by PrepareLog, exposing receive-only `Notifications()`; helper is excluded from persisted Fields. This keeps Event-only payload and avoids public Ack/token metadata.
+- Earlier embedded-helper proposal was rejected. The consumer-defined Channel accessor is `Notifications() <-chan TEvent`; eventlog still needs a separate internal send-side ownership/construction mechanism.
 - Proposal recommends pointer type arguments, stable pair reuse, per-caller Context cancellation with library-owned shared init, and object-scoped quarantine for identity mutation.
 - Acceptance matrix/benchmark scenarios added to proposal. None promoted to active docs; requires explicit user approval.
 - Next: user review of proposal, then finalize remaining API/identity/delivery diagnostics/shutdown decisions, acceptance/benchmark matrix, reconcile active requirements and architecture, and seek explicit approval to exit Define. Implementation still prohibited.
@@ -88,14 +88,14 @@ User approved the public payload simplification: consumers receive only `T Event
 
 
 ## User correction checkpoint (2026-11-24)
-- User explicitly rejected a public notification-helper struct. Channel interface must require a notification method/function implemented by consumer-defined Channel structs; consumer defines its own Channel type. eventlog uses that method for notifications.
+- User explicitly rejected a public notification-helper struct and consumer callback/sink method. Consumer-defined Channel exposes `Notifications() <-chan TEvent`; eventlog's send-side ownership/construction mechanism remains to be resolved.
 - This supersedes the embedded `eventlog.Notifications[T]` helper proposal. Signature and internal delivery mechanism remain open for Define.
 - Avoid re-proposing a library-owned public helper or embedding pattern. Update active requirements/architecture only after final method signature and semantics are resolved.
 
 
 ## Next Define checkpoint — corrected API and pending notification questions
 - Removed the prior embedded-helper proposal from the current notification design section; it is superseded and must not be considered a valid option.
-- Required API shape is consumer-defined Channel struct implementing the notification function/method required by the Channel interface. Exact signature remains pending and should not be guessed.
+- Required API shape is a consumer-defined Channel struct exposing `Notifications() <-chan TEvent`. No callback/sink method. Internal send-side construction/ownership remains unresolved.
 - Continue with API/lifecycle and identity mutation edge cases, then complete notification method signature/ownership/backpressure/recovery, acceptance matrix, reconcile requirements+architecture, and request Define exit approval.
 
 
@@ -138,12 +138,10 @@ User clarified that the consumer-selected identity field for both Event and Chan
 - Lock release is being performed explicitly for this pause. Cycle 1 remains resumable and is not complete or cancelled.
 
 
-## Resume proposal checkpoint — Channel notification method (2026-11-24)
-- Resumed Cycle 1 at Define under the shared execution lock after confirming the lock was released. Claim commit `d0ae8eaec74246737cddae8aa2fc7006ffacbc23` was fetched back and confirmed on main; registry resume commit `d0a9ce1245c2fbd58d99cb6bcca37d2c8d3f0e9e`.
-- Notification construction proposal for user review: consumer-defined Channel implements a generic notification sink method, recommended shape `Notify(event TEvent) error`. Consumer may expose its own receive-only accessor (e.g. `Notifications() <-chan TEvent`) on its concrete Channel type, but eventlog does not prescribe an accessor/helper struct or embed its own channel. The sink owns channel creation/buffering; eventlog calls Notify from its private dispatcher, not the persistence/polling path. A blocking sink can stall the dispatcher while the durable backlog accumulates. Errors are surfaced through private delivery diagnostics/status; after a successful sink call, internal dispatch completion is recorded, with crash-window duplicates possible. This is a proposal only; no requirements/architecture promotion and no implementation.
-- This design must be reviewed for generic constraint feasibility and error semantics, including whether consumer notification methods may block, what returned errors mean, and the durability boundary around internal dispatch completion.
-- Next action: user review/approval or correction of this proposed sink contract; after decision, continue remaining Define topics and reconcile acceptance/benchmarks. Implementation remains prohibited until explicit Define exit approval.
-- Cycle is now blocked pending that user design decision; execution lock released.
+## Superseded notification-method checkpoint
+Earlier sink-method discussion is superseded and intentionally removed from this active handoff.
+The settled public accessor is `Notifications() <-chan TEvent`; no consumer callback/sink method is
+part of the API. The remaining issue is internal writable-channel ownership and construction.
 
 
 ## User correction — remove Notify; settle Notifications accessor (2026-11-24)
