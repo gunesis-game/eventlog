@@ -15,7 +15,7 @@ supports concurrent goroutine use but does not coordinate multiple processes or 
 Consumer Event/Channel domain semantics remain outside the library; the consumer explicitly selects
 persisted fields.
 
-The public preparation entry point remains `PrepareLog[TEvent, TChannel]`; its approved consumer-facing contract must not be changed without explicit approval. In this approved API, `TEvent` denotes the common `Event` interface implemented by concrete Event types, not one individual concrete Event type. The Channel interface defines `Notifications() <-chan Event`. A single consumer-defined Channel notification stream is heterogeneous and may carry multiple concrete Event types (for example, `OrderCreated` and `OrderCancelled`) in commit order. Accordingly, a factory `func(chan TEvent) TChannel` is compatible because its channel element is the common Event interface. The earlier concrete-event factory example is superseded. Event and Channel constraints require `Fields() Fields`.
+The public preparation entry point is `PrepareLog[TEvent, TChannel]`. `TEvent` is a concrete Event type constrained by the common `Event` interface; `TChannel` is a concrete Channel type constrained by `Channel`. The required factory is `func(chan Event) TChannel`, so the single Channel notification stream can carry heterogeneous concrete Event values. The Channel interface exposes `Notifications() <-chan Event` and `Errors() <-chan error`. These approved contracts must not be expanded or changed without explicit user approval.
 Consumers receive values, not a Log handle; internal Log owns append/read/next, persistence, recovery,
 change manager, synchronization and lifecycle. No public Log handle or
 Append/Read/Next/Close/Flush/Compact API is approved.
@@ -33,9 +33,10 @@ configuration is not inferred from Context or environment.
 ## Logical components
 
 - **Public API:** The only approved public entry point is package-level generic `PrepareLog[TEvent,
-  TChannel](ctx, newChannel)`, returning `(TEvent, TChannel, error)`. `TEvent` is the common `Event`
-  interface and `newChannel` is the required `func(chan TEvent) TChannel` factory. The Channel interface
-  exposes `Notifications() <-chan Event`; one Channel stream carries multiple concrete Event types.
+  TChannel](ctx, newChannel)`, returning `(TEvent, TChannel, error)`. `TEvent` is a concrete type constrained
+  by `Event`; `TChannel` is a concrete type constrained by `Channel`; `newChannel` is the required
+  `func(chan Event) TChannel` factory. The Channel interface exposes `Notifications() <-chan Event` and
+  `Errors() <-chan error`; the notification stream carries heterogeneous concrete Event values.
   Consumers receive event and channel values, not a Log handle. The package owns the internal `Log`
   instance and all append/read/next/lifecycle operations; none of those operations are exposed to consumers
   at this stage. Consumer event and channel types implement `Fields() Fields`; consumers set or change their
@@ -75,18 +76,18 @@ configuration is not inferred from Context or environment.
   failures are errors, never silently skipped. Typed Readers may filter concrete Event types for typed
   reads, but independent typed Readers do not compose the heterogeneous notification stream.
 - **Preparation barrier:** `PrepareLog` is event-specific, while Channel resolution, notification delivery,
-  and runtime lifecycle are Channel-specific. All concrete Event types/decoders for one logical Channel
-  must be registered before that Channel's heterogeneous historical notification replay starts. The
-  barrier is approved; its completion signal is not. Sequential `PrepareLog` calls alone provide no proof
-  that registration is complete. Resolve this through an existing or internal lifecycle boundary without
-  adding consumer-facing `Activate`, `Start`, `RegisterEventType`, or `Close` methods.
+  and runtime lifecycle are Channel-specific. Concrete Event registration is derived internally from the
+  concrete `TEvent` generic argument. Historical notification replay waits asynchronously until every
+  decoder required by committed history for that logical Channel is available; the first `PrepareLog` call
+  must not block in a way that prevents subsequent registrations. No consumer-facing registration or
+  activation method is added. The exact timeout/terminal policy for a decoder that never registers remains open.
 - **Compactor:** Produces replacement segments/index without modifying reader-pinned files,
   validates/checksums and syncs them, finalizes, atomically switches manifest/index, and deletes old
   generations only after the last reader releases its pin.
 - **Change manager/scheduler:** One managed scheduler per prepared Log/change manager polls selected
   Event/Channel fields every 100 ms; no per-field goroutines. Cadence is internal/test-only. Consumer
   synchronizes its own mutations. Detected changes route to internal persistence.
-- **Notification dispatcher/backlog:** The Channel interface exposes `Notifications() <-chan Event`, where `Event` is the common interface implemented by all concrete Event types. One Channel owns one heterogeneous stream and may carry multiple concrete Event implementations in commit order. No `Notify` callback/sink method, public helper struct, or consumer embedding requirement is permitted. eventlog delivers immutable concrete Event snapshots after commit without blocking persistence/scheduler on slow consumers. Internal durable backlog/replay and error handling remain required. The internal writable-channel construction path preserves this exact receive-only consumer API. `TEvent` in the approved generic preparation API is the common Event interface, so the typed factory channel can carry heterogeneous concrete Event implementations. Retry, recovery, drain, and lifecycle failure semantics must be specified honestly; exactly-once consumer processing is not guaranteed without consumer acknowledgment or transactional integration.
+- **Notification dispatcher/backlog:** The Channel interface exposes `Notifications() <-chan Event` and `Errors() <-chan error`. One Channel owns one heterogeneous notification stream and one shared error stream. No `Notify` callback/sink method, public helper struct, or consumer embedding requirement is permitted. eventlog delivers immutable concrete Event snapshots after commit without blocking persistence/scheduler on slow consumers. Internal durable backlog/replay remains required. The error stream has capacity one, retains the first fatal error internally, and uses best-effort non-blocking delivery. A fatal Reader error terminates that Channel's Reader, then eventlog closes the notification stream and error stream after the buffered fatal error; safe recoverable errors may be retried/handled without terminating only when order and completeness are preserved. Exactly-once consumer processing is not guaranteed without consumer acknowledgment or transactional integration.
 
 ## Record model and identity
 
@@ -227,7 +228,7 @@ committed Event through the existing internal type registration/codec mechanism.
 for a requested concrete type while advancing, but they are not separate notification sources. Corruption,
 unknown persisted Event types, and decode failures are errors, never silently skipped.
 
-The reader stays internal under the currently approved public API. The common `Event` interface and `Notifications() <-chan Event` accessor are settled; pointer/value convention, occurrence wrapper, and close/resource semantics remain open.
+The reader stays internal. The common `Event` notification payload and `Notifications() <-chan Event` accessor, the concrete `TEvent` generic constraint, and `Errors() <-chan error` accessor are approved. Pointer/value convention, occurrence wrapper, and remaining resource-close details remain open.
 
 ## Runtime lifecycle and shutdown
 
@@ -299,8 +300,7 @@ memory use and platform parity precede numeric performance targets.
 
 ## Unresolved architectural details
 
-- Exact public Event/Channel interface, field selector signatures, generic constraints, pointer/value
-  reconstruction convention and occurrence shape.
+- Field selector signatures, pointer/value reconstruction convention and occurrence shape; the generic constraints, factory type and notification/error accessors are approved.
 - UUID Go type/representation, canonical byte order and identity-tag assignment; metadata UTF-8 policy;
   canonical naming of aliases/generic instantiated types; and maximum framing sizes. The field-schema
   framing layout is approved, but these validation details remain open.
@@ -308,9 +308,7 @@ memory use and platform parity precede numeric performance targets.
   terminal-error semantics.
 - Identity-field mutation detection and transition mechanics, snapshot consistency,
   occurrence/HEAD/index and Channel association effects.
-- Preparation-barrier completion signal; internal writable-channel ownership; backlog durability/retention
-  and replay boundary; retry termination; delivery/error ordering; scheduler interaction and shutdown
-  drain failure.
+- Decoder absence/timeout policy; internal writable-channel ownership; backlog durability/retention and replay boundary; retry termination for recoverable failures; scheduler interaction and shutdown drain failure.
 - Consumer synchronization/snapshot consistency details.
 - Benchmarks, memory/performance targets, and measurable acceptance criteria.
 
