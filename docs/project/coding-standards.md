@@ -2,7 +2,16 @@
 
 ## Purpose
 
-These coding standards establish consistent expectations for code organization, naming, implementation, and maintainability. They apply across the project and must be interpreted according to the language, framework, and tooling used by the project.
+These coding standards establish consistent expectations for code organization, naming, implementation, and maintainability. They apply across the project and must be interpreted according to the language, framework, and tooling used by the project. They own implementation conventions and code quality—not product requirements or architectural decisions.
+
+## Documentation Authority
+
+- Product capabilities, observable behavior, domain rules, constraints, quality expectations, and acceptance criteria belong in `requirements.md`.
+- Technical structure, boundaries, responsibilities, interfaces, algorithms, storage/data representation, and design trade-offs belong in `architecture.md`.
+- These standards govern implementation quality and consistency within the approved architecture; they do not create or redefine either requirements or architecture.
+- Cycle plans and handoffs record temporary scope, progress, decisions awaiting approval, and next actions. They are not durable sources of product requirements or architecture.
+- Keep details in their owning document. Use concise references instead of duplicating full content. If a durable decision changes, update its owner and reconcile dependent documents.
+- Clearly label proposals, approved decisions, verified implementation facts, and unresolved questions. Never present a proposal as approved or intended design as implemented/verified behavior.
 
 ## Architectural Alignment
 
