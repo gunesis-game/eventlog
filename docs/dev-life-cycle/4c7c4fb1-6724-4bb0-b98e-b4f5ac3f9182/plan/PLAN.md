@@ -32,10 +32,10 @@ Authoritative durable decisions are consolidated in `docs/project/requirements.m
 - **Platforms:** standard library and local filesystem; Linux/Windows parity; macOS excluded.
 
 ## Open Define decisions
-1. Final Go-valid API signatures, constraints, selectors, pointer/value convention and occurrence result shape while preserving the approved PrepareLog call.
+1. Field selector signatures, pointer/value convention and occurrence result shape; the `PrepareLog` generic constraints, factory type and Channel notification/error accessors are approved.
 2. Prepared-value association, internal lifecycle, cancellation, reader/resource cleanup and terminal errors.
 3. Identity-field mutation response and precise Channel change semantics.
-4. Preparation-barrier completion, backlog durability/replay boundary, retry termination, delivery/error ordering and shutdown failure.
+4. Decoder absence/timeout policy, backlog durability/replay boundary, recoverable retry termination, and shutdown drain failure.
 5. Snapshot consistency and consumer synchronization requirements.
 6. Benchmark scenarios, memory/performance targets and complete acceptance matrix.
 
@@ -47,7 +47,7 @@ Authoritative durable decisions are consolidated in `docs/project/requirements.m
 - [x] Segments, manifest, index and compaction.
 - [x] Configuration contract and errors.
 - [x] Poll cadence, Event identity/occurrence distinction, notification direction.
-- [ ] Finalize remaining API/lifecycle/error details.
+- [ ] Finalize remaining lifecycle, decoder-absence and error details.
 - [ ] Complete acceptance matrix and benchmark plan.
 - [ ] Reconcile current documentation and obtain explicit approval to exit Define.
 
@@ -332,3 +332,15 @@ Cycle 1 is blocked at Define pending confirmation of the existing Event type/cod
 - Approved decoder direction: concrete registration derives from generic `TEvent`; historical replay waits asynchronously until all concrete decoders required by committed Channel history are available; no consumer registration/activation API. Missing/never-registered decoder policy remains an implementation/design detail to verify; no source or codec registry has yet been found.
 - Canonical requirements updated at `4b7bc62c6cf851bf62a86bd7a11286c761063f02`; architecture updated at `d4fe4e197b07385e95159d7090e8110f4805b68f`; both were fetched back and compared exactly.
 - No implementation, build or Go tests were started.
+
+
+## Supersession note — approved API and error decisions (2026-11-24)
+
+The following earlier proposals/checkpoints in this plan are superseded by the current approved baseline above and the decision register in the current handoff:
+- Any statement that `TEvent` is the common `Event` interface. `TEvent` is a concrete type constrained by `Event`.
+- Any factory signature `func(chan TEvent) TChannel`. The approved factory is `func(chan Event) TChannel`.
+- Any Channel interface limited to `Notifications()` alone. It also exposes `Errors() <-chan error`.
+- Any proposal that consumers must call a registration, activation, start, stop, close, or acknowledgement method. No such public method is approved.
+- Any earlier error-delivery proposal inconsistent with the approved capacity-one, retained-first-fatal-error, best-effort non-blocking behavior and fatal Reader termination contract.
+
+These superseded statements remain in the plan only as historical discussion/provenance and must not be used as the current specification.
