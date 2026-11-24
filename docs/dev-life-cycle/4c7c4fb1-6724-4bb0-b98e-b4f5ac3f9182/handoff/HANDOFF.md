@@ -486,3 +486,13 @@ Channel's public API will expose a notification Go channel through an accessor (
 - Live notifications follow recovered backlog and must not overtake it.
 - Exact replay boundary, ordering scope, and coordination mechanics remain open Define details.
 - No implementation/build/tests have started; implementation still requires Define completion and explicit approval.
+
+
+## Define decision — persistence failure handling approved (2026-11-24)
+
+- Temporary persistence errors trigger internal retry with backoff.
+- The scheduler remains operational and is not blocked by retry handling.
+- Emit no success notification until persistence succeeds.
+- If retries continue failing, report a typed error via the consumer notification channel; never silently abandon an occurrence.
+- Retry termination criteria, error type/API, scheduler interaction, and error delivery ordering remain open Define decisions.
+- No implementation/build/tests have started; implementation still requires Define completion and explicit approval.
