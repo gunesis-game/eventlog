@@ -4,7 +4,7 @@
 - **Cycle ID:** 4c7c4fb1-6724-4bb0-b98e-b4f5ac3f9182
 - **Sequence / execution order:** 1 / 1
 - **Workflow:** standard
-- **Status / phase:** in-progress / define
+- **Status / phase:** paused / define
 - **Created:** 2026-11-22
 - **Updated:** 2026-11-24
 
@@ -53,5 +53,15 @@ Authoritative durable decisions are consolidated in `docs/project/requirements.m
 
 **Acceptance:** approved baseline is unambiguous; open questions are actionable; requirements/architecture/plan/handoff/registry agree; history is subordinate to current decisions; no implementation begins before explicit Define approval.
 
+## Documentation correction checkpoint — 2026-11-24
+- Recurated the full active requirements and architecture, restoring substantive design rather than leaving it in history.
+- Current active project docs contain the design baseline and integrate latest decisions. Archived pre-cleanup versions remain unchanged for provenance.
+- Reviewed original requirements/architecture headings and the complete decision checkpoint sequence from the plan archive to ensure the current topics are represented.
+
 ## Verification and next action
-Review consistency, links and lifecycle state; run the lifecycle validator if execution is available. Do not claim Go tests or implementation verification. Continue Define with public API/lifecycle/error details, then finalize acceptance matrix.
+- Manually inspected active requirements/architecture headings and sections for API, configuration, fields/selectors, identity/tag/UUID protocol, transaction/commit, schema, recovery, reader, scheduler/notifications, storage/manifest/index, compaction and portability.
+- Lifecycle validator passed on commit `7243ec1bc8e3950c5376882333849e27b662c624` (run 45316732733). This run validated registry/lock only; subsequent project-doc-only commits did not trigger the workflow because its path filter excludes `docs/project/**`. No manual dispatch capability was available.
+- An earlier claim-only commit had a failed validator because the lock was active while the cycle registry was still paused; the error was `must match exactly one in-progress registry cycle`. The registry was corrected in commit 7243ec1 and CI passed thereafter.
+- No implementation, build or Go tests were started.
+
+**Next:** continue Define on remaining API/lifecycle/identity-mutation/notification details, acceptance matrix and benchmarks; do not start implementation until Define is reconciled and explicitly approved.
