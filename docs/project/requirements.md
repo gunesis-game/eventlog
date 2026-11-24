@@ -190,3 +190,15 @@ Once a concrete Event decoder has been registered successfully, the library MUST
 ## Conflicting concrete Event decoder registrations — D-016
 
 The library MUST reuse an existing decoder registration when the same concrete Event Go type is registered with the same exposed field-name schema. Registering the same concrete Event Go type with a different exposed field-name schema MUST fail with a typed schema-conflict error. The failed registration MUST NOT replace or mutate the existing registration or affect Readers already using it. No consumer-facing API change is permitted.
+
+
+## Approved field selectors, reconstruction, identity and internal change queue — D-017 through D-022
+
+- **D-017 Field selectors:** Consumers select direct fields using typed selector callbacks. `FieldOf` accepts `func(*T) *V`; `FieldOfNullable` accepts `func(*T) **V`. Names are inferred, selectors must resolve to exactly one direct field, named primitive types are supported, and nil remains distinct from a pointer to zero. No consumer API change.
+- **D-018 Reconstruction:** Historical occurrences are reconstructed into fresh concrete Event pointers. They never overwrite the prepared live Event pointer. Notification snapshots are immutable and independent of live/persistence/other-notification mutable storage. Historical Channel snapshots are also separate from the live Channel pointer. Concrete primitive types, widths and nullability are preserved.
+- **D-019 Identity:** A prepared Event instance's designated identity value cannot change after registration. A detected mutation is rejected and reported through the existing Channel error stream; it does not create a new logical Event or alter history. A different logical Event requires a separate prepared instance.
+- **D-020 Internal queue:** Detected selected-field changes are captured as immutable snapshots and placed on an eventlog-owned internal queue. Persistence workers dequeue them. Notifications become eligible only after commit. No public queue, callback, lock, or method is added.
+- **D-021 Ordering:** Per-logical-Event FIFO enqueue order is preserved. Enqueued snapshots are not silently dropped or replaced. Only consecutive unchanged observed states are suppressed; a later transition back to an earlier value is a new occurrence. Global sequence numbers are assigned centrally at commit. Periodic observation cannot guarantee capture of intermediate states that change and revert between observations.
+- **D-022 Backpressure:** The internal queue is bounded. Capacity pressure pauses/delays internal monitoring rather than blocking consumer field assignments. Consumers may continue mutating structs; after monitoring resumes, only the latest observed state is guaranteed to be captured. Enqueued snapshots are retained. Queue sizing and worker scheduling are internal, not public API.
+
+These decisions preserve the existing consumer-facing API, including `PrepareLog[TEvent, TChannel]`, `Fields() Fields`, `Notifications() <-chan Event`, and `Errors() <-chan error`.
