@@ -55,4 +55,4 @@ Approved project decisions are recorded in the project decision register and int
 
 ## Verification
 
-No implementation, Go build, or Go tests have started. Governance/documentation validation is tracked separately from this development cycle.
+No implementation, Go build, or Go tests have started.
