@@ -4,7 +4,8 @@
 observable behavior, domain rules, constraints, quality expectations, and acceptance outcomes. It does not
 prescribe internal components, algorithms, storage layouts, encoding formats, or implementation steps.
 Approved technical design belongs in [architecture.md](architecture.md). The design there must satisfy these
-requirements; neither document is implementation or verification evidence.
+requirements. The bottom-up test scenarios and pass conditions are maintained in
+[acceptance.md](acceptance.md); neither specification is implementation or verification evidence.
 
 ## Purpose
 
@@ -129,13 +130,15 @@ from replay into live tailing. It is not tied to an event-sourcing framework or 
 - Channel isolation and Event identity/occurrence semantics hold across updates and recovery.
 - Crash/interruption recovery, derived metadata rebuild, and compaction preserve committed history.
 - Notifications meet ordering, losslessness, non-blocking persistence, and honest delivery guarantees.
-- Automated tests and benchmarks establish correctness, recovery behavior, platform parity, and agreed
-  performance/memory targets before implementation is considered complete.
+- The bottom-up scenarios and pass conditions in [acceptance.md](acceptance.md) establish the required
+  correctness, recovery, integration, and platform-parity evidence. Benchmarks must additionally establish
+  agreed performance/memory targets before implementation is considered complete.
 
 ## Define details still open
 
 Remaining design questions are maintained in [architecture.md](architecture.md), with decision provenance
 in [decisions.md](decisions.md). They include the UUID identity marker/tag, metadata UTF-8 policy,
-canonical naming of aliases and instantiated generic types, maximum framing sizes, internal lifecycle and
-cancellation details, Channel mutation/snapshot consistency, backlog and retry behavior, shutdown failure
-semantics, and measurable acceptance/performance targets. 
+canonical naming of aliases and instantiated generic types, maximum framing sizes, remaining internal
+lifecycle and cancellation details, Channel mutation/snapshot consistency, and measurable
+performance/memory targets. Retry policy, bounded notification backlog, and shutdown-drain failure behavior
+are approved decisions; their acceptance scenarios are recorded in [acceptance.md](acceptance.md). 
