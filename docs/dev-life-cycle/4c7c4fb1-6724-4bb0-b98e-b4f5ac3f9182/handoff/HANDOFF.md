@@ -6,6 +6,14 @@
 **Status:** In progress  
 **Execution lock:** Active; claimed and confirmed on shared `main` in commit `7e2d3eebfd0c706ca19dd37e565ebec3bfe5693b`.
 
+## Latest checkpoint — 2026-11-24 — configuration direction
+
+- User confirmed generic arguments identify the consumer Event and Channel types; runtime settings such as storage location must be configured separately.
+- A separate `eventlog.Config(...)`-style API is acceptable. Environment-variable configuration is not required.
+- Keep `PrepareLog[TEvent, TChannel](ctx)` unchanged. Context is for cancellation/deadlines and operation lifetime, not hidden configuration.
+- Exact Config signature, whether configuration is context-bound or represented explicitly, storage-directory option/default, and missing-config behavior remain open.
+- Execution lock remains active; no implementation, build, or Go tests have started.
+
 ## Latest checkpoint — 2026-11-24 — resumed session
 
 - Re-read the released execution lock first, then resumed this same Cycle 1 from Define.
@@ -163,3 +171,8 @@ Cycle 1 is blocked in Define pending a Go-valid public API call shape. Go does n
 **User decision required:** confirm whether to use the generic Log handle with type arguments fixed at construction, or package-level generic functions. After that, specify one concrete consumer append example to settle how actual Channel and Event values enter through the selector callback.
 
 The execution lock has been released. Resume this same cycle through the normal claim protocol after the user decision. No implementation, build, or Go tests have started.
+
+
+## Configuration decision — 2026-11-24
+
+Generic arguments to `PrepareLog[TEvent, TChannel](ctx)` select the consumer-defined types, not runtime storage configuration. A separate package-level `eventlog.Config(...)`-style facility is acceptable. Avoid requiring environment variables. Keep context semantics focused on cancellation/deadlines rather than using context as a hidden configuration store. The precise Config signature and scope/defaults need a concrete example and confirmation before implementation.
