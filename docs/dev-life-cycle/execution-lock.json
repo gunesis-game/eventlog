@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "status": "active",
-  "cycle_id": "4c7c4fb1-6724-4bb0-b98e-b4f5ac3f9182",
-  "workflow": "standard",
-  "worker_id": "GPT-6",
-  "claimed_at": "2026-11-24T04:00:00Z",
-  "released_at": null,
-  "release_evidence": null
+  "status": "released",
+  "cycle_id": null,
+  "workflow": null,
+  "worker_id": null,
+  "claimed_at": null,
+  "released_at": "2026-11-24T04:05:00Z",
+  "release_evidence": "Concrete API and lifecycle recommendations checkpointed in Cycle 1 plan/handoff; cycle paused awaiting review. No implementation/build/tests started."
 }
