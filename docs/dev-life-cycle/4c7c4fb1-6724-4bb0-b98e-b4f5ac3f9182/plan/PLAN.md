@@ -280,7 +280,7 @@ func NewOrdersChannel(send chan Event) *OrdersChannel {
 - One consumer-defined Channel may carry multiple concrete Event types (for example, `OrderCreated` and `OrderCancelled`) through the same notification stream.
 - The consumer-facing Channel API must remain unchanged. There is no `Notify` callback/sink method, no public helper/embedding requirement, and no per-concrete-type notification stream.
 
-**Clarification of the factory type:** `TEvent` in the approved generic API denotes the common `Event` interface, not one individual concrete Event type. Therefore `func(chan TEvent) TChannel` is the common-Event channel factory and can carry heterogeneous concrete Event values. The earlier example using `chan *OrderEvent` is superseded. The remaining design work is to specify how event-specific preparation and registrations converge on the same Channel runtime and Reader progression without changing the consumer-facing Channel API.
+**[SUPERSEDED] Clarification of the factory type:** This earlier checkpoint incorrectly treated `TEvent` as the common `Event` interface. The current approved contract at the top of this plan makes `TEvent` a concrete type constrained by `Event` and uses `func(chan Event) TChannel` for heterogeneous notifications.
 
 **Next Define work:** establish how the approved event-registration barrier is completed without adding a consumer-facing lifecycle method, then finish internal lifecycle/error and identity-mutation details. The common Event type and factory relationship are settled. No implementation authorization is implied.
 
@@ -321,7 +321,7 @@ This would provide a deterministic historical-replay barrier without a consumer-
 
 ## Blocked checkpoint — 2026-11-24T17:17:13Z
 
-Cycle 1 is blocked at Define pending confirmation of the existing Event type/codec registry's initialization and scope. The approved registration barrier requires all persisted concrete Event types to be decodable before historical replay; the proposed registry-driven mechanism is not approved because this repository contains no Go source/codec implementation to verify it. No consumer-facing API additions are permitted. Resume the same Cycle 1 after this dependency is clarified; preserve its ID, sequence, execution order, and Define phase.
+**[SUPERSEDED]** This earlier checkpoint marked Cycle 1 blocked pending a process-wide codec-registry confirmation. The user subsequently approved generic concrete-type-driven decoder registration and asynchronous waiting for all decoders required by Channel history. Cycle 1 is now in-progress at Define. The exact policy for a decoder that never registers remains open; no consumer-facing API additions are permitted.
 
 
 ## Governance reconciliation checkpoint — 2026-11-24T20:02+02:00
@@ -344,3 +344,6 @@ The following earlier proposals/checkpoints in this plan are superseded by the c
 - Any earlier error-delivery proposal inconsistent with the approved capacity-one, retained-first-fatal-error, best-effort non-blocking behavior and fatal Reader termination contract.
 
 These superseded statements remain in the plan only as historical discussion/provenance and must not be used as the current specification.
+
+
+[Governance reconciliation note] Historical proposal/checkpoint wording that conflicts with the current approved API or current Cycle 1 status is superseded by the current approved baseline and decision register. Do not treat historical wording as operative.
