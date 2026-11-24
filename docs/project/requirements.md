@@ -187,7 +187,7 @@ while existing readers continue on pinned generation; delete old files only afte
 ### Durability and maintenance
 -  Automatic synchronization occurs every 1 second or 1 MiB of pending writes, whichever threshold is
   reached first.
--  Explicit `Flush()` is a durability boundary; `Close()` flushes and syncs.
+-  Internal flush is a durability boundary; internal lifecycle shutdown flushes and syncs. No consumer-facing Flush/Close API is approved.
 -  Segment files are the source of truth; index metadata is derived and rebuildable.
 -  Segment rotation occurs only at transaction boundaries against a fixed target size. An oversized
   transaction may occupy its own segment.
