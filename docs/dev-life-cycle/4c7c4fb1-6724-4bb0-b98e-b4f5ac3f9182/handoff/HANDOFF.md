@@ -402,3 +402,12 @@ Historical checkpoint statements below that describe `TEvent` as the common inte
 - This is an internal lifecycle contract; the consumer-facing API remains unchanged.
 - **Canonical artifacts updated and fetched back:** architecture commit `f75de6313f4d4cc2015d11accfdbce413cfc8c72`; requirements commit `c934a1978dd01d5bf0459904371b88dbcf9d77cc`; Cycle 1 plan commit `5e184e1685b2a5623900dfe422810cc347c1786f`.
 - **Next:** continue Define with the next unresolved preparation/lifecycle detail. No implementation, lifecycle validator, Go build, or Go tests were run.
+
+| D-013 | Channel runtime registry lookup and candidate adoption are atomic by canonical Channel identity; concurrent preparations converge on one adopted Channel pointer and one runtime/Reader | Recorded | docs/project/architecture.md, requirements.md and Cycle 1 plan | architecture `9c808cc9fd3c236885ec9f37110cd91cd0297541`; requirements `879710d9378ecf9e01c85b66acc55a0cd0befa31`; plan `1220813bda3e7ca43d0a1aa95127594ba7e77a1a` |
+
+## D-013 recorded checkpoint
+
+- **Approved decision:** Channel runtime lookup and candidate adoption are atomic by canonical Channel identity. Concurrent preparations resolving to the same logical Channel converge on one adopted Channel pointer and one runtime/Reader; competing preparations reuse the winner.
+- This is internal synchronization and does not change the consumer-facing API.
+- **Canonical artifacts updated and fetched back:** architecture commit `9c808cc9fd3c236885ec9f37110cd91cd0297541`; requirements commit `879710d9378ecf9e01c85b66acc55a0cd0befa31`; Cycle 1 plan commit `1220813bda3e7ca43d0a1aa95127594ba7e77a1a`.
+- **Next:** continue Define with the next unresolved preparation/lifecycle detail. No implementation, lifecycle validator, Go build, or Go tests were run.
