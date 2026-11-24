@@ -288,3 +288,13 @@ This provisional decision incorrectly used the initial exposed-field snapshot as
 - Persisted occurrences remain safe and recoverable through internal replay; notification loss must be detectable and not silent.
 - Buffer capacity, loss-detection mechanism, replay contract/API, and delivery details remain open Define decisions.
 - No implementation/build/tests have started; implementation still requires Define completion and explicit approval.
+
+
+## Define decision — guaranteed occurrence notification delivery approved (2026-11-24)
+
+- Every successfully persisted occurrence must eventually become visible to the consumer; buffer capacity must not cause notifications to be dropped.
+- This supersedes the earlier drop-on-full policy.
+- Eventlog—not consumers—owns buffering, backlog, and recovery/replay. No consumer-facing sequence numbers, counters, gap-detection, or delivery-recovery mechanics are part of this contract.
+- Persistence and the internal scheduler must not block on slow/unread consumers; Eventlog's internal backlog/replay reconciles bounded buffers with guaranteed delivery.
+- Exact internal implementation, backlog persistence/retention, lifecycle/shutdown behavior, and failure semantics remain open Define decisions.
+- No implementation/build/tests have started; implementation still requires Define completion and explicit approval.
