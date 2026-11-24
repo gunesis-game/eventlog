@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "status": "active",
-  "cycle_id": "4c7c4fb1-6724-4bb0-b98e-b4f5ac3f9182",
-  "workflow": "standard",
-  "worker_id": "GPT-6",
-  "claimed_at": "2026-11-24T03:14:00Z",
-  "released_at": null,
-  "release_evidence": null
+  "status": "released",
+  "cycle_id": null,
+  "workflow": null,
+  "worker_id": null,
+  "claimed_at": null,
+  "released_at": "2026-11-24T03:20:00Z",
+  "release_evidence": "Cycle 1 Define resumed and checkpointed; no implementation/build/tests started. Next step: continue API/lifecycle/identity/notification design proposals and request approval before implementation."
 }
