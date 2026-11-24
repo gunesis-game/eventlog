@@ -271,3 +271,11 @@ This provisional decision incorrectly used the initial exposed-field snapshot as
 - The notification channel is closed when the associated lifecycle shuts down, including initialization failure where a channel has been created and needs closure.
 - Backward compatibility with released implementations is not a design constraint for this early Define phase; design the API for the intended contract.
 - Identity-mutation response (restore, quarantine, both, or another policy) remains open for discussion.
+
+
+## Define decision — notification payload snapshots approved (2026-11-24)
+
+- Approved Option A: successful occurrence notifications carry a snapshot of the concrete consumer Event instance as captured at the persistence boundary, not a live mutable pointer.
+- The notification is emitted only after the occurrence has been successfully persisted.
+- This establishes payload immutability/history correspondence; delivery buffering, overflow/backpressure policy, exact accessor/message signatures, and typed persistence-error notification behavior remain open Define decisions.
+- No implementation/build/tests have started; implementation still requires Define completion and explicit approval.
