@@ -381,7 +381,6 @@ memory use and platform parity precede numeric performance targets.
 - Exact internal shutdown trigger and ordered graceful resource cleanup remain open; process-scoped ownership, preparation Context scope, and terminal Reader failure behavior are approved.
 - Channel identity mutation handling and the precise snapshot-consistency boundary for concurrent
   consumer mutation.
-- Internal backlog durability/retention, replay boundary, recoverable retry termination, and shutdown
-  drain failure behavior.
+- Internal backlog retention semantics, recoverable retry termination, and shutdown drain failure behavior.
 - Benchmarks, memory/performance targets, and measurable acceptance criteria.
 
