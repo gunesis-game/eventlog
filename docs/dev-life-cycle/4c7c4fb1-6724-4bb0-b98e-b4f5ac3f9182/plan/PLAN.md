@@ -912,3 +912,13 @@ The user approved the exported sentinel error contract: `ErrConfigNotInitialized
 - Channel identity remains separate and is not part of Event identity.
 - This supersedes the older rule that derived Event ID from the current exposed-field values for every occurrence.
 - Define must specify how the internal Event-value-to-ID association is established and survives recovery, while preserving the no-new-public-operational-API constraint.
+
+
+## Latest Define decision — logical Event identity vs occurrence (approved 2026-11-24)
+
+- The user approved that logical identity and event occurrence are distinct.
+- Event ID derives from concrete Go Event type name, exposed `Fields()` field-name schema, and the consumer-designated identity field name/value; inputs are canonically encoded and yield deterministic UUID v5.
+- The identity field identifies the entity (e.g., Order 501); changes in other exposed data (e.g., status created → paid) are new occurrences under the same logical Event ID.
+- Occurrences are append-only and immutable; previous history is retained, newest occurrence becomes HEAD/current state.
+- Physical Event and Channel records are deduplicated; identical physical data must be stored once and referenced/reused.
+- No implementation/build/test has begun. This supersedes conflicting provisional stable-ID/full-field identity decisions above; reconcile active text and historical notes in Define.
