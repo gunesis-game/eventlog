@@ -6,6 +6,16 @@ on:
       - Steering state validation
     types:
       - completed
+  workflow_dispatch:
+    inputs:
+      target_workflow_id:
+        description: Optional historical workflow ID whose retained runs should be cleaned
+        required: false
+        type: string
+      target_run_id:
+        description: Any existing completed run ID belonging to that workflow
+        required: false
+        type: string
 
 permissions:
   actions: write
@@ -13,6 +23,7 @@ permissions:
 
 jobs:
   cleanup:
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout trusted repository policy
@@ -26,8 +37,29 @@ jobs:
         run: python3 scripts/cleanup-workflow-runs.py
 
       - name: Apply retention to the completed validation workflow
+        if: github.event_name == 'workflow_run'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TARGET_WORKFLOW_ID: ${{ github.event.workflow_run.workflow_id }}
           TARGET_RUN_ID: ${{ github.event.workflow_run.id }}
+        run: python3 scripts/cleanup-workflow-runs.py
+
+      - name: Validate optional historical cleanup target
+        if: github.event_name == 'workflow_dispatch' && (inputs.target_workflow_id != '' || inputs.target_run_id != '')
+        env:
+          TARGET_WORKFLOW_ID_INPUT: ${{ inputs.target_workflow_id }}
+          TARGET_RUN_ID_INPUT: ${{ inputs.target_run_id }}
+        shell: bash
+        run: |
+          if [ -z "$TARGET_WORKFLOW_ID_INPUT" ] || [ -z "$TARGET_RUN_ID_INPUT" ]; then
+            echo "Both target_workflow_id and target_run_id must be supplied together."
+            exit 1
+          fi
+
+      - name: Apply retention to selected historical workflow
+        if: github.event_name == 'workflow_dispatch' && inputs.target_workflow_id != '' && inputs.target_run_id != ''
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TARGET_WORKFLOW_ID: ${{ inputs.target_workflow_id }}
+          TARGET_RUN_ID: ${{ inputs.target_run_id }}
         run: python3 scripts/cleanup-workflow-runs.py
