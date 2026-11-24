@@ -292,32 +292,29 @@ committed Event through the existing internal type registration/codec mechanism.
 for a requested concrete type while advancing, but they are not separate notification sources. Corruption,
 unknown persisted Event types, and decode failures are errors, never silently skipped.
 
-The reader stays internal. The common `Event` notification payload and `Notifications() <-chan Event` accessor, the concrete `TEvent` generic constraint, and `Errors() <-chan error` accessor are approved. Pointer/value convention, occurrence wrapper, and remaining resource-close details remain open.
-
-## Runtime lifecycle and shutdown
-
-eventlog owns the runtime lifecycle; consumers do not receive public `Start`, `Activate`, `Close`, or other lifecycle controls. Successful append Commit is the authoritative ordering point. The Channel's single unified Reader progression observes only committed records and drives notification delivery in global sequence order. No notification is emitted before its append Commit succeeds.
-
-Slow consumers may apply backpressure to the notification delivery worker, but must not stall append/persistence or cause committed Events to be reordered or skipped. A delivery failure never rolls back or deletes a committed Event.
-
-Reader advancement is permitted only after the committed occurrence is safely transferred into the internal pending-delivery mechanism. Delivery backpressure holds the delivery worker, not persistence. Pending notifications do not require a second durable queue: the authoritative committed append log is the recovery source, and pending delivery can be reconstructed from committed records and the Reader's recoverable progression. Recovery must resume pending committed notifications before delivering newer occurrences, preserving order. This avoids a second source of truth. Without consumer acknowledgment or transactional integration, delivery may be duplicated across a crash boundary; exactly-once consumer processing is not guaranteed. Delivery failures retry the same occurrence with internal bounded backoff and a finite retry limit; Reader advancement and later delivery remain blocked until success. Retry exhaustion is terminal for that Channel Reader and is reported through Errors(), while committed pending history remains recoverable from the authoritative log. Other Channels are independent.
-
-Shutdown is ordered:
-1. Stop accepting new preparations and stop initiating new change-detection appends.
-2. Coordinate all outstanding append transactions until each reaches a committed or safely aborted state.
-3. Cancel the Channel Reader and delivery workers after the append boundary is settled.
-4. Begin a bounded graceful notification drain with a fixed internal grace period (not configurable through the public API). If drain completes within the deadline, shutdown continues cleanly. If the deadline expires, abort remaining delivery attempts, report a lifecycle failure, and preserve committed undelivered history as recoverable from the authoritative log; shutdown must not claim a clean drain.
-5. Report a drain-timeout failure through the existing Channel `Errors()` stream on a best-effort basis, retaining the first fatal error internally. Reporting must not require a receiver and must not block shutdown indefinitely.
-6. Cancel delivery work at timeout and wait for all sender goroutines to exit before closing notification/error streams. Cancellation must not discard committed pending history.
-7. Release storage and process-ownership resources.
+The reader stays internal. The common `Event` notification payload and `Notifications() <-chan Event` accessor, the concrete `TEvent` generic constraint, and `Errors() <-chan error` accessor are approved. Historical reconstruction and notification delivery use fresh concrete Event pointers; no occurrence wrapper is part of the approved consumer API.
 
 ## Runtime lifecycle and shutdown
 
 The Log runtime is process-scoped and owns storage, append workers, Channel runtimes, Readers, and delivery workers. The Context passed to `PrepareLog` governs only that caller's preparation and waiting: canceling it must not shut down the shared Log or cancel other consumers. Internal append and delivery workers are not children of any one preparation caller's Context.
 
-A fatal Channel Reader error terminates that Reader and is reported through the Channel's existing `Errors()` stream; it must not silently discard recoverable committed history.
+eventlog owns the runtime lifecycle; consumers do not receive public `Start`, `Activate`, `Close`, or other lifecycle controls. Successful append Commit is the authoritative ordering point. The Channel's single unified Reader progression observes only committed records and drives notification delivery in global sequence order. No notification is emitted before its append Commit succeeds.
 
-Shutdown is internal and does not add a public lifecycle API. The intended shutdown order is to stop new work, settle outstanding commits, stop workers, close streams only after senders have stopped, and release resources. The exact internal shutdown trigger remains unresolved: the public API currently has no Close/Flush or process-shutdown hook, and the library must not assume it can install process-wide signal handlers or otherwise intercept process exit. This constraint must be resolved before implementation claims ordered graceful shutdown.
+Slow consumers may apply backpressure to the notification delivery worker, but must not stall append/persistence or cause committed Events to be reordered or skipped. A delivery failure never rolls back or deletes a committed Event.
+
+Reader advancement is permitted only after the committed occurrence is safely transferred into the internal pending-delivery mechanism. Delivery backpressure holds the delivery worker, not persistence. Pending notifications are reconstructed from the authoritative committed append log; no second durable queue is introduced. Recovery resumes pending committed notifications before newer occurrences, preserving order. Without consumer acknowledgment or transactional integration, duplicates may occur across a crash boundary; exactly-once consumer processing is not guaranteed. Delivery failures retry the same occurrence using internal bounded backoff and a finite retry limit; Reader advancement and later delivery remain blocked until success. Retry exhaustion terminates that Channel Reader and is reported through `Errors()`; committed pending history remains recoverable. Other Channels continue independently.
+
+The approved shutdown sequence is:
+1. Stop accepting new preparations and stop initiating new change-detection appends.
+2. Coordinate outstanding append transactions until each reaches a committed or safely aborted state.
+3. Stop/cancel Channel Reader and delivery work at the defined shutdown boundary.
+4. Attempt a graceful notification drain for a fixed internal grace period, not configurable through the public API. On expiry, abort remaining delivery attempts, report lifecycle failure best-effort through the existing `Errors()` stream, and preserve committed undelivered history as recoverable.
+5. Wait for all sender goroutines to exit before closing notification/error streams.
+6. Release storage and process-ownership resources.
+
+A fatal Channel Reader error terminates that Reader and is reported through its existing `Errors()` stream; it must not silently discard recoverable committed history.
+
+The shutdown sequence and its failure semantics are approved (D-030 and D-031), but the exact internal shutdown trigger remains unresolved. The public API has no Close/Flush or process-shutdown hook, and the library must not install process-wide signal handlers or otherwise assume control of process exit. This trigger must be resolved before implementation can claim ordered graceful shutdown.
 
 ## Durability, segment management and compaction
 
@@ -377,11 +374,15 @@ memory use and platform parity precede numeric performance targets.
 
 - The dedicated UUID identity marker/tag assignment; metadata UTF-8 policy; canonical naming of aliases
   and instantiated generic types; and maximum framing sizes.
-- Exact internal registry-key composition for prepared instances and behavior for distinct logical
-  Channels represented by the same concrete Channel Go type.
-- Exact internal shutdown trigger and ordered graceful resource cleanup remain open; process-scoped ownership, preparation Context scope, and terminal Reader failure behavior are approved.
-- Channel identity mutation handling and the precise snapshot-consistency boundary for concurrent
-  consumer mutation.
-- Reader wake-up behavior and precise internal buffer/capacity implementation details, where not otherwise specified.
-- Benchmarks, memory/performance targets, and measurable acceptance criteria.
+- Exact internal registry-key composition for prepared instances and the precise behavior for distinct
+  logical Channels represented by the same concrete Channel Go type.
+- The exact internal shutdown trigger. The process-scoped runtime, preparation Context scope, shared-worker
+  ownership, ordered shutdown sequence, bounded drain behavior, and terminal Reader failure behavior are
+  already approved.
+- Numeric benchmark targets, memory targets, representative measurement environments, repetitions,
+  warm-up policy, and statistical acceptance criteria.
+
+Channel identity immutability and snapshot consistency, Reader wake-up/recheck behavior, retry ordering and
+termination, and bounded notification backpressure are specified and approved; their numeric queue/retry
+parameters remain internal implementation/test policy.
 
