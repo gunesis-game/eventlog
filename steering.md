@@ -94,3 +94,13 @@ Keep information in its authoritative owner and prefer concise cross-references 
 Communicate status accurately and concisely. Distinguish verified facts from assumptions, proposals, unknowns, and blockers. State what was changed, what verification actually ran and against which revision, what remains unverified, and the next required action.
 
 Do not imply that work is complete because code was written, a commit was created, a plan was filled in, or a CI run was merely started. The cycle registry and its completion gates determine ordinary cycle status.
+
+## 8. Active-work checkpoints and lock recovery
+
+An active execution lock records exclusive ownership; it does not prove progress and never expires automatically. Elapsed time, inactivity, a quiet conversation, or a missing heartbeat does not authorize takeover.
+
+While actively working, update the current handoff or micro-cycle registry after every material decision, completed investigation, implementation checkpoint, blocker/next-action change, or verification result, and at least every 15 minutes during uninterrupted work. Each checkpoint records the exact phase, established/changed state, remaining work, verification performed or not performed, and one next action. Do not create cosmetic activity solely to refresh a timestamp.
+
+Before an extended pause, while waiting for a response, on context switch, or before ending a session, checkpoint the work, mark a standard cycle `paused` or `blocked` as appropriate, and release the lock through the normal procedure. Do not hold the lock while waiting for a user or external response or while no development work is occurring. A blocked cycle records its concrete blocker and unblocking action.
+
+If a worker has terminated unexpectedly, require explicit user/repository-owner confirmation before recovery. Preserve cycle history, record the confirmation and rationale, checkpoint and pause/block the cycle, publish and verify lock release, and only then allow a new claim. Never take over based on elapsed time or apparent inactivity. Detailed rules are in [docs/dev-life-cycle/README.md](docs/dev-life-cycle/README.md).
