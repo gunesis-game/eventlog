@@ -183,7 +183,7 @@ Concurrent calls to `PrepareLog[TEvent, TChannel](ctx)` during the first storage
 
 ## Latest Define decision — absolute storage path captured at configuration time (2026-11-24)
 
-`WithStorageDirectory(path)` accepts a non-empty path. During a successful `Config(...)` call, eventlog resolves that path against the process working directory and captures the resulting absolute path in the immutable runtime configuration. This means a relative input such as `./data/events` is accepted, but the resolved absolute path—not the original relative string—is retained and used for the process lifetime. A later working-directory change cannot redirect storage. An empty or whitespace-only path is invalid. The exact path cleaning, symlink, filesystem existence, and permission-validation rules remain open; `Config` must not silently create or initialize the log storage as part of path resolution.
+`WithStorageDirectory(path)` accepts a non-empty path. During a successful `Config(...)` call, eventlog resolves that path against the process working directory and captures the resulting absolute path in the immutable runtime configuration. This means a relative input such as `./data/events` is accepted, but the resolved absolute path—not the original relative string—is retained and used for the process lifetime. A later working-directory change cannot redirect storage. An empty or whitespace-only path is invalid. Path cleaning is lexical only (`filepath.Clean` semantics) and does not resolve symlinks. Config does not create or initialize storage; PrepareLog creates a missing directory and reports non-directory targets or creation failures.
 
 ## Latest Define decision — Config option validation (2026-11-24)
 
