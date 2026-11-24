@@ -286,3 +286,12 @@ memory use and platform parity precede numeric performance targets.
   termination, delivery/error order, scheduler interaction and shutdown drain failure.
 - Consumer synchronization/snapshot consistency details.
 - Benchmarks, memory/performance targets, and measurable acceptance criteria.
+
+
+## Approved notification public API decision — 2026-11-24
+
+- The consumer-facing notification payload is the concrete Event type `T` only. No public `Notification[T]` wrapper, Event ID, Occurrence ID, delivery token, or consumer-facing Ack API.
+- Notifications are channel-scoped, accessed through the Channel abstraction. Public accessor shape remains to be reconciled with the initialization/ownership mechanism.
+- Delivery identity, occurrence identity, durable backlog, retries, replay bookkeeping, and acknowledgment of internal dispatch are private implementation details.
+- Since the consumer provides no acknowledgment, eventlog cannot claim exactly-once consumer processing. Delivery/recovery semantics must be stated honestly; duplicates may occur in a crash window if internal dispatch is durably recorded after sending.
+- API example: `for event := range channel.Notifications() { handle(event) }`.
