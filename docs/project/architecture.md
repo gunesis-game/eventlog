@@ -304,22 +304,20 @@ Slow consumers may apply backpressure to the notification delivery worker, but m
 
 Reader advancement is permitted only after the committed occurrence is safely transferred into the internal pending-delivery mechanism. Delivery backpressure holds the delivery worker, not persistence. Pending notifications are reconstructed from the authoritative committed append log; no second durable queue is introduced. Recovery resumes pending committed notifications before newer occurrences, preserving order. Without consumer acknowledgment or transactional integration, duplicates may occur across a crash boundary; exactly-once consumer processing is not guaranteed. Delivery failures retry the same occurrence using internal bounded backoff and a finite retry limit; Reader advancement and later delivery remain blocked until success. Retry exhaustion terminates that Channel Reader and is reported through `Errors()`; committed pending history remains recoverable. Other Channels continue independently.
 
-The approved shutdown sequence is:
-1. Stop accepting new preparations and stop initiating new change-detection appends.
-2. Coordinate outstanding append transactions until each reaches a committed or safely aborted state.
-3. Stop Channel Reader advancement so no newer occurrences enter the delivery path; allow already-pending notification sends to drain.
-4. Attempt the graceful drain for a fixed internal grace period, not configurable through the public API. If the deadline expires, abort/cancel remaining delivery attempts, report lifecycle failure best-effort through the existing `Errors()` stream, and preserve committed undelivered history as recoverable.
-5. Wait for all sender goroutines to exit before closing notification/error streams.
-6. Release storage and process-ownership resources.
+The Log runtime is process-lifetime scoped. Once initialized, it owns storage, append workers, Channel runtimes, Readers, and delivery workers until the operating system terminates the process. There is no library-managed runtime shutdown path: eventlog does not register process-exit hooks, install signal handlers, intercept process termination, or expose a public shutdown/flush/close operation. Runtime workers are not tied to any caller's Context and remain active for the process lifetime.
 
-A fatal Channel Reader error terminates that Reader and is reported through its existing `Errors()` stream; it must not silently discard recoverable committed history.
+Process termination is not a graceful-shutdown boundary. eventlog makes no guarantee that pending notifications are drained, notification/error streams are closed, or final writes are synchronously flushed at process exit. An interrupted append transaction is handled by the existing recovery rule and is discarded from its beginning if incomplete. Fully committed occurrences present in the authoritative append log, including occurrences whose notifications were not delivered, are recovered and delivered before newer occurrences on the next process start. Because delivery has no consumer acknowledgment, a crash around delivery may produce duplicates; exactly-once consumer processing is not guaranteed. The existing periodic sync policy remains the durability boundary for power-loss guarantees.
 
-The shutdown sequence and its failure semantics are approved (D-030 and D-031), but the exact internal shutdown trigger remains unresolved. The public API has no Close/Flush or process-shutdown hook, and the library must not install process-wide signal handlers or otherwise assume control of process exit. This trigger must be resolved before implementation can claim ordered graceful shutdown.
+A fatal Channel Reader error still terminates only that Reader and is reported through its existing `Errors()` stream; it must not silently discard recoverable committed history. This per-Channel failure behavior does not shut down the process-scoped runtime.
+
+D-030 and D-031 recorded a bounded graceful-drain shutdown design before the process-lifetime decision. D-034 supersedes that design for process termination: no graceful drain, timeout abort, shutdown-failure report, sender join, stream closure, or resource-release sequence is initiated by eventlog at process exit. Their recoverable-pending-history principle remains applicable.
 
 ## Durability, segment management and compaction
 
-Automatic sync occurs every 1 second or 1 MiB of pending writes, whichever first. Flush and Close are
-durability boundaries; Close flushes and syncs. Append before sync is not promised to survive power loss.
+Automatic sync occurs every 1 second or 1 MiB of pending writes, whichever comes first. There is no
+public Flush or Close operation and no final library-managed sync at process exit. Writes not yet synced
+are not promised to survive power loss; process termination recovery applies to the committed records
+that remain present in the authoritative append log.
 
 Storage layout:
 
@@ -376,9 +374,9 @@ memory use and platform parity precede numeric performance targets.
   and instantiated generic types; and maximum framing sizes.
 - Exact internal registry-key composition for prepared instances and the precise behavior for distinct
   logical Channels represented by the same concrete Channel Go type.
-- The exact internal shutdown trigger. The process-scoped runtime, preparation Context scope, shared-worker
-  ownership, ordered shutdown sequence, bounded drain behavior, and terminal Reader failure behavior are
-  already approved.
+- No runtime-shutdown trigger is required: D-034 establishes process-lifetime ownership with no
+  library-managed shutdown or graceful drain at process exit. The preparation Context scope, shared-worker
+  ownership, and terminal per-Channel Reader failure behavior remain approved.
 - Numeric benchmark targets, memory targets, representative measurement environments, repetitions,
   warm-up policy, and statistical acceptance criteria.
 
