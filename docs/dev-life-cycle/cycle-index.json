@@ -17,7 +17,7 @@
       "acceptance_criteria": null,
       "verification_evidence": null,
       "outcome": null,
-      "status_reason": "Define design proposal checkpointed in plan/handoff; awaiting review and explicit decisions before promotion into approved project docs."
+      "status_reason": "Concrete API/lifecycle recommendations checkpointed in plan and handoff; awaiting review. No implementation/build/tests started."
     }
   ]
 }
