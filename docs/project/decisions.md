@@ -39,6 +39,7 @@ This is the durable register of approved project decisions. It records outcomes 
 | D-030 | Shutdown drain failure must report a lifecycle failure without claiming clean shutdown, and committed undelivered history remains recoverable; reporting is best-effort through existing Channel Errors() with first fatal error retained, while exact drain deadline/termination policy remains open | Recorded | docs/project/architecture.md | 5f0f3fa05f6bf1018dc31e3aa42b91bf2c6d4044 |
 | D-031 | Shutdown uses a fixed internal bounded graceful-drain grace period; on timeout, abort remaining delivery, report lifecycle failure best-effort via Errors(), preserve committed undelivered history, cancel delivery, wait for sender exit before closing streams, and release resources | Recorded | docs/project/architecture.md | 748438ffbd25b4bfcf21b10667ea0c4bc2a5ec1b |
 | D-032 | Delivery failures retry the same pending occurrence using internal bounded backoff and finite retry limit; Reader advancement and later delivery are blocked until success; retry exhaustion terminates that Channel Reader and reports via Errors(); committed pending history remains recoverable; other Channel Readers continue independently; retry parameters remain internal | Recorded | docs/project/architecture.md | be7b94f6b465c36a76cc5d6834f107fdfc4ff0bd |
+| D-033 | Notification pending-delivery memory is bounded; when the buffer fills, the Channel Reader waits and resumes from its held position; persistence continues, committed pending history remains in the authoritative append log, and no separate durable queue is added | Recorded | docs/project/architecture.md | 91b51599cf856e8cae6e0120b75b51ccb50c0ec9 |
 
 ## Decision maintenance
 
@@ -48,4 +49,3 @@ When a user approves a material project decision:
 3. Fetch both files back and verify their exact content and revisions before introducing another independent decision.
 
 Do not append raw chat transcripts, progress checkpoints, or handoff prose to the specifications. Do not copy the same decision text into both specifications; use a concise cross-reference when the other document is affected.
-| D-033 | Notification pending-delivery memory is bounded; when the buffer fills, the Channel Reader waits and resumes from its held position; persistence continues, committed pending history remains in the authoritative append log, and no separate durable queue is added | Recorded | docs/project/architecture.md | 91b51599cf856e8cae6e0120b75b51ccb50c0ec9 |
