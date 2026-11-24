@@ -260,3 +260,10 @@ Do not re-propose nil or primitive identity values. Add UUID-focused golden test
 - Reconciled outdated UUID-only identity encoding and notification accessor language in architecture with current approved decisions.
 - No implementation or Go build/tests were started. Connector-only access means local branch/working-tree checks and schema-validator execution were unavailable.
 - Next: fetch back all updated documents, check cross-document contradictions, and continue the remaining Define work. No Define exit or implementation authorization is implied.
+
+
+## User correction — notification accessor finalized (2026-11-24)
+- **Approved consumer-facing accessor:** `Notifications() <-chan TEvent` on the consumer-defined Channel type. The consumer receives from a one-way, receive-only stream.
+- Remove `Notify(event TEvent) error` from the proposed/active API. It is not part of the Channel interface and must not be reconsidered.
+- No public helper struct or embedding requirement. Eventlog must not ask consumers to implement a callback/sink.
+- **Remaining technical blocker:** a receive-only accessor does not expose a writable channel to eventlog. Define a send-side ownership/construction mechanism that preserves this accessor and consumer-owned Channel struct, without inventing a `Notify` callback or requiring public helper embedding. Do not begin implementation until the mechanism is resolved and Define is approved.
