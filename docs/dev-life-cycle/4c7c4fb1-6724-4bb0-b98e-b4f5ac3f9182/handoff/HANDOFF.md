@@ -75,12 +75,11 @@ The current requirements, architecture, decisions, acceptance matrix, and benchm
 
 ### Unresolved
 
-- The exact internal registry-key representation is intentionally deferred to implementation under D-039; observable registration and reuse behavior is specified.
 - Measurable performance and memory targets, representative target environments, and benchmark measurement/acceptance criteria.
 
 ### Next action
 
-Resolve the remaining registry-key question, agree measurable performance/memory targets and measurement criteria, then perform the final cross-document consistency review. Do not begin implementation or exit Define until the remaining work is settled and you explicitly approve the phase transition.
+Agree measurable performance/memory targets and their measurement criteria, then perform the final cross-document consistency review. Do not begin implementation or exit Define until the remaining work is settled and you explicitly approve the phase transition.
 
 ## Verification
 
