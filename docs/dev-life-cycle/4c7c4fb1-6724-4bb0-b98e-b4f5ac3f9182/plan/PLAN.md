@@ -785,3 +785,27 @@ If the manifest is corrupt or missing in an existing storage directory, recovery
 ### Reader-safe compaction
 
 Each reader pins the generation it started against. Compaction constructs replacement segments and index without modifying files used by current readers, validates and syncs them, then atomically switches the manifest. New readers use the new generation; existing readers continue using their pinned generation. Old generation files are deleted only after the last reader releases its pin. This policy applies equally on Linux and Windows, avoiding platform-specific reader semantics.
+
+
+## Define decision — single public preparation API (approved 2026-11-24)
+
+The only public API currently approved is:
+
+```go
+event, channel, err := eventlog.PrepareLog[MyEvent, MyChannel](ctx)
+```
+
+Declaration:
+
+```go
+func PrepareLog[TEvent EventType, TChannel ChannelType](ctx context.Context) (TEvent, TChannel, error)
+```
+
+The public constraints remain:
+
+```go
+type ChannelType interface { Fields() Fields }
+type EventType interface { Fields() Fields }
+```
+
+The returned event and channel values are consumer-owned data values whose exposed fields consumers may set or change. The package owns the internal `Log` struct and all append, read, next, synchronization, recovery, and lifecycle machinery. Consumers do not receive a Log handle and do not call lifecycle methods. No other public append/read/next/close/flush/compact API is approved at this stage. A single process owns a log at a time; multiple goroutines may use the API concurrently. This replaces earlier generic Log-handle and consumer-facing Append/Read proposals.

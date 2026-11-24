@@ -27,7 +27,7 @@ eventlog is a lightweight, embedded, disk-backed append-only event log for gener
 - Field construction uses typed selectors (`FieldOf` for non-nullable and `FieldOfNullable` for nullable). Selectors must identify direct primitive fields; nested structs are not selectable. Reflection-based field-name resolution must be unique. Validation occurs during append and fails atomically before persistence.
 
 ### Append and transaction guarantees
-- Public API direction: a generic `Log[TChannel, TEvent]` contract with field selection supplied through the `Append` selector callback. The earlier `Append(channel, event)` form is superseded. Exact selector, interface, and reader signatures remain open; see the current channel-scoped reader contract and Define open details.
+- The only approved public API is `eventlog.PrepareLog[TEvent, TChannel](ctx) (TEvent, TChannel, error)`. The internal Log owns append and read operations; consumers receive only event and channel values. No consumer-facing Append, Read, Next, or Log handle is exposed at this stage.
 - An append validates channel and event before writing. If the channel is new, channel and event records are one transaction; otherwise the transaction contains the event occurrence. A commit marker is written last.
 - Transaction records are not exposed until their commit marker is validated. Recovery discards incomplete trailing transactions by truncating back to their start.
 - Every persisted record has a global sequence, including commit markers. Transaction ID is the sequence of its first transaction record. Transaction record count excludes the commit marker.
@@ -46,7 +46,7 @@ eventlog is a lightweight, embedded, disk-backed append-only event log for gener
 - Every reader is scoped to exactly one consumer-provided `Channel` value; there is no all-channel reader.
 - Global sequence, cursor, segment offset, and tailing coordination are internal; consumers neither provide nor receive storage cursors or sequence numbers.
 - Context cancellation and explicit errors are required.
-- Reads are typed by the consumer-supplied generic Channel and Event struct types through `Read[TChannel,TEvent]()`. The public API direction is `log.Append[TChannel,TEvent](selector)`, `log.Read[TChannel,TEvent]()` and `reader.Next()`. eventlog owns allocation, decoding, and field reconstruction; the consumer does not register types, supply prototypes, implement factories, or provide decoders. A channel may contain multiple concrete Event struct types. `Read[T]` returns only occurrences whose persisted concrete type matches T, in channel order, while advancing past nonmatching event types; nonmatching types are not errors. Malformed records and failures decoding a matching T record are explicit errors.
+- Read/replay and live tailing are internal responsibilities of the Log instance. Consumers do not obtain readers or call Next. The internal reader remains channel-scoped, reconstructs typed consumer events, and handles nonmatching event types internally.
 - Re-appended logical events are delivered as separate occurrences.
 
 ### Durability and maintenance
@@ -63,10 +63,10 @@ eventlog is a lightweight, embedded, disk-backed append-only event log for gener
 - Correctness, recovery, predictable memory use, and cross-platform parity are prioritized. Numeric performance targets await benchmarks.
 
 ## Open details (not approved yet)
-- Exact public signatures, selector callback/value-input shape, reader interface shape, stable error categories, and detailed context/cancellation/close semantics. Go does not permit methods to declare their own type parameters; the requested `log.Append[TChannel,TEvent](...)` call syntax therefore needs a Go-valid encoding, likely by carrying the type arguments on a generic Log handle and calling `log.Append(...)`, or by using package-level generic functions. This is unresolved and must not be silently substituted.
-- Whether a public Occurrence wrapper is needed; eventlog owns the concrete Event reconstruction mechanism.
-- Benchmark scenarios and measurable performance/memory acceptance targets.
-- Detailed acceptance test matrix.
+- Internal lifecycle algorithms and the exact way PrepareLog associates returned event/channel values with the internally owned Log.
+- Field validation details, stable error categories, and detailed context/cancellation/resource semantics.
+- Internal typed-reader filtering and pointer/value reconstruction conventions.
+- Benchmark scenarios, performance/memory acceptance targets, and the detailed acceptance test matrix.
 
 
 ## Current reader decision — channel value and internal cursor
@@ -123,3 +123,27 @@ If the manifest is corrupt or missing in an existing storage directory, recovery
 ### Reader-safe compaction
 
 Each reader pins the generation it started against. Compaction constructs replacement segments and index without modifying files used by current readers, validates and syncs them, then atomically switches the manifest. New readers use the new generation; existing readers continue using their pinned generation. Old generation files are deleted only after the last reader releases its pin. This policy applies equally on Linux and Windows, avoiding platform-specific reader semantics.
+
+
+## Define decision — single public preparation API (approved 2026-11-24)
+
+The only public API currently approved is:
+
+```go
+event, channel, err := eventlog.PrepareLog[MyEvent, MyChannel](ctx)
+```
+
+Declaration:
+
+```go
+func PrepareLog[TEvent EventType, TChannel ChannelType](ctx context.Context) (TEvent, TChannel, error)
+```
+
+The public constraints remain:
+
+```go
+type ChannelType interface { Fields() Fields }
+type EventType interface { Fields() Fields }
+```
+
+The returned event and channel values are consumer-owned data values whose exposed fields consumers may set or change. The package owns the internal `Log` struct and all append, read, next, synchronization, recovery, and lifecycle machinery. Consumers do not receive a Log handle and do not call lifecycle methods. No other public append/read/next/close/flush/compact API is approved at this stage. A single process owns a log at a time; multiple goroutines may use the API concurrently. This replaces earlier generic Log-handle and consumer-facing Append/Read proposals.

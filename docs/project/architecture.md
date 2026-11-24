@@ -8,7 +8,7 @@ eventlog is an embedded Go library using local filesystem storage. A single proc
 
 ## Logical components
 
-- **Public API:** A generic `Log[TChannel, TEvent]` contract carries the consumer Channel/Event types; Append accepts the field-selector callback, and Read returns a channel-scoped typed reader whose `Next` reconstructs matching consumer events. Go does not permit methods to declare their own type parameters, so the literal `log.Append[TChannel,TEvent](selector)` / `log.Read[TChannel,TEvent]()` method syntax is not compilable Go. A generic Log handle instantiated by a generic constructor can expose `log.Append(selector)` / `log.Read()`; package-level generic functions are an alternative with a different call shape. This encoding and the selector's actual value-input shape remain unresolved and must be agreed before implementation.
+- **Public API:** The only approved public entry point is package-level generic `PrepareLog[TEvent, TChannel](ctx)`, returning `(TEvent, TChannel, error)`. Consumers receive event and channel values, not a Log handle. The package owns the internal `Log` instance and all append/read/next/lifecycle operations; none of those operations are exposed to consumers at this stage. Consumer event and channel types implement `Fields() Fields`; consumers set or change their own field values. A single process owns a log at a time, with concurrent goroutine use coordinated internally.
 - **Field builder and validator:** Append's selector callback supplies typed field selectors; those selectors resolve direct fields on a zero-valued consumer probe. Field constructors support nullable/non-nullable primitives. Append-time validation rejects invalid field names, duplicate names, unsupported types, invalid bounds and non-finite floats before writing.
 - **Identity encoder:** Produces canonical bytes independent of input field ordering, using bytewise UTF-8 field sort, explicit primitive tags, uint32 big-endian framing, exact widths/IEEE bits, and consumer package/type identity. UUID v5 uses a fixed namespace and separate event/channel domain prefixes.
 - **Record serializer/schema validator:** Encodes versioned strict JSON records as NDJSON and validates each record against the schema matching its `schema_version`. Standalone schemas are canonical; runtime embeds those files using `go:embed`.
@@ -135,3 +135,27 @@ If the manifest is corrupt or missing in an existing storage directory, recovery
 ### Reader-safe compaction
 
 Each reader pins the generation it started against. Compaction constructs replacement segments and index without modifying files used by current readers, validates and syncs them, then atomically switches the manifest. New readers use the new generation; existing readers continue using their pinned generation. Old generation files are deleted only after the last reader releases its pin. This policy applies equally on Linux and Windows, avoiding platform-specific reader semantics.
+
+
+## Define decision — single public preparation API (approved 2026-11-24)
+
+The only public API currently approved is:
+
+```go
+event, channel, err := eventlog.PrepareLog[MyEvent, MyChannel](ctx)
+```
+
+Declaration:
+
+```go
+func PrepareLog[TEvent EventType, TChannel ChannelType](ctx context.Context) (TEvent, TChannel, error)
+```
+
+The public constraints remain:
+
+```go
+type ChannelType interface { Fields() Fields }
+type EventType interface { Fields() Fields }
+```
+
+The returned event and channel values are consumer-owned data values whose exposed fields consumers may set or change. The package owns the internal `Log` struct and all append, read, next, synchronization, recovery, and lifecycle machinery. Consumers do not receive a Log handle and do not call lifecycle methods. No other public append/read/next/close/flush/compact API is approved at this stage. A single process owns a log at a time; multiple goroutines may use the API concurrently. This replaces earlier generic Log-handle and consumer-facing Append/Read proposals.

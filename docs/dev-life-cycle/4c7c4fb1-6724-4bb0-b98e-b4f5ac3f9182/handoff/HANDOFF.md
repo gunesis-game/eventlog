@@ -3,8 +3,43 @@
 **Cycle ID:** 4c7c4fb1-6724-4bb0-b98e-b4f5ac3f9182  
 **Workflow:** Standard  
 **Phase:** Define  
-**Status:** Blocked  
-**Execution lock:** Released on `main` after persisting this checkpoint. No active owner remains.
+**Status:** In progress  
+**Execution lock:** Active for this session; see `docs/dev-life-cycle/execution-lock.json`.
+
+## Latest checkpoint — 2026-11-24 — public API decision
+
+The user explicitly approved exactly one public API at this stage:
+
+```go
+event, channel, err := eventlog.PrepareLog[MyEvent, MyChannel](ctx)
+```
+
+Declaration:
+
+```go
+func PrepareLog[TEvent EventType, TChannel ChannelType](ctx context.Context) (TEvent, TChannel, error)
+```
+
+Public constraints:
+
+```go
+type ChannelType interface { Fields() Fields }
+type EventType interface { Fields() Fields }
+```
+
+- There is no public `Log` handle and no consumer-facing Append, Read, Next, Close, Flush, or Compact API at this stage.
+- The `Log` struct and its instance are internal to eventlog. It manages append, read, next, synchronization, recovery, and the complete lifecycle.
+- Consumers receive the typed event and channel instances and set/change their fields. Internal routines inspect `Fields()` to detect and persist field changes.
+- One process owns a log at a time. Multiple goroutines may use the API concurrently. This does not imply one global log across all processes or all storage locations.
+- Previous generic public Log-handle and generic Append/Read proposals in the historical handoff below are superseded.
+
+## Resume state
+
+Cycle 1 remains in Define. Existing persistence, transaction, recovery, segmented storage, manifest, rebuildable index, reader-safe compaction, and Linux/Windows constraints remain in force unless separately changed. No implementation, build, or Go tests have started. Next, specify the semantics and lifecycle of the single preparation API and its relationship to the internal Log, then reconcile remaining design and acceptance criteria. Do not introduce additional public APIs without an explicit user decision.
+
+---
+
+## Historical handoff (superseded API proposals retained for traceability)
 
 ## Latest checkpoint
 
