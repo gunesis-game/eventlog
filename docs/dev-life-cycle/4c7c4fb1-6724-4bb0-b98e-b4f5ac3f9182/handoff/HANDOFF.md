@@ -6,7 +6,7 @@
 - **Sequence / execution order:** 1 / 1
 - **Workflow:** standard
 - **Registry status / phase:** in-progress / define
-- **Last updated:** 2026-11-24
+- **Last updated:** 2026-11-25
 
 ## Objective
 
@@ -63,6 +63,3 @@ Resolve the genuine remaining design questions, agree measurable performance/mem
 
 - No implementation, Go build, or Go tests have been run.
 
-## Next action
-
-Bounded notification backlog with Reader backpressure is approved and recorded as D-033. The complete bottom-up acceptance matrix is now agreed and recorded in [acceptance.md](../../../project/acceptance.md), covering disk/storage, persistence/transactions, metadata/recovery, core event-log behavior, Channel/Reader, notification delivery, runtime lifecycle, and public API/end-to-end integration. Next, define benchmark workloads and measurable performance/memory targets, then complete the final consistency review. D-025 through D-033 are recorded. Do not begin implementation until Define is complete and the user explicitly approves exit.
