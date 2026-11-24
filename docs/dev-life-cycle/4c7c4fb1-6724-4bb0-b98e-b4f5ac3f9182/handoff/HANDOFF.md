@@ -3,6 +3,7 @@
 ## Current approved baseline (authoritative)
 
 - `PrepareLog[TEvent, TChannel](ctx, newChannel)` uses pointer type arguments `TEvent Event` and `TChannel Channel`, validates both at runtime using reflection, and uses `newChannel func(chan Event) TChannel`.
+- Compatible repeated preparation for the same concrete Event/Channel type pair and exposed schemas returns the same live Event and Channel pointers; incompatible reuse fails with a typed conflict. Event-specific preparations resolving to the same logical Channel reuse its Channel pointer/runtime and single Reader progression.
 - Channel accessors are `Notifications() <-chan Event` and `Errors() <-chan error`.
 - Historical replay waits asynchronously for all decoders required by committed Channel history; a missing decoder waits indefinitely without timeout or fatal error solely due to absence; no public registration or activation method.
 - Error stream: shared per Channel, capacity one, first fatal error retained, best-effort non-blocking delivery; fatal Reader termination closes streams after reporting.
@@ -10,10 +11,10 @@
 ## State
 - **Cycle:** 4c7c4fb1-6724-4bb0-b98e-b4f5ac3f9182 (sequence 1, execution order 1)
 - **Workflow / phase:** standard / define
-- **Registry:** paused at Define
-- **Execution lock:** released at 2026-11-24T18:34:48.958Z; release published atomically with this checkpoint.
+- **Registry:** in-progress at Define
+- **Execution lock:** active for ChatGPT-GPT-6; claim published on main at `5dfa84b39909350f4e37cbb672e066663c9d2214` and fetched back with the expected active ownership.
 - **Implementation:** none; no build or Go tests started.
-- **Latest checkpoint:** 2026-11-24T18:34:48.958Z — D-008 recorded in architecture, requirements, plan and decision register; Cycle 1 paused while awaiting the next design decision.
+- **Latest checkpoint:** 2026-11-24T18:38:51.151Z — Cycle 1 resumed; D-009 prepared-instance reuse approved and recorded in canonical artifacts.
 
 ## Correction after user review
 The previous cleanup was wrong: it optimized for file size and stripped substantive requirements/design from active project docs, leaving the archive as the place to find them. The user explicitly said this was not simply moving content and that architecture must retain the complete design. This pass restores and curates the active docs. Active specifications must remain complete and topic-oriented; archives are provenance only.
@@ -332,7 +333,7 @@ Historical checkpoint statements below that describe `TEvent` as the common inte
 - Next Define topic: choose the enforcement mechanism for the approved pointer-only `TEvent` and `TChannel` requirement, preserving the existing two-parameter `PrepareLog[TEvent, TChannel]` consumer API. Resume through the normal lock-claim protocol.
 
 
-| D-008 | Enforce pointer-only `TEvent` and `TChannel` arguments by runtime reflection inside `PrepareLog`; return an error for either non-pointer type; preserve the two-parameter generic API | Recorded | docs/project/architecture.md, requirements.md and Cycle 1 plan | architecture `cef7d96797081f049782815f84b908ba2decfce7`; requirements `dfde24dbc3f1ddf1e5ad0dc1edf0edc6df42bc94`; plan `56fba4e297c14ee23a49c4a4471f77e7e757c6a1` |
+| D-008 | Enforce pointer-only `TEvent` and `TChannel` arguments by runtime reflection inside `PrepareLog`; return an error for either non-pointer type; preserve the two-parameter generic API | Recorded | docs/project/architecture.md, requirements.md and Cycle 1 plan | architecture `0b070a42cfa3e924a6744077259dd9ed6a3c90ae`; requirements `b2ccfeb1a4fa6a9a08d4679f9beeea9286bc2d95`; plan `8748c5d4152ef54af4f7b44a9972e1b7ced03b63` |
 
 ## D-008 recorded checkpoint — 2026-11-24T18:34:23.919Z
 
@@ -348,3 +349,16 @@ Historical checkpoint statements below that describe `TEvent` as the common inte
 - Cycle 1 is paused at Define. The cycle registry and execution lock are updated together in the same main-branch commit; no worker retains ownership while awaiting the user's next decision.
 - No implementation, lifecycle validator, Go build, or Go tests were run.
 - Next Define topic: prepared-instance reuse — whether repeated `PrepareLog[TEvent, TChannel]` calls for the same Event/Channel type and schema return the same live pointer pair, and how incompatible reuse is handled. Preserve the approved consumer-facing API and include both generic type arguments in every example.
+
+
+## D-009 recorded checkpoint — 2026-11-24T18:38:51Z
+
+- **Approved decision:** compatible repeated `PrepareLog[TEvent, TChannel]` calls for the same concrete Event/Channel type pair and unchanged exposed field schemas return the same live Event and Channel pointer instances. Incompatible reuse of an already prepared type/schema registration returns a typed conflict instead of creating competing live instances.
+- Event-specific preparations resolving to the same logical Channel reuse that Channel's existing pointer, runtime and single Reader progression, including across different concrete Event types. Each concrete Event type retains its own prepared Event instance.
+- **Canonical artifacts updated and fetched back:** architecture commit `0b070a42cfa3e924a6744077259dd9ed6a3c90ae`; requirements commit `b2ccfeb1a4fa6a9a08d4679f9beeea9286bc2d95`; Cycle 1 plan commit `8748c5d4152ef54af4f7b44a9972e1b7ced03b63`. D-008 pointer-only runtime validation was also restored to the active architecture/requirements baseline.
+- **Decision register:** D-009 is Recorded against the three fetched-back canonical artifacts.
+- **Remaining details:** exact internal registry key, typed conflict taxonomy, and handling of distinct logical Channels of the same concrete Channel type remain open. No consumer-facing API change.
+- **Lifecycle:** Cycle 1 remains in-progress at Define; execution lock remains active for this worker.
+- **Verification:** each canonical file was fetched back after publication. The active lock and resumed registry were fetched back. No lifecycle validator, Go build, or Go tests were run; no implementation has started.
+- **Governance note:** this session initially fetched other repository files before reading the execution lock, contrary to the mandatory first-read rule. The lock was then fetched and found released before claim; no conflicting owner was observed. The claim was published and fetched back before the registry was changed. Future continuation must read the lock first.
+- **Next:** continue Define with the internal prepared-instance registry key and remaining lifecycle/cancellation/error semantics. Preserve the consumer-facing API and include both generic type arguments in every example.
