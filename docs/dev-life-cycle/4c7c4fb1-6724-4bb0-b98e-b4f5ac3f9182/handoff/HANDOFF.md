@@ -459,3 +459,13 @@ Channel's public API will expose a notification Go channel through an accessor (
 - Persisted occurrences remain recoverable via internal replay; notification loss must be detectable, not silent.
 - Buffer capacity, loss-detection mechanism, replay contract/API, and exact delivery details remain open Define decisions.
 - No implementation/build/tests have started; implementation still requires Define completion and explicit approval.
+
+
+## Define decision — guaranteed occurrence notification delivery approved (2026-11-24)
+
+- Approved contract: every successfully persisted occurrence must eventually become visible to the consumer; buffer overflow may not cause notification loss.
+- This supersedes the previous drop-on-full decision.
+- Eventlog owns notification buffering, backlog, and recovery/replay. Consumer-facing API must not expose internal sequence numbers, counters, gap detection, or recovery mechanics.
+- Persistence and scheduler remain non-blocking relative to a slow/unread consumer; internal backlog/replay must reconcile finite buffering with guaranteed delivery.
+- Internal mechanism, backlog persistence/retention, shutdown/lifecycle, and failure semantics remain open Define questions.
+- No implementation/build/tests have started; implementation still requires Define completion and explicit approval.
