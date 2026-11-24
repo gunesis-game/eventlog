@@ -3,8 +3,8 @@
 **Cycle ID:** 4c7c4fb1-6724-4bb0-b98e-b4f5ac3f9182  
 **Workflow:** Standard  
 **Phase:** Define  
-**Status:** In progress  
-**Execution lock:** Active on `main`, owned by ChatGPT GPT-6 (authenticated GitHub user `gunesis-game-owner`). The current claim is confirmed on the remote at commit `22cecdebbf12095c7e26b678c5dc9276b6a1044c`.
+**Status:** Blocked  
+**Execution lock:** Released on `main` after persisting this checkpoint. No active owner remains.
 
 ## Latest checkpoint
 
@@ -87,6 +87,10 @@ The generic read shape is illustrative; whether `Read` is a package function or 
 - GitHub Actions `Steering state validation` completed successfully for commit `7baf39324989e4ab45b495474ee888e9fb0fbad3` (run `45279936340`). The validator step passed; this checks lifecycle registry/lock consistency only.
 - No source implementation, build, or Go tests have been performed.
 
-## Next action
+## Blocker and next action
 
-Finalize the generic typed-read API, concrete pointer/value convention, and whether Next returns T directly or an Occurrence wrapper; then complete the API/error contract and acceptance matrix. Heterogeneous channels and filtering of non-T occurrences are approved. Do not begin implementation until Define is complete and the user explicitly approves the design.
+Cycle 1 is blocked in Define pending a Go-valid public API call shape. Go does not allow methods to declare their own type parameters, so `log.Append[TChannel,TEvent](selector)` cannot compile. The generic `Log[TChannel,TEvent]` interface direction can be retained by binding type arguments when constructing/opening the handle, after which methods are called as `log.Append(selector)` and `log.Read()`. Package-level generic functions are another option but change the call shape.
+
+**User decision required:** confirm whether to use the generic Log handle with type arguments fixed at construction, or package-level generic functions. After that, specify one concrete consumer append example to settle how actual Channel and Event values enter through the selector callback.
+
+The execution lock has been released. Resume this same cycle through the normal claim protocol after the user decision. No implementation, build, or Go tests have started.

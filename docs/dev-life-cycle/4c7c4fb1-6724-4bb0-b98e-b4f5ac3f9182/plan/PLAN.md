@@ -5,8 +5,8 @@
 - **Cycle UUID:** 4c7c4fb1-6724-4bb0-b98e-b4f5ac3f9182
 - **Sequence:** 1
 - **Execution order:** 1
-- **Status:** in-progress
-- **Status reason:** null
+- **Status:** blocked
+- **Status reason:** Awaiting user confirmation of a Go-valid generic API surface: Go does not permit type parameters on methods, so the literal log.Append[TChannel,TEvent](selector) call cannot compile. Confirm whether to bind the types on a generic Log handle (log.Append(selector), log.Read()) or use package-level generic functions.
 - **Current phase:** define
 - **Created:** 2026-11-22T16:00:00+02:00
 
@@ -125,19 +125,19 @@ Reconcile the cycle artifacts first: keep one current specification and one curr
 
 ## Current progress
 
-- Cycle 1 is active in Define under the repository execution lock.
+- Cycle 1 is blocked in Define pending the user's decision on the Go-valid generic API surface; the execution lock has been released.
 - The prior handoff's “released” checkpoint was correct for the prior session but is now superseded by the current claim.
 - Approved architecture decisions are consolidated in the current baseline above.
 - Reconciliation is focused on stale wording and lifecycle consistency; no implementation, build or Go tests have begun.
 
-## Latest resume checkpoint — 2026-11-24 (continued)
+## Latest resume checkpoint — 2026-11-24 (blocked)
 
-- User instructed continuation of Cycle 1 in Define. The released lock was claimed for this same in-progress cycle in lock-only commit `22cecdebbf12095c7e26b678c5dc9276b6a1044c`; the remote `main` branch was fetched back and confirmed to contain the active lock.
-- GitHub Actions run `45294380997` passed the registry/lock validator against the exact lock-claim commit.
-- The current requirements, plan, handoff, and architecture now explicitly supersede the stale `Append(channel, event)` wording and record the generic Log contract direction.
-- Go language constraint: methods cannot declare their own type parameters. The literal requested method call `log.Append[TChannel,TEvent](selector)` is not valid Go. A generic Log handle can carry `TChannel` and `TEvent` and expose `log.Append(selector)` / `log.Read()`; package-level generic functions are another option but change the call shape. This is a feasibility finding, not an approved API substitution.
-- The selector callback's value-input shape remains unresolved: the call shape `Append(selector)` must still explain how actual channel and event values enter the append operation. The next design discussion must use a concrete consumer example rather than infer a callback.
-- No implementation, build, or Go tests have started. Implementation remains prohibited until Define is complete and the user explicitly approves the public contract.
+- The Cycle 1 lock was successfully claimed and confirmed on `main` in commit `22cecdebbf12095c7e26b678c5dc9276b6a1044c`.
+- Requirements, architecture, plan, and handoff were reconciled to remove active `Append(channel, event)` wording and record the user's generic Log direction plus the Go language constraint.
+- The lifecycle validator passed for the lock claim and the subsequent plan/handoff documentation checkpoints. The final documentation checkpoint is commit `603fe20bc6caa9c85d81907c2774288bedfbce19`; its workflow result is being checked.
+- **Blocker:** Go methods cannot declare type parameters. The literal requested `log.Append[TChannel,TEvent](selector)` call is not valid Go. A generic Log handle instantiated with `TChannel` and `TEvent` is a viable candidate, exposing `log.Append(selector)` and `log.Read()`; package-level generic functions are an alternative. The user must confirm the desired call-site trade-off.
+- The Append selector's actual channel/event value-input shape remains open and must be specified with a concrete consumer example.
+- The cycle remains in Define; no implementation, build, or Go tests have started. The registry is now blocked and the execution lock is released pending the user's decision.
 
 ## Proposed acceptance matrix and benchmark scenarios (Define draft)
 
