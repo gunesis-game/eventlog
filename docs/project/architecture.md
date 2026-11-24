@@ -451,3 +451,12 @@ For each logical Event, snapshots are processed in FIFO enqueue order. An alread
 ## Approved bounded queue and backpressure policy — D-022
 
 The internal change queue is bounded to keep memory use predictable. When capacity is exhausted, eventlog applies backpressure to its internal monitoring/queueing work; it does not block or intercept consumer assignments to ordinary Go struct fields. Consumers may continue mutating their structs while monitoring is paused. When monitoring resumes, it captures the latest state it observes; intermediate states that occurred while monitoring was paused may be missed. Already-enqueued snapshots remain queued and are not dropped. Queue capacity and worker scheduling are internal configuration/implementation details, not consumer-facing API. Persistence failures are reported through the existing asynchronous error contract and must not be disguised as successful commits.
+
+
+## Approved Log-wide queue ownership and persistence concurrency — D-023 (Decision 8)
+
+Each Log owns one bounded internal ingress queue for immutable snapshots captured by its change monitors. A Log-internal dispatcher dequeues snapshots and schedules them by canonical logical Event identity. At most one persistence operation for a given logical Event may run at a time, and that Event's snapshots retain FIFO enqueue order; a later snapshot for that Event must not overtake an earlier one.
+
+Different logical Events may be persisted concurrently by multiple workers. This avoids serializing unrelated Event histories while preserving each Event's ordered history. Global sequence numbers are assigned centrally at the commit/serialization point; committed sequence order defines the total order observed by Readers and notifications.
+
+The queue, dispatcher, scheduling lanes and worker count are internal implementation details. The bounded-capacity backpressure policy remains D-022: monitoring/queueing work is paused or delayed when capacity is exhausted; consumer field assignments are never blocked; snapshots already enqueued are retained and never dropped. No consumer-facing queue, method, callback, configuration requirement or API change is introduced. The existing PrepareLog[TEvent, TChannel], Fields() Fields, Notifications() <-chan Event, and Errors() <-chan error contracts remain unchanged.
