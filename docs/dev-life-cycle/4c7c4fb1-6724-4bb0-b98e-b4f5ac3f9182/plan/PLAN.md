@@ -58,7 +58,6 @@ Approved project decisions are recorded in the project decision register and int
 | UUID identity marker/tag | Resolved | D-035 and architecture sections “UUID identity representation” and “Canonical identity byte composition” |
 | Canonical alias/generic type naming | Resolved | D-037 and architecture section “Canonical identity encoding” |
 | Metadata UTF-8 policy | Resolved | D-036 and architecture section “Metadata UTF-8 policy” |
-| Canonical alias/generic type naming | Resolved | D-037 and architecture section “Canonical identity encoding” |
 | Maximum framing sizes | Unresolved | Set explicit bounds for each u32-framed component/count before implementation |
 | Exact internal registry-key composition | Unresolved/internal design detail | Confirm whether existing identity/registration rules are sufficient and defer exact representation to implementation if no observable contract depends on it |
 | Numeric performance/memory targets and measurement criteria | Unresolved | Agree target environments, resource ceilings, repetitions, warm-up, and acceptance methodology |
