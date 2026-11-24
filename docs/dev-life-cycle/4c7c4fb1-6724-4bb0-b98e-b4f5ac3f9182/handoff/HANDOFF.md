@@ -11,9 +11,9 @@
 - **Cycle:** 4c7c4fb1-6724-4bb0-b98e-b4f5ac3f9182 (sequence 1, execution order 1)
 - **Workflow / phase:** standard / define
 - **Registry:** in-progress at Define
-- **Execution lock:** active for ChatGPT since 2026-11-24T20:02:00+02:00; claim verified on main
+- **Execution lock:** active for ChatGPT-GPT-6 since 2026-11-24T18:24:13Z; claim verified on main at commit `199bc6b3d14eea4f72f743c6f042158bc46b9fbb`
 - **Implementation:** none; no build or Go tests started.
-- **Latest checkpoint:** 2026-11-24T20:02:00+02:00 — resumed Cycle 1 to reconcile approved decisions and adopt template v1.1.0 governance. Earlier checkpoints and history remain preserved.
+- **Latest checkpoint:** 2026-11-24T18:24:13Z — resumed Cycle 1 and began recording approved D-006. Earlier checkpoints and history remain preserved.
 
 ## Correction after user review
 The previous cleanup was wrong: it optimized for file size and stripped substantive requirements/design from active project docs, leaving the archive as the place to find them. The user explicitly said this was not simply moving content and that architecture must retain the complete design. This pass restores and curates the active docs. Active specifications must remain complete and topic-oriented; archives are provenance only.
@@ -256,7 +256,7 @@ This is the authoritative decision ledger for Cycle 1. Every material user-appro
 | D-003 | Channel exposes one-way shared `Errors() <-chan error`, capacity one, first fatal error retained and best-effort non-blocking delivery | Recorded | docs/project/requirements.md | 4b7bc62c6cf851bf62a86bd7a11286c761063f02 |
 | D-004 | Fatal Reader error terminates Channel Reader and closes notification/error streams after reporting; safe recoverable errors may continue | Recorded | docs/project/architecture.md | d4fe4e197b07385e95159d7090e8110f4805b68f |
 | D-005 | Concrete decoder registration derives from generic `TEvent`; historical replay waits asynchronously for all decoders required by committed Channel history; no public registration/activation API | Recorded | docs/project/architecture.md | d4fe4e197b07385e95159d7090e8110f4805b68f |
-| D-006 | Exact behavior for a required decoder that is never registered, including timeout/terminal error policy | Proposed | — | Awaiting focused design review |
+| D-006 | A required decoder that has not registered causes indefinite asynchronous Channel Reader waiting; no arbitrary timeout or fatal error solely due to absence; replay resumes when registered | Recorded | docs/project/architecture.md (also reconciled in requirements.md and Cycle 1 plan) | `4ea67d0ca45cc0bc2de7f46717844fbed42d4bb5`; requirements `3bbe21bdc79528aff55afa74f070f7d7ff629549`; plan `0aa4496f30faf53279b41df8972acc91cadeeb9e` |
 
 ## Governance correction checkpoint — 2026-11-24T20:02+02:00
 
@@ -294,3 +294,13 @@ Historical checkpoint statements below that describe `TEvent` as the common inte
 - The initial read-order deviation was disclosed and retained above. No implementation, build, or Go tests were started.
 - **Next action:** complete a line-by-line audit for remaining contradictory historical statements and ensure all approved decisions are recorded; then continue Define with D-006 only after confirming the persisted state.
 - This session is pausing Cycle 1 at Define. The registry will be set to paused and the execution lock released before stopping.
+
+
+## D-006 recorded checkpoint — 2026-11-24T18:26:40.689Z
+
+- **Approved decision:** when a required concrete Event decoder has not registered, the Channel Reader waits asynchronously and indefinitely. There is no arbitrary timeout, and absence alone does not produce a fatal Channel error. Replay proceeds when the decoder registers. Unknown or undecodable persisted Event types still fail closed; no consumer-facing API changes.
+- **Canonical artifacts updated and fetched back:** `docs/project/architecture.md` at `4ea67d0ca45cc0bc2de7f46717844fbed42d4bb5`; `docs/project/requirements.md` at `3bbe21bdc79528aff55afa74f070f7d7ff629549`; Cycle 1 `plan/PLAN.md` at `0aa4496f30faf53279b41df8972acc91cadeeb9e`.
+- **Decision register:** D-006 is now Recorded against the verified architecture revision; the requirements and plan carry the same decision.
+- **Lifecycle state:** Cycle 1 is `in-progress` at Define; the active execution lock is held by ChatGPT-GPT-6 and was fetched back from `main`. The earlier 20:06 pause checkpoint is superseded by this resume.
+- **Verification:** each changed canonical artifact was fetched back from `main` and its content/blob revision inspected. No lifecycle validator, build, or Go tests have run in this session. No implementation has started.
+- **Next:** continue Define with the next unresolved design decision. Preserve the approved consumer-facing API and include both `TEvent` and `TChannel` in every `PrepareLog` example.
