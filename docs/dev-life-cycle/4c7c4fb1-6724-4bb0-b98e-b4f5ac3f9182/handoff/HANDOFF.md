@@ -2,7 +2,7 @@
 
 ## Current approved baseline (authoritative)
 
-- `PrepareLog[TEvent, TChannel](ctx, newChannel)` uses concrete pointer type arguments `TEvent Event` and `TChannel Channel`, and `newChannel func(chan Event) TChannel`.
+- `PrepareLog[TEvent, TChannel](ctx, newChannel)` uses pointer type arguments `TEvent Event` and `TChannel Channel`, validates both at runtime using reflection, and uses `newChannel func(chan Event) TChannel`.
 - Channel accessors are `Notifications() <-chan Event` and `Errors() <-chan error`.
 - Historical replay waits asynchronously for all decoders required by committed Channel history; a missing decoder waits indefinitely without timeout or fatal error solely due to absence; no public registration or activation method.
 - Error stream: shared per Channel, capacity one, first fatal error retained, best-effort non-blocking delivery; fatal Reader termination closes streams after reporting.
@@ -10,10 +10,10 @@
 ## State
 - **Cycle:** 4c7c4fb1-6724-4bb0-b98e-b4f5ac3f9182 (sequence 1, execution order 1)
 - **Workflow / phase:** standard / define
-- **Registry:** paused at Define
-- **Execution lock:** released at 2026-11-24T18:31:57.733Z; release published atomically with this checkpoint.
+- **Registry:** in-progress at Define
+- **Execution lock:** active for ChatGPT-GPT-6; claim published at `3c2441787a46cad8ef202fea87bfd0ef33b5d5da`.
 - **Implementation:** none; no build or Go tests started.
-- **Latest checkpoint:** 2026-11-24T18:31:57.733Z — D-007 recorded in architecture, requirements, plan and decision register; Cycle 1 paused while awaiting the next design decision.
+- **Latest checkpoint:** D-008 approval is recorded in canonical artifacts; decision register and handoff checkpoint are being reconciled.
 
 ## Correction after user review
 The previous cleanup was wrong: it optimized for file size and stripped substantive requirements/design from active project docs, leaving the archive as the place to find them. The user explicitly said this was not simply moving content and that architecture must retain the complete design. This pass restores and curates the active docs. Active specifications must remain complete and topic-oriented; archives are provenance only.
@@ -257,7 +257,7 @@ This is the authoritative decision ledger for Cycle 1. Every material user-appro
 | D-004 | Fatal Reader error terminates Channel Reader and closes notification/error streams after reporting; safe recoverable errors may continue | Recorded | docs/project/architecture.md | d4fe4e197b07385e95159d7090e8110f4805b68f |
 | D-005 | Concrete decoder registration derives from generic `TEvent`; historical replay waits asynchronously for all decoders required by committed Channel history; no public registration/activation API | Recorded | docs/project/architecture.md | d4fe4e197b07385e95159d7090e8110f4805b68f |
 | D-006 | A required decoder that has not registered causes indefinite asynchronous Channel Reader waiting; no arbitrary timeout or fatal error solely due to absence; replay resumes when registered | Recorded | docs/project/architecture.md (also reconciled in requirements.md and Cycle 1 plan) | `4ea67d0ca45cc0bc2de7f46717844fbed42d4bb5`; requirements `3bbe21bdc79528aff55afa74f070f7d7ff629549`; plan `0aa4496f30faf53279b41df8972acc91cadeeb9e` |
-| D-007 | Both generic type arguments `TEvent` and `TChannel` supplied to `PrepareLog[TEvent, TChannel]` must be pointer types; enforcement mechanism remains open | Recorded | docs/project/architecture.md (also reconciled in requirements.md and Cycle 1 plan) | architecture `98918b4a4529f004fc14e267627571d462521214`; requirements `183fab3f4f4ba4bd5393e1858812fde8c8d5c718`; plan `db1c05e39b31ae3c215bb8f96df2d5a0daffeb6e` |
+| D-007 | Both generic type arguments `TEvent` and `TChannel` supplied to `PrepareLog[TEvent, TChannel]` must be pointer types | Recorded | docs/project/architecture.md | architecture `98918b4a4529f004fc14e267627571d462521214`; requirements `183fab3f4f4ba4bd5393e1858812fde8c8d5c718`; plan `db1c05e39b31ae3c215bb8f96df2d5a0daffeb6e` |
 
 ## Governance correction checkpoint — 2026-11-24T20:02+02:00
 
@@ -330,3 +330,13 @@ Historical checkpoint statements below that describe `TEvent` as the common inte
 - Cycle 1 is paused at Define; the registry and execution lock are updated together in the same main-branch commit. No worker retains ownership while awaiting the user's next decision.
 - No implementation, local lifecycle validator, Go build, or Go tests were run.
 - Next Define topic: choose the enforcement mechanism for the approved pointer-only `TEvent` and `TChannel` requirement, preserving the existing two-parameter `PrepareLog[TEvent, TChannel]` consumer API. Resume through the normal lock-claim protocol.
+
+
+| D-008 | Enforce pointer-only `TEvent` and `TChannel` arguments by runtime reflection inside `PrepareLog`; return an error for either non-pointer type; preserve the two-parameter generic API | Recorded | docs/project/architecture.md, requirements.md and Cycle 1 plan | architecture `cef7d96797081f049782815f84b908ba2decfce7`; requirements `dfde24dbc3f1ddf1e5ad0dc1edf0edc6df42bc94`; plan `56fba4e297c14ee23a49c4a4471f77e7e757c6a1` |
+
+## D-008 recorded checkpoint — 2026-11-24T18:34:23.919Z
+
+- **Approved decision:** `PrepareLog[TEvent, TChannel]` uses runtime reflection to validate that both generic type arguments are pointers. If either is not a pointer, preparation returns an error. The approved two-parameter generic signature and consumer-facing API remain unchanged.
+- **Canonical artifacts updated and fetched back:** `docs/project/architecture.md` at `cef7d96797081f049782815f84b908ba2decfce7`; `docs/project/requirements.md` at `dfde24dbc3f1ddf1e5ad0dc1edf0edc6df42bc94`; Cycle 1 `plan/PLAN.md` at `56fba4e297c14ee23a49c4a4471f77e7e757c6a1`.
+- **Verification:** approved text was fetched back and inspected. No implementation, lifecycle validator, Go build, or Go tests were run.
+- **Next:** continue Define with prepared-instance reuse and the remaining internal lifecycle decisions. Preserve the consumer API and include both generic type arguments in every example.
