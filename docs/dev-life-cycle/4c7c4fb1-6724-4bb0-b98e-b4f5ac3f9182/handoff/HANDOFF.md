@@ -313,3 +313,30 @@ Generic arguments select consumer Event and Channel types only. `context.Context
 - User approved `ErrConfigNotInitialized` and `ErrConfigAlreadySet` sentinel errors, with the semantics and error-wrapping contract recorded in the requirements and architecture.
 - The error taxonomy is no longer an open Define decision. Invalid options remain descriptive validation errors; filesystem and context errors must preserve discoverable causes.
 - The lock remains active for Cycle 1. Continue the Define review with the remaining lifecycle/API, cancellation/resource, benchmark, acceptance-matrix, and documentation consistency decisions. No implementation, build, or Go tests have started.
+
+
+## Latest session handoff — 2026-11-24 — Fields contract and polling approved
+
+- User reaffirmed the **only public API** is `Config(options ...Option) error`, the `PrepareLog[TEvent, TChannel](ctx)` entry point, and the consumer-implemented `Event` / `Channel` interfaces with their `Fields() Fields` declarations, plus the approved exported errors. Do not introduce public `Append`, `Read`, `Reader`, `Next`, `Close`, `Save`, or other operational APIs.
+- `PrepareLog` creates and owns the consumer's Event and Channel instances and returns pointers to those same instances. The package's internal Log retains ownership and manages persistence, replay, synchronization, change tracking, and lifecycle.
+- Consumers implement `Fields() Fields` to declare which fields they want persisted. The package must honor that declaration and build the internal machinery. Preserve the documented `FieldOf` and `FieldOfNullable` selectors; do not invent struct tags or a different field-selection scheme.
+- `PrepareLog` reads the declarations, validates and resolves the selected fields, and builds internal bindings to the actual selected fields on the owned instances. The declaration is the sole field-selection point; do not require consumers to pass selectors to a public append call.
+- User approved **polling-based internal change detection**. The internal manager periodically inspects selected fields, compares them with the last observed/persisted snapshots, and performs the required internal persistence. No public notification or operational methods are to be added.
+- Go cannot intercept ordinary struct field assignments. Polling is therefore the agreed mechanism; its interval, scheduling, synchronization/race guarantees, event-vs-channel change semantics, and shutdown/resource behavior remain to be specified during Define. Do not claim polling itself makes unsynchronized concurrent field writes race-safe.
+- Previously suggested package-level public `Append`/`Read` APIs and a public typed Reader were explicitly rejected by the user and are not part of the contract.
+- The prior handoff's historical notes proposing a public generic Log interface, public Append/Read, selector arguments to Append, and alternative reader APIs are superseded by this latest decision and must not be revived.
+- Lock released for the next session in lock-only commit `5d532af3a2c65a5d23208f30a896317301aa723d`; shared `main` and `execution-lock.json` were re-fetched and confirmed at that commit with `status: released`.
+- Cycle 1 remains `in-progress`, phase `define`. No implementation, build, or Go tests have started.
+
+### Next Define tasks
+
+1. Specify the polling interval and scheduler strategy, including how polling is stopped/retried and how errors surface internally without expanding the public API.
+2. Define event-field changes versus channel-field changes: occurrence creation, channel identity/association, ordering, and persistence semantics.
+3. Define concurrency guarantees for consumer mutation while polling. Plain unsynchronized writes to returned structs cannot be made race-free by the package; decide and document the caller synchronization contract or a supported internal snapshot strategy.
+4. Finalize initialization, cancellation, reader/resource, terminal error, benchmark, and acceptance criteria.
+5. Reconcile requirements, architecture, plan, and handoff; remove stale active contradictions while retaining historical decisions only when clearly marked superseded.
+6. Complete Define consistency review and obtain explicit user approval before implementation.
+
+### Resume instructions
+
+The next session must re-fetch shared `main` and verify `docs/dev-life-cycle/execution-lock.json` is still released. It must then claim Cycle 1 with a lock-only commit before editing project documents. Continue from the polling and Fields decisions above. Do not start implementation until Define is complete and the user explicitly approves implementation.
