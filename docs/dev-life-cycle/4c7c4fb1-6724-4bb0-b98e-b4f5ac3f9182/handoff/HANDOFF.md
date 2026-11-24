@@ -384,3 +384,12 @@ Historical checkpoint statements below that describe `TEvent` as the common inte
 - The exact mechanism and ordering for obtaining/validating candidate Channel identity fields before runtime lookup remain open.
 - No implementation, lifecycle validator, Go build, or Go tests were run.
 - **Next:** decide how `PrepareLog[TEvent, TChannel]` obtains the Channel identity from the factory-created candidate and reconciles it with an existing runtime, preserving the approved public API.
+
+| D-011 | Resolve Channel runtime by factory-candidate canonical identity: create candidate, inspect Fields(), reuse existing Channel pointer/runtime/Reader on identity hit (discard candidate), otherwise adopt candidate and create runtime; no consumer API change | Recorded | docs/project/architecture.md, requirements.md and Cycle 1 plan | architecture `7bd42a01d58a795b59a57fad06b523de330c6a1f`; requirements `42a543f2baac707437a6f5b0bec4c3292ecf52fc`; plan `0eff97488b28cd02a1d694cbd587d6536d20b79a` |
+
+## D-011 recorded checkpoint
+
+- **Approved decision:** `PrepareLog[TEvent, TChannel]` invokes the Channel factory to create a candidate, derives canonical Channel identity from the candidate's `Fields()`, and looks up the runtime registry by that identity. On a hit, it reuses the existing Channel pointer and runtime/Reader and discards the candidate; on a miss, it adopts the candidate and creates the runtime.
+- The factory may be invoked even when its candidate is discarded. This is an internal sequence; the consumer-facing API remains unchanged.
+- **Canonical artifacts updated and fetched back:** architecture commit `7bd42a01d58a795b59a57fad06b523de330c6a1f`; requirements commit `42a543f2baac707437a6f5b0bec4c3292ecf52fc`; Cycle 1 plan commit `0eff97488b28cd02a1d694cbd587d6536d20b79a`.
+- **Next:** continue Define with the next unresolved preparation/identity detail. No implementation, lifecycle validator, Go build, or Go tests were run.
