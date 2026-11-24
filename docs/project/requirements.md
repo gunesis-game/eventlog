@@ -175,3 +175,8 @@ The Channel factory MUST act only as a constructor: it creates and initializes a
 ## Atomic Channel runtime resolution — D-013
 
 The Channel runtime registry MUST resolve lookup and candidate adoption atomically by canonical Channel identity. Concurrent preparations for the same logical Channel MUST result in one adopted Channel pointer and one runtime/Reader; all competing preparations MUST reuse that winner. Duplicate runtimes or Readers for one logical Channel identity are forbidden. This is an internal synchronization requirement and MUST NOT change the consumer-facing API.
+
+
+## Concurrent Event-type preparation for one logical Channel — D-014
+
+The library must allow concurrent preparations for different concrete Event types that resolve to the same logical Channel to register those Event types independently. They must converge on the same adopted Channel pointer and single Channel runtime/Reader, using canonical Channel identity and atomic runtime resolution. A preparation must not synchronously wait for another Event type's registration. Historical replay must continue to wait asynchronously for all decoders required by that Channel's committed history. No consumer-facing registration/activation API or public API change is permitted.
