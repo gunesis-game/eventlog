@@ -386,3 +386,8 @@ These superseded statements remain in the plan only as historical discussion/pro
 ## Approved D-012 — Channel factory is side-effect-free construction
 
 The supplied Channel factory only creates and initializes a candidate Channel value. It does not start goroutines, open external resources, or perform other external side effects. A candidate can be discarded on a runtime-registry hit, so it must be safe to abandon. The library starts the Channel runtime only after adopting a candidate for a new logical Channel. No consumer-facing API change.
+
+
+## Approved D-013 — atomic Channel runtime resolution
+
+Runtime lookup and candidate adoption are atomic under canonical Channel identity. Concurrent preparations resolving to the same logical Channel result in one adopted Channel pointer and one runtime/Reader; competing preparations reuse the winner. No consumer-facing API change.
