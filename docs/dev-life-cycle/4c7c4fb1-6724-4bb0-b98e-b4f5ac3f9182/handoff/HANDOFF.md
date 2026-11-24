@@ -24,7 +24,6 @@ Complete eventlog's requirements and technical design before implementation.
 - [Requirements](../../../project/requirements.md) — product behavior and acceptance expectations.
 - [Architecture](../../../project/architecture.md) — current approved technical design.
 - [Project decisions](../../../project/decisions.md) — durable decision register and provenance.
-
 Approved outcomes are integrated into the relevant specification topics. This handoff is only the current cycle checkpoint; it is not a second decision ledger or specification.
 
 ## Current state
@@ -33,7 +32,6 @@ The public consumer API remains:
     PrepareLog[TEvent, TChannel](ctx, newChannel) (TEvent, TChannel, error)
     Notifications() <-chan Event
     Errors() <-chan error
-
 Both generic arguments are concrete pointer types constrained by their respective interfaces. The Channel notification stream carries heterogeneous concrete Event values through the common Event interface. The approved identity, registration, persistence, recovery, Reader, and internal queue design is captured in the architecture.
 
 ## Remaining Define work
@@ -50,4 +48,4 @@ Both generic arguments are concrete pointer types constrained by their respectiv
 
 ## Next action
 
-Continue Define with the remaining internal lifecycle and notification failure semantics. Update the owning specification and project decision register when a material decision is approved; keep this handoff limited to progress and the next action. Do not begin implementation until Define is complete and the user explicitly approves exit.
+Define notification delivery failure semantics, beginning with the distinction between recoverable delivery backpressure and terminal Reader errors: how the internal Reader advances, how committed-but-not-yet-delivered notifications are retained, and when the Channel error stream terminates. Do not begin implementation until Define is complete and the user explicitly approves exit.
