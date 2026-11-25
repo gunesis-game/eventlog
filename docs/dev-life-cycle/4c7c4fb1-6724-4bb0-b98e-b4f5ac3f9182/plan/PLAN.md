@@ -117,17 +117,18 @@ The user explicitly approved exiting Define and transitioning Cycle 1 to Impleme
 
 ### Ordered implementation work
 
-1. Inspect repository contents and Go toolchain/runtime availability; establish the module metadata and minimum supported Go version only from approved requirements/tooling evidence. Do not guess a version or add dependencies without justification.
-2. Implement the storage and canonical framing primitives bottom-up, with focused tests for file operations, encoding bounds, checksums/validation, and corruption handling as specified by architecture and acceptance.
-3. Implement append transaction commit/recovery and metadata reconstruction; test atomicity, interrupted writes, restart recovery, and authoritative committed sequence.
-4. Implement Event identity, typed field encoding/reconstruction, registration, and Channel snapshot/change observation according to the public API and architecture.
-5. Implement per-Channel Reader progression, replay-to-live handoff, bounded notification backlog, retry/backoff, and terminal error behavior; test ordering, isolation, backpressure, and the documented crash-window duplicate boundary.
-6. Implement process-lifetime runtime ownership and `PrepareLog` integration; add consumer-defined Event/Channel public API and lifecycle/recovery tests without adding a public shutdown control.
-7. Establish verified Go test/build/lint commands, suite locations, Linux/Windows CI configuration, and full-verification gate. Keep governance CI evidence distinct from Go verification.
-8. Add approved benchmark workloads and evidence capture after representative behavior exists; do not invent numeric product performance or memory thresholds.
+1. [x] Inspect repository contents and Go toolchain/runtime evidence; establish module metadata. The module is `github.com/gunesis-game/eventlog`, declares `go 1.18` as the language floor required by generics, and has no external dependencies. CI resolves stable Go; the initial verified runner toolchain was Go 1.27.4.
+2. [ ] Define canonical v1 record/field schemas and their repository path from the approved architecture; then implement strict record serialization and framing with focused tests. The architecture requires canonical standalone schemas embedded with `go:embed`, but none exist in the repository yet.
+3. Implement storage and canonical framing primitives bottom-up, with focused tests for file operations, encoding bounds, checksums/validation, and corruption handling as specified by architecture and acceptance.
+4. Implement append transaction commit/recovery and metadata reconstruction; test atomicity, interrupted writes, restart recovery, and authoritative committed sequence.
+5. Implement Event identity, typed field encoding/reconstruction, registration, and Channel snapshot/change observation according to the public API and architecture.
+6. Implement per-Channel Reader progression, replay-to-live handoff, bounded notification backlog, retry/backoff, and terminal error behavior; test ordering, isolation, backpressure, and the documented crash-window duplicate boundary.
+7. Implement process-lifetime runtime ownership and `PrepareLog` integration; add consumer-defined Event/Channel public API and lifecycle/recovery tests without adding a public shutdown control.
+8. [x] Establish initial verified Go test/build/vet commands and Linux/Windows CI. The first run passed on both platforms; no acceptance test files exist yet. Expand suite locations and full-verification gates as implementation adds tests. Keep governance CI evidence distinct from Go verification.
+9. Add approved benchmark workloads and evidence capture after representative behavior exists; do not invent numeric product performance or memory thresholds.
 
 Implementation proceeds in small increments. At each boundary, update the relevant fast tests and acceptance evidence. Changes that require an architectural or public API deviation stop for explicit design approval before implementation continues.
 
 ## Verification
 
-No implementation, Go build, or Go tests have started at the moment of phase transition. The Implement exit gate is the mandatory full-verification suite plus applicable performance checks and coding-standard review on the exact final implementation SHA.
+Initial implementation setup is committed: `go.mod`, root package documentation, and Linux/Windows Go verification workflow. `go test ./...`, `go build ./...`, and `go vet ./...` passed on Go 1.27.4 for both platforms at `4fbf2837906b0e25c635ef00837cc711c525f374`; the test command reported no test files. These are scaffold checks, not acceptance coverage. Verified commands are recorded in `docs/project/commands.md`. The Implement exit gate remains the mandatory full-verification suite plus applicable performance checks and coding-standard review on the exact final implementation SHA.
