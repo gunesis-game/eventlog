@@ -192,3 +192,13 @@ Finish the final semantic review of requirements, architecture, acceptance, benc
 - **Governance:** registry remains `in-progress / implement`; implementation plan now tracks the initial setup and ordered work.
 - **Next concrete action:** define the canonical v1 record/field JSON schemas and their location from the approved architecture, then implement strict record serialization/framing with focused tests. The architecture requires canonical standalone schemas embedded with `go:embed`, but no schema files currently exist. Preserve strict malformed-record behavior and fail closed.
 - **Verification limits:** no persistence behavior, recovery, identity encoding, runtime, or consumer API has been implemented. No acceptance tests or benchmarks exist yet. Governance validation and scaffold CI must not be represented as product verification.
+
+
+## Latest resumption checkpoint — Go workflow aligned with governance, 2026-11-25
+
+- **Go workflow governance correction:** the first workflow revision was rejected by steering validation because all workflows must invoke shared history cleanup at startup, restrict jobs to `main`, and restrict push triggers to `main`. The Go workflow was corrected to satisfy all three rules. No protection was bypassed.
+- **Final scaffold CI:** Go verification run 45518701043 passed on commit `06a824de578880cdaf50078e1d9dca6a56a51a5261`; Ubuntu and Windows jobs both passed Test, Build, and Vet. The test command reports no test files.
+- **Governance validation:** steering validation run 45518701058 passed on the same workflow revision. The cleanup job also passed.
+- **Commands record:** `docs/project/commands.md` now cites the final verified revision and describes the cleanup/main-only workflow constraints.
+- **Current phase:** `in-progress / implement`. The authoritative cycle registry remains in Implement.
+- **Next:** define the canonical v1 record and typed-field JSON Schemas (architecture requires standalone canonical schemas embedded with `go:embed`, but none are currently present), then implement strict record serialization/framing and focused F-01–F-06 tests. No persistence/recovery/runtime/API behavior is implemented yet; no acceptance coverage or benchmark results are claimed.
