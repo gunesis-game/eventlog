@@ -54,6 +54,8 @@ This is the durable register of approved project decisions. It records outcomes 
 
 | D-042 | Approve the Define-level project testing strategy: bottom-up architecture-aware acceptance coverage; fast, integration, and mandatory full-verification tiers; consumer-defined public API types; Linux and Windows platform coverage; process-termination recovery without a public shutdown API; normal replay-to-live continuity with crash-window duplicates permitted; no unapproved numeric coverage threshold. Implementation-specific suite locations, commands, runner configuration, and Go CI remain deferred until implementation | Recorded | docs/project/testing-strategy.md | 18a2110235c56785ca6e16409b2927feec966d97 |
 
+| D-043 | Approve the project Git workflow baseline: main-only direct commits; no branches, pull requests, or merge commits; never bypass protections; stop if direct-main operations are blocked; use GitHub MCP for repository work and evidence; fetch back and verify published artifacts; associate CI evidence with exact commit SHAs; apply documented workflow-run retention and recovery rules. Repository protection/ruleset settings and signing/authorship requirements remain explicit verification follow-ups; project Go test/build/lint workflows are deferred until those suites exist | Recorded | docs/project/git-workflow.md | a24b3d89a496496988950c4e7eea8203c063e1a5 |
+
 ## Decision maintenance
 
 When a user approves a material project decision:
