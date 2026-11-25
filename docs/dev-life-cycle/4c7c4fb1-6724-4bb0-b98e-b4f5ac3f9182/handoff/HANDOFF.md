@@ -212,3 +212,14 @@ Finish the final semantic review of requirements, architecture, acceptance, benc
 - **Verification:** updated runs are in progress/pending at this checkpoint; previous passing runs verified Go 1.27.4 before the explicit pin. Do not mark the newly pinned revision verified until its CI completes.
 - **Future maintenance:** when a newer stable Go release is published, update both the module/toolchain directives and CI pin, then verify Linux and Windows.
 - **Schema-validator compatibility:** the validator's Go 1.21 minimum is no longer a reason to raise/lower the Go baseline; the current baseline exceeds it.
+
+
+## Latest resumption checkpoint — record schemas and serialization/framing, 2026-11-25
+
+- **Phase:** Cycle 1 remains `in-progress / implement`.
+- **Module CI repair:** commit `cb3ccecddaa964f31a30789f72da9a57cddaeb36`; verification run 45565970020 passed Test/Build/Vet on Ubuntu and Windows.
+- **Canonical schemas:** v1 schemas and `schema.go` validator are present; focused schema tests cover valid and invalid records.
+- **Serialization/framing:** added `record.go` with typed internal Channel/Event/Commit record shapes, schema-validated JSON encoding, record decoding, and NDJSON frame reading. Complete frames are separated by LF; an unterminated trailing frame returns `ErrIncompleteRecord`; clean EOF is distinct. Added `record_test.go` for round-trip, schema-invalid encoding, malformed/unsupported input, consecutive records, and incomplete tail.
+- **Latest implementation commit:** `696130389d94119191f5b1b622bfc8dfbc8e4dbe` (test file); serializer commit `b84d528f31a05b5c1739f46c0f0092d79ef9800f`. Ubuntu CI for run 45566943596 passed Test/Build/Vet. Windows Test and Build passed; Vet was still running at checkpoint.
+- **Plan:** item 2 is marked complete. Next is storage and canonical framing primitives with file-operation, encoding-bound, checksum/validation, and corruption tests.
+- **Limitations:** no local verification was run because the available local Go is 1.23.2, below the repository Go 1.27.4 baseline. CI is the authoritative verification for the commits.
