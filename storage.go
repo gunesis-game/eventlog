@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
+	"path/filepath
 )
 
 var ErrShortStorageWrite = errors.New("short storage write")
@@ -36,10 +36,17 @@ func storageOpenSegmentRead(path string) (*os.File, error) {
 	return f, nil
 }
 
+// storageOpenSegmentAppend opens a segment for writing at its current end.
+// It intentionally does not use O_APPEND: Windows disallows truncation on handles
+// opened with append semantics, and transaction recovery must be able to truncate.
 func storageOpenSegmentAppend(path string) (*os.File, error) {
-	f, err := os.OpenFile(path, os.O_RDWR|os.O_APPEND, 0)
+	f, err := os.OpenFile(path, os.O_RDWR, 0)
 	if err != nil {
 		return nil, fmt.Errorf("open segment for append %q: %w", path, err)
+	}
+	if _, err := f.Seek(0, io.SeekEnd); err != nil {
+		_ = f.Close()
+		return nil, fmt.Errorf("seek segment end %q: %w", path, err)
 	}
 	return f, nil
 }
@@ -52,9 +59,11 @@ func storageWriteAll(w io.Writer, data []byte) error {
 		if err != nil {
 			return fmt.Errorf("write storage bytes: %w", err)
 		}
+
 		if n == 0 {
 			return ErrShortStorageWrite
 		}
+
 		data = data[n:]
 	}
 	return nil
