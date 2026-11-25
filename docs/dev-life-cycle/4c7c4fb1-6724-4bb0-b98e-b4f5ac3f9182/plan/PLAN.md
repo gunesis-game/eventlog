@@ -85,7 +85,7 @@ Channel snapshot consistency, Reader wake-up behavior, retry policy, process-lif
 
 ### Remaining Define work
 
-The project testing strategy is approved and recorded as D-042. Complete the final semantic review of the reconciled specifications and cycle records, including confirmation that the Git workflow approval gate is satisfied. If no contradiction or unrecorded design decision remains, present the Define exit assessment for your explicit approval. No implementation or phase transition is authorized by this plan update.
+The project testing strategy (D-042) and Git workflow baseline (D-043) are approved and recorded. Complete the final semantic review of the reconciled specifications and cycle records. Repository-protection/ruleset and signing/authorship verification remain operational follow-ups; project Go test/build/lint workflows are deferred until implementation. If no contradiction or unrecorded design decision remains, present the Define exit assessment for your explicit approval. No implementation or phase transition is authorized by this plan update.
 
 ## Acceptance criteria
 
