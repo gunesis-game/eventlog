@@ -4,7 +4,7 @@
 
 This document defines the bottom-up acceptance-test layers and their observable pass conditions. Tests proceed from the lowest storage boundary upward. Each layer verifies its own contract without depending on higher-level components; higher layers build on the guarantees established below them. A small end-to-end suite verifies integration across layers but does not replace lower-layer tests.
 
-The acceptance suite establishes correctness and recovery behavior. Numeric performance and memory targets, benchmark workloads, and measurement thresholds remain separate Define work and must be agreed before implementation is considered complete.
+The acceptance suite establishes correctness and recovery behavior. Benchmark workloads and the measurement protocol are specified separately in [benchmarks.md](benchmarks.md) and have been approved. Numeric product performance and memory targets remain deferred until representative baselines exist and require separate approval; they are not correctness acceptance criteria.
 
 ## Layer 1 — Disk and storage
 
@@ -186,6 +186,5 @@ End-to-end tests use actual consumer-defined Event and Channel types, not only i
 ## Separate Define work
 
 The acceptance scenarios above are agreed. Benchmark workload scenarios are separately defined in [Benchmark strategy](benchmarks.md) and are also agreed. The following remain separate Define work:
-- Measurable performance targets and thresholds for the approved benchmark workloads.
-- Measurable memory targets and measurement methodology.
+- Establish representative performance and memory baselines after implementation exists; then propose any justified numeric product targets or thresholds for separate approval.
 - Final consistency review across requirements, architecture, decision records, acceptance tests, and benchmark strategy.
