@@ -4,7 +4,7 @@
 
 This document is the project-specific implementation of the [Performance Engineering Standard](../standards/performance-engineering.md). The approved workload catalogue is maintained in [benchmarks.md](benchmarks.md).
 
-**Current status:** Benchmark workload scenarios are approved during Define. Numeric performance and memory targets, target hardware, required repetitions, warm-up policy, and statistical acceptance rules have not been approved. No benchmark implementation or measurements have started.
+**Current status:** Benchmark workload scenarios and the measurement protocol are approved during Define. Numeric product performance and memory targets remain unapproved pending representative baselines. The initial GitHub-hosted runner resource ceilings are diagnostic execution limits, not product acceptance thresholds. No benchmark implementation or measurements have started.
 
 ## Applicability and goals
 
@@ -35,7 +35,7 @@ Measure the metrics specified by each workload, as applicable:
 - Peak memory for recovery, replay, reconstruction, and backlog workloads.
 - Durable commit latency separately from ordinary write/append latency wherever synchronization is required.
 
-Baselines and numeric targets remain TBD. Do not derive targets from a single measurement or treat an informational baseline as an acceptance threshold.
+Baselines and numeric product targets remain TBD. Establish baselines using the protocol in benchmarks.md before proposing thresholds; do not derive targets from a single measurement or treat an informational baseline as an acceptance threshold.
 
 ## Environment and execution
 
@@ -43,8 +43,10 @@ Baselines and numeric targets remain TBD. Do not derive targets from a single me
 - Record hardware, operating system, filesystem, Go toolchain version, configuration, workload inputs, and exact benchmark command with every result.
 - Vary major workload dimensions independently where practical, including record/payload size, history size, transaction size, concurrency, Reader count, and consumer speed.
 - Include correctness checks; lost, duplicated, reordered, or incorrectly recovered committed data invalidates the measurement.
-- Benchmark commands, suite locations, runner class, warm-up, repetitions, duration, sampling, and statistical treatment are not yet established.
-- No benchmark CI workflow is currently configured. Benchmark results are informational until explicit numeric targets and a separate approved CI policy exist; hard performance thresholds must not fail CI without an approved policy.
+- The approved protocol is one warm-up followed by five measured repetitions per workload/environment for full/manual measurements. Report the median, min-to-max range, and median absolute deviation (MAD), retaining individual samples. The PR smoke suite runs once per scenario and is informational.
+- Record source SHA, runner image/class and observed resources, OS, filesystem, Go toolchain, configuration, inputs, and exact command. Compare only materially comparable environments and report Linux and Windows separately.
+- The memory and disk budgets in benchmarks.md are diagnostic execution ceilings. An exceeded ceiling makes that run incomplete/resource-limited; it is not a product acceptance failure or evidence of a product memory guarantee.
+- No benchmark CI workflow is currently configured. Results remain informational; no numeric performance or product-memory threshold may fail CI. Correctness checks remain independent.
 
 ## Baselines, reporting and retention
 
@@ -58,7 +60,7 @@ No workload category is excluded. Numeric targets are intentionally absent pendi
 
 - [x] Applicability and workload categories are documented.
 - [x] Workload scenarios are defined in benchmarks.md.
-- [ ] Baselines and environment controls are defined.
-- [ ] Numeric targets are approved or explicitly absent with rationale.
-- [ ] Execution, reporting, retention, and regression handling are defined.
+- [ ] Representative baselines are measured once an implementation exists; environment recording and comparability controls are defined.
+- [x] Numeric targets are explicitly deferred until representative baselines exist; no hard performance or product-memory threshold is currently approved.
+- [ ] Execution, reporting, retention, and regression handling are defined (execution and statistical reporting are defined; artifact retention and comparable-run selection still need specification).
 - [ ] The completed strategy is approved and recorded in the decision ledger.
