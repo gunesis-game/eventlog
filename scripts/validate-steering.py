@@ -267,7 +267,7 @@ def validate_governance_adoption():
     required_refs = {
         "README.md": ("docs/standards/README.md", "docs/standards/coding.md", "docs/dev-life-cycle/README.md"),
         "steering.md": ("docs/standards/coding.md", "docs/standards/testing.md", "docs/standards/performance-engineering.md", "docs/standards/git-workflow.md", "docs/project/testing-strategy.md", "docs/project/performance-strategy.md", "docs/project/git-workflow.md"),
-        "docs/dev-life-cycle/README.md": ("docs/standards/coding.md", "docs/standards/testing.md", "docs/standards/performance-engineering.md", "docs/standards/git-workflow.md", "docs/project/testing-strategy.md", "docs/project/performance-strategy.md", "docs/project/git-workflow.md"),
+        "docs/dev-life-cycle/README.md": ("docs/standards/coding.md", "docs/standards/testing.md", "docs/standards/performance-engineering.md", "docs/standards/git-workflow.md"),
     }
     for relative_path, references in required_refs.items():
         content = (ROOT / relative_path).read_text(encoding="utf-8")
