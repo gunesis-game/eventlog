@@ -106,4 +106,14 @@ Complete the final cross-document consistency review and specify benchmark artif
 - **Measurement protocol:** full/manual workloads use one unreported warm-up followed by five measured repetitions; retain individual samples and report median, min-to-max range, and median absolute deviation (MAD). PR smoke scenarios run once and remain informational.
 - **Resource policy:** the Typical/Heavy/Stress process-memory budgets and 4 GiB per-workload disk cap are diagnostic execution ceilings, not product acceptance thresholds. An exceeded ceiling makes that run incomplete/resource-limited; it is not a product acceptance failure. No numeric performance or product-memory threshold may fail CI.
 - **Specifications updated and fetched back exactly:** `benchmarks.md`, `performance-strategy.md`, `requirements.md`, and `architecture.md`. D-040 points to the verified benchmark specification revision.
-- **Still open:** final cross-document consistency review and benchmark artifact retention/comparable-run selection. Numeric product targets remain deferred until representative baselines exist and require a separate approval. Cycle 1 remains in Define; implementation has not started.
+- **Benchmark evidence policy approved:** D-041 sets benchmark artifact retention to 20 days. Failed and incomplete/resource-limited evidence is retained during that period for investigation; cancelled runs need not be retained. Baselines must be successful, complete, correctness-valid, and materially comparable; Linux and Windows remain separate, and material environment/workload changes start new comparison series.
+- **Still open:** final cross-document consistency review. Numeric product targets remain deferred until representative baselines exist and require a separate approval. Cycle 1 remains in Define; implementation has not started.
+
+
+## Latest resumption checkpoint — benchmark evidence policy approved, 2026-11-25
+
+- **Approved decision:** D-041 records 20-day benchmark artifact retention and comparable-run selection.
+- **Retention:** retain benchmark evidence from successful, failed, and incomplete/resource-limited runs for 20 days; cancelled runs need not be retained. Smoke summaries and environment metadata are retained; raw smoke output is optional.
+- **Comparison:** use only the latest successful, complete, correctness-valid run with matching workload parameters and a materially comparable environment. Keep Linux and Windows separate; material environment or workload changes create separate comparison series.
+- **Specifications updated:** benchmarks.md is authoritative; performance-strategy.md is aligned; D-041 records provenance.
+- **Still open:** final cross-document consistency review. Numeric product targets remain deferred until representative baselines exist and require separate approval. Cycle 1 remains in Define; implementation has not started.
