@@ -12,7 +12,7 @@
       "created_at": "2026-11-22T16:00:00+02:00",
       "started_at": "2026-11-22T16:00:00+02:00",
       "completed_at": null,
-      "current_phase": "define",
+      "current_phase": "implement",
       "eligibility_reason": null,
       "acceptance_criteria": null,
       "verification_evidence": null,
