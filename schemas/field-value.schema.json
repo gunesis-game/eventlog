@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://eventlog.gunesis-game.dev/schemas/v1/field-value.schema.json",
+  "title": "Eventlog v1 persisted field value",
+  "description": "Strict tagged representation of one persisted field value.",
+  "oneOf": [
+    { "$ref": "#/$defs/null" },
+    { "$ref": "#/$defs/string" },
+    { "$ref": "#/$defs/bool" },
+    { "$ref": "#/$defs/int" },
+    { "$ref": "#/$defs/int8" },
+    { "$ref": "#/$defs/int16" },
+    { "$ref": "#/$defs/int32" },
+    { "$ref": "#/$defs/int64" },
+    { "$ref": "#/$defs/uint" },
+    { "$ref": "#/$defs/uint8" },
+    { "$ref": "#/$defs/uint16" },
+    { "$ref": "#/$defs/uint32" },
+    { "$ref": "#/$defs/uint64" },
+    { "$ref": "#/$defs/float32" },
+    { "$ref": "#/$defs/float64" }
+  ],
+  "$defs": {
+    "null": {
+      "type": "object",
+      "properties": { "type": { "const": "null" } },
+      "required": ["type"],
+      "additionalProperties": false
+    },
+    "string": {
+      "type": "object",
+      "properties": { "type": { "const": "string" }, "value": { "type": "string" } },
+      "required": ["type", "value"],
+      "additionalProperties": false
+    },
+    "bool": {
+      "type": "object",
+      "properties": { "type": { "const": "bool" }, "value": { "type": "boolean" } },
+      "required": ["type", "value"],
+      "additionalProperties": false
+    },
+    "signedDecimal": {
+      "type": "object",
+      "properties": { "type": { "type": "string" }, "value": { "type": "string", "pattern": "^(0|-?[1-9][0-9]*)$" } },
+      "required": ["type", "value"],
+      "additionalProperties": false
+    },
+    "unsignedDecimal": {
+      "type": "object",
+      "properties": { "type": { "type": "string" }, "value": { "type": "string", "pattern": "^(0|[1-9][0-9]*)$" } },
+      "required": ["type", "value"],
+      "additionalProperties": false
+    },
+    "int": { "allOf": [{ "$ref": "#/$defs/signedDecimal" }, { "properties": { "type": { "const": "int" } } }] },
+    "int8": { "allOf": [{ "$ref": "#/$defs/signedDecimal" }, { "properties": { "type": { "const": "int8" } } }] },
+    "int16": { "allOf": [{ "$ref": "#/$defs/signedDecimal" }, { "properties": { "type": { "const": "int16" } } }] },
+    "int32": { "allOf": [{ "$ref": "#/$defs/signedDecimal" }, { "properties": { "type": { "const": "int32" } } }] },
+    "int64": { "allOf": [{ "$ref": "#/$defs/signedDecimal" }, { "properties": { "type": { "const": "int64" } } }] },
+    "uint": { "allOf": [{ "$ref": "#/$defs/unsignedDecimal" }, { "properties": { "type": { "const": "uint" } } }] },
+    "uint8": { "allOf": [{ "$ref": "#/$defs/unsignedDecimal" }, { "properties": { "type": { "const": "uint8" } } }] },
+    "uint16": { "allOf": [{ "$ref": "#/$defs/unsignedDecimal" }, { "properties": { "type": { "const": "uint16" } } }] },
+    "uint32": { "allOf": [{ "$ref": "#/$defs/unsignedDecimal" }, { "properties": { "type": { "const": "uint32" } } }] },
+    "uint64": { "allOf": [{ "$ref": "#/$defs/unsignedDecimal" }, { "properties": { "type": { "const": "uint64" } } }] },
+    "float32": {
+      "type": "object",
+      "properties": { "type": { "const": "float32" }, "value": { "type": "string", "pattern": "^[0-9a-f]{8}$" } },
+      "required": ["type", "value"],
+      "additionalProperties": false
+    },
+    "float64": {
+      "type": "object",
+      "properties": { "type": { "const": "float64" }, "value": { "type": "string", "pattern": "^[0-9a-f]{16}$" } },
+      "required": ["type", "value"],
+      "additionalProperties": false
+    }
+  }
+}
