@@ -50,6 +50,8 @@ This is the durable register of approved project decisions. It records outcomes 
 | D-040 | Approve benchmark protocol: one unreported warm-up plus five measured repetitions for full/manual workloads, reporting median, min-to-max range, and median absolute deviation while retaining individual samples; PR smoke workloads run once; initial memory/disk budgets are diagnostic execution ceilings whose exceedance makes a run incomplete/resource-limited, not a product acceptance failure; no numeric performance or product-memory thresholds or CI performance gates until representative baselines justify a separately approved target | Recorded | docs/project/benchmarks.md | 2e2c9c0f6cf5f42a67879ee84b9e5f6738af763b |
 | D-039 | Keep exact internal registry-key composition as an implementation detail; preserve separate decoder-registration, Event-instance, and Channel-runtime identities and their specified reuse/conflict behavior; distinct logical Channels of one concrete type retain separate runtimes | Recorded | docs/project/architecture.md | 2c89bfa28c3ae0b38789e326aee0e241715eb90f |
 
+| D-041 | Retain benchmark artifacts for 20 days; retain failed and incomplete evidence for investigation (cancelled runs need not be retained); select the latest successful, complete, correctness-valid baseline only within materially comparable workload and environment series; keep Linux and Windows separate; material environment/workload changes start a new comparison series | Recorded | docs/project/benchmarks.md | 9c87b78c4cd6255366df181d6e95eccba40c1f00 |
+
 ## Decision maintenance
 
 When a user approves a material project decision:
