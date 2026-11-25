@@ -18,7 +18,7 @@ The system boundary and component responsibilities are defined in [architecture.
 | Core Event/Channel behavior | Channel Reader | L-01–L-12 | Append, identity, concurrency and restart | Preserve transaction atomicity and global sequence |
 | Channel and Reader | Notification delivery | R-01–R-14 | Replay-to-live continuity | Each Reader progresses independently |
 | Notification delivery | Consumer Channel interface | N-01–N-14 | FIFO, retry, backpressure and error reporting | Validate bounded memory and the documented at-least-once/duplicate boundary |
-| Runtime lifecycle | Public preparation API | RT-01–RT-14 | Initialization, cancellation, shutdown and recovery | Test internal lifecycle without adding public controls |
+| Runtime lifecycle | Public preparation API | RT-01–RT-14 | Initialization, caller-Context cancellation, process termination, and recovery | No public shutdown control or library-managed graceful shutdown; test process-termination recovery without adding public controls |
 | Public API and integration | Library consumers | API-01–API-13 | Consumer-defined Event/Channel end-to-end tests | Public API compatibility is an explicit acceptance concern |
 
 ## Test suites and tiers
@@ -36,7 +36,7 @@ The system boundary and component responsibilities are defined in [architecture.
 - Test actual consumer-defined Event and Channel types at the public API boundary.
 - Exercise Linux and Windows for the platform-sensitive storage and integration guarantees.
 - Keep fault injection and process-termination controls test-only; do not add them to the public API.
-- Verify deterministic ordering, transaction atomicity, no missed or duplicated history at replay/live transition, bounded notification memory, and explicit error behavior.
+- Verify deterministic ordering, transaction atomicity, no missed or duplicated history during normal replay-to-live progression, bounded notification memory, and explicit error behavior. Crash-window duplicates remain permitted by the documented delivery contract.
 - Use real filesystem behavior for storage and recovery tests. Use fakes only where they isolate a boundary without replacing the behavior under test.
 - Avoid timing-only assertions where synchronization or observable state can establish the condition more reliably.
 - Coverage percentages and other numeric quality thresholds have not been approved; do not invent or enforce them.
