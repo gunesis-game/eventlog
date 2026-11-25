@@ -107,7 +107,7 @@ func TestRecordFramerIncompleteTail(t *testing.T) {
 	}
 }
 
-func TestRecordFramerEmptyFrame(t) {
+func TestRecordFramerEmptyFrame(t *testing.T) {
 	f := newRecordFramer(bytes.NewBufferString("\n"))
 	frame, err := f.next()
 	if err != nil {
