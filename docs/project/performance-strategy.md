@@ -50,7 +50,7 @@ Baselines and numeric product targets remain TBD. Establish baselines using the 
 
 ## Baselines, reporting and retention
 
-No baseline revision or benchmark artifact exists yet. When measurements begin, retain the exact source SHA, environment description, workload parameters, raw data, summary distributions, and correctness outcome. Define artifact retention and comparable-run selection before relying on historical trends.
+No baseline revision or benchmark artifact exists yet. When measurements begin, retain benchmark artifacts for 20 days and preserve the exact source SHA, environment description, workload parameters, raw data, summary distributions, and correctness outcome. Select only the latest successful, complete, correctness-valid run with the same workload parameters and a materially comparable OS, filesystem, runner environment/resources, Go toolchain, and configuration. Keep materially different environments in separate comparison series. Failed, cancelled, incomplete/resource-limited, and correctness-invalid runs are not eligible baselines. See benchmarks.md for the authoritative retention and selection rules.
 
 ## Exclusions and approvals
 
@@ -62,5 +62,5 @@ No workload category is excluded. Numeric targets are intentionally absent pendi
 - [x] Workload scenarios are defined in benchmarks.md.
 - [ ] Representative baselines are measured once an implementation exists; environment recording and comparability controls are defined.
 - [x] Numeric targets are explicitly deferred until representative baselines exist; no hard performance or product-memory threshold is currently approved.
-- [ ] Execution, reporting, retention, and regression handling are defined (execution and statistical reporting are defined; artifact retention and comparable-run selection still need specification).
+- [x] Execution, statistical reporting, artifact retention, and comparable-run selection are defined; numeric regression thresholds remain deferred pending representative baselines and separate approval.
 - [ ] The completed strategy is approved and recorded in the decision ledger.
