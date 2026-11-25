@@ -180,3 +180,15 @@ Finish the final semantic review of requirements, architecture, acceptance, benc
 - **Operational follow-ups:** verify repository protection/ruleset and signing/authorship requirements without bypassing controls. Establish exact Go commands, suite locations and Linux/Windows project CI as implementation proceeds.
 - **Verification at phase entry:** no Go implementation, build, test, or benchmark measurement had started. Governance validation is not Go verification.
 - **Next concrete action:** inspect the repository root and toolchain evidence, then establish the Go module/toolchain baseline from approved project constraints before implementing the first storage/framing unit. Do not invent a minimum Go version or add dependencies without evidence.
+
+
+## Latest resumption checkpoint — initial Go scaffold verified, 2026-11-25
+
+- **Phase:** Cycle 1 remains `in-progress / implement`.
+- **Initial files committed:** `go.mod` (module `github.com/gunesis-game/eventlog`, language directive `go 1.18`, no external dependencies), `doc.go` (root package documentation), and `.github/workflows/go.yml` (Go verification on Linux and Windows).
+- **Go version rationale:** Go 1.18 is the language floor needed for the approved generic API. CI uses the current stable toolchain rather than pinning an old compiler; the initial run resolved Go 1.27.4 on both platforms.
+- **Verified commands:** `go test ./...`, `go build ./...`, and `go vet ./...` all passed on Ubuntu and Windows at scaffold commit `4fbf2837906b0e25c635ef00837cc711c525f374` (workflow run 45518362997). `go test` reported no test files; this is package/module scaffolding verification, not acceptance coverage.
+- **Command record:** `docs/project/commands.md` now records exact commands, runner/toolchain evidence, triggers, and the verification boundary.
+- **Governance:** registry remains `in-progress / implement`; implementation plan now tracks the initial setup and ordered work.
+- **Next concrete action:** define the canonical v1 record/field JSON schemas and their location from the approved architecture, then implement strict record serialization/framing with focused tests. The architecture requires canonical standalone schemas embedded with `go:embed`, but no schema files currently exist. Preserve strict malformed-record behavior and fail closed.
+- **Verification limits:** no persistence behavior, recovery, identity encoding, runtime, or consumer API has been implemented. No acceptance tests or benchmarks exist yet. Governance validation and scaffold CI must not be represented as product verification.
