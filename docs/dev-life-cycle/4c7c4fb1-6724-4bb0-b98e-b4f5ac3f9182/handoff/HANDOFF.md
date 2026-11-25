@@ -44,8 +44,8 @@ The current requirements, architecture, decisions, acceptance matrix, and benchm
 - **Repository revision inspected before this decision:** `8a142a6b2483f11ac6e248835c14bef60a828aad` (`main`).
 - **Project records reviewed in full:** `docs/project/requirements.md`, `architecture.md`, `decisions.md`, `acceptance.md`, and `benchmarks.md`.
 - **Cycle records reviewed:** this plan, current handoff, and `docs/dev-life-cycle/cycle-index.json`.
-- **Decision register:** D-001 through D-039 are Recorded; D-029 is refined by D-032 and D-030/D-031 are historical and superseded for process termination by D-034.
-- **Cross-document corrections made:** stale Channel snapshot, Reader wake-up, retry, and backlog open-item claims were reconciled; the duplicate runtime-shutdown section was consolidated; D-034 replaces the former shutdown-drain sequence with process-lifetime runtime ownership and recovery after process termination; D-035 assigns UUID identity tag `0x03`; D-036 requires valid UTF-8 metadata keys and values and rejects invalid bytes without normalization; D-037 settles reflected Go type naming, alias resolution, opaque instantiated generic names, and the cross-toolchain compatibility limitation. D-038 sets explicit v1 canonical identity framing limits; D-039 leaves exact registry-key representation as an implementation detail while preserving the observable registration, identity, reuse, and Channel-isolation rules. The benchmark strategy was aligned with D-034 process-lifetime behavior, and initial Typical/Heavy/Stress workload profiles plus per-process memory and disk budgets were approved and recorded.
+- **Decision register:** D-001 through D-041 are Recorded; D-029 is refined by D-032 and D-030/D-031 are historical and superseded for process termination by D-034.
+- **Cross-document corrections made:** stale Channel snapshot, Reader wake-up, retry, backlog, and lifecycle claims were reconciled; D-034 establishes process-lifetime runtime ownership and recovery after process termination; D-035–D-039 settle UUID identity framing, metadata UTF-8, type naming, identity bounds, and observable registry behavior. D-040 approves the benchmark measurement protocol and diagnostic ceilings; D-041 approves 20-day artifact retention and comparable-run selection. Acceptance and architecture now distinguish normal replay-to-live continuity from permitted crash-window duplicates, and terminal per-Channel Reader failure from process termination.
 - **Validation boundary:** this is a semantic document reconciliation. No implementation, Go build, Go tests, or benchmark measurements have been run.
 
 | Candidate item | Classification | Current evidence / next action |
@@ -75,12 +75,12 @@ The current requirements, architecture, decisions, acceptance matrix, and benchm
 
 ### Unresolved
 
-- Final cross-document consistency review, including the benchmark/requirements/architecture/performance-strategy/acceptance alignment.
+- Complete final semantic review of the reconciled specifications and cycle records; no new product or architecture decision is currently identified.
 - Numeric product performance/memory targets remain intentionally deferred until representative baselines exist; any proposed targets require a separate approval and decision record. This is a post-implementation evidence task, not authorization to invent targets during Define.
 
 ### Next action
 
-Complete the final cross-document consistency review. Benchmark measurement, artifact retention, and comparable-run selection are now approved and recorded. Establish representative baselines after implementation exists, then propose any justified numeric product targets as a separate decision. Do not exit Define until its remaining design work is settled and you explicitly approve the phase transition.
+Finish the final semantic review of requirements, architecture, acceptance, benchmark strategy, performance strategy, decisions, plan, handoff, and cycle registry. If that review finds no contradiction or unrecorded design decision, present the Define exit assessment for your explicit approval. Numeric product targets remain a post-implementation evidence task. Do not begin implementation or change the cycle phase without your explicit approval.
 
 ## Verification
 
@@ -124,3 +124,12 @@ Complete the final cross-document consistency review. Benchmark measurement, art
 - **Acceptance alignment:** acceptance.md now explicitly separates correctness acceptance from the approved benchmark methodology and defers numeric product targets until representative baselines exist.
 - **Cross-document review:** requirements, architecture, acceptance, benchmark strategy, performance strategy, and decisions were inspected for stale measurement-policy language. The acceptance strategy's former claim that workload and measurement methodology remained unapproved was corrected.
 - **Remaining Define work:** finish the final semantic consistency review and any remaining design decisions. Numeric product performance/memory targets are deferred until implementation and representative measurements exist; no implementation or benchmark measurements have started.
+
+
+## Latest resumption checkpoint — semantic reconciliation, 2026-11-25
+
+- **Benchmark decisions:** D-040 and D-041 are recorded and reflected in the owning specifications. Full/manual measurement uses one unreported warm-up plus five measured repetitions; smoke scenarios run once; artifact retention is 20 days; comparable baselines must be successful, complete, correctness-valid, and materially comparable.
+- **Acceptance semantics:** API-09 now scopes no-gap/no-duplicate behavior to normal replay-to-live progression and explicitly preserves the approved crash-window duplicate caveat.
+- **Reader lifecycle semantics:** architecture states that a terminal per-Channel Reader error is reported before that Channel's streams close. This is distinct from process termination, for which eventlog does not initiate stream closure or graceful cleanup.
+- **Cycle plan:** stale benchmark-methodology open items were removed; D-040/D-041 and the post-implementation target deferral are reflected.
+- **Remaining:** final read-through of all active project/cycle records and verification of CI for the latest changes. Cycle 1 remains `in-progress / define`; implementation, Go tests, and benchmark measurements have not started.
