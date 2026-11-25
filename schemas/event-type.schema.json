@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://eventlog.gunesis-game.dev/schemas/v1/event-type.schema.json",
+  "title": "Eventlog v1 Go type descriptor",
+  "type": "object",
+  "properties": {
+    "package_path": { "type": "string", "minLength": 1 },
+    "name": { "type": "string", "minLength": 1 }
+  },
+  "required": ["package_path", "name"],
+  "additionalProperties": false
+}
