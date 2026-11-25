@@ -1,20 +1,20 @@
-# Cycle 1 — Define plan
+# Cycle 1 — Implementation plan
 
 ## Identity and status
 - **Cycle ID:** 4c7c4fb1-6724-4bb0-b98e-b4f5ac3f9182
 - **Sequence / execution order:** 1 / 1
 - **Workflow:** standard
-- **Status / phase:** in-progress / define
+- **Status / phase:** in-progress / implement
 - **Created:** 2026-11-22
 - **Updated:** 2026-11-25
 
 ## Objective
 
-Define eventlog's product requirements, public API, persistence guarantees, internal design, and acceptance criteria before implementation.
+Implement eventlog according to the approved requirements, public API, architecture, acceptance criteria, testing strategy, performance strategy, and Git workflow.
 
 ## Scope
 
-This cycle establishes the library's product and technical baseline: public contracts, configuration, field selection, identity, persistence, recovery, replay/live delivery, runtime lifecycle, portability, and quality criteria. Implementation, builds, Go tests, dependency additions, and multi-process or distributed writers are outside this cycle's Define scope.
+Implement the approved single-process, disk-backed append-only event log in architecture-aligned, testable increments. Preserve the approved consumer-facing API and behavior. Multi-process/distributed writers and any public API changes remain out of scope unless separately approved.
 
 ## Authoritative project documents
 
@@ -83,9 +83,9 @@ No additional product or architecture design decision is currently identified by
 
 Channel snapshot consistency, Reader wake-up behavior, retry policy, process-lifetime runtime ownership, and notification backlog/backpressure are settled design decisions. Their numeric queue/retry parameters are internal implementation/test policy.
 
-### Remaining Define work
+### Define exit evidence
 
-The project testing strategy (D-042), Git workflow baseline (D-043), and benchmark evidence policies (D-040/D-041) are approved and recorded. Final semantic review found no remaining contradiction among the active requirements, architecture, acceptance, testing, performance/benchmark, Git workflow, decision, and cycle records. Repository-protection/ruleset and signing/authorship verification remain operational follow-ups; project Go test/build/lint workflows are deferred until implementation. Present the Define exit assessment for explicit user approval; do not transition phases or begin implementation until approved. If no contradiction or unrecorded design decision remains, present the Define exit assessment for your explicit approval. No implementation or phase transition is authorized by this plan update.
+The user explicitly approved exiting Define and transitioning Cycle 1 to Implement. D-040/D-041 (benchmark methodology/evidence), D-042 (testing strategy), and D-043 (Git workflow) are recorded and reflected in their owning specifications. Final semantic review found no remaining Define-level contradiction. Repository-protection/ruleset and signing/authorship verification remain operational follow-ups; project Go test/build/lint workflows, suite locations, exact commands, and runner configuration are implementation tasks. Numeric product performance/memory targets remain deferred until representative baselines and separate approval.
 
 ## Acceptance criteria
 
@@ -101,8 +101,33 @@ The project testing strategy (D-042), Git workflow baseline (D-043), and benchma
 - [x] Project testing strategy is explicitly approved and recorded as D-042; implementation-specific suite locations, commands, and CI configuration remain deferred until implementation.
 - [x] Numeric product performance/memory targets are explicitly deferred until representative post-implementation baselines; diagnostic resource ceilings are not acceptance thresholds.
 - [x] Requirements and architecture are coherent, internally consistent, and implementation-ready after final cross-document review; implementation-specific operational follow-ups remain explicitly deferred.
-- [ ] User explicitly approves exit from Define before implementation begins.
+- [x] User explicitly approved exit from Define and transition to Implement.
+
+## Implement phase
+
+### Governing revisions and gates
+
+- Architecture: `docs/project/architecture.md` (current main revision at phase entry).
+- Requirements: `docs/project/requirements.md`.
+- Acceptance scenarios: `docs/project/acceptance.md`.
+- Coding standard: `docs/standards/coding.md` (blob `19e2bebe182ec6d7b3e9fa645a5469f07b5ee4ac`).
+- Testing strategy: D-042, `docs/project/testing-strategy.md`; fast, integration, and mandatory full-verification tiers. No arbitrary coverage threshold.
+- Performance strategy: D-040/D-041, `docs/project/performance-strategy.md` and `docs/project/benchmarks.md`; smoke is informational, full/manual uses one warm-up plus five measured repetitions; numeric product targets deferred.
+- Git workflow: D-043, `docs/project/git-workflow.md`; main-only direct commits, no branches or pull requests, never bypass protections.
+
+### Ordered implementation work
+
+1. Inspect repository contents and Go toolchain/runtime availability; establish the module metadata and minimum supported Go version only from approved requirements/tooling evidence. Do not guess a version or add dependencies without justification.
+2. Implement the storage and canonical framing primitives bottom-up, with focused tests for file operations, encoding bounds, checksums/validation, and corruption handling as specified by architecture and acceptance.
+3. Implement append transaction commit/recovery and metadata reconstruction; test atomicity, interrupted writes, restart recovery, and authoritative committed sequence.
+4. Implement Event identity, typed field encoding/reconstruction, registration, and Channel snapshot/change observation according to the public API and architecture.
+5. Implement per-Channel Reader progression, replay-to-live handoff, bounded notification backlog, retry/backoff, and terminal error behavior; test ordering, isolation, backpressure, and the documented crash-window duplicate boundary.
+6. Implement process-lifetime runtime ownership and `PrepareLog` integration; add consumer-defined Event/Channel public API and lifecycle/recovery tests without adding a public shutdown control.
+7. Establish verified Go test/build/lint commands, suite locations, Linux/Windows CI configuration, and full-verification gate. Keep governance CI evidence distinct from Go verification.
+8. Add approved benchmark workloads and evidence capture after representative behavior exists; do not invent numeric product performance or memory thresholds.
+
+Implementation proceeds in small increments. At each boundary, update the relevant fast tests and acceptance evidence. Changes that require an architectural or public API deviation stop for explicit design approval before implementation continues.
 
 ## Verification
 
-No implementation, Go build, or Go tests have started.
+No implementation, Go build, or Go tests have started at the moment of phase transition. The Implement exit gate is the mandatory full-verification suite plus applicable performance checks and coding-standard review on the exact final implementation SHA.
