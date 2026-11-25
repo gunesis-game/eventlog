@@ -85,7 +85,7 @@ Channel snapshot consistency, Reader wake-up behavior, retry policy, process-lif
 
 ### Remaining Define work
 
-The project testing strategy (D-042) and Git workflow baseline (D-043) are approved and recorded. Complete the final semantic review of the reconciled specifications and cycle records. Repository-protection/ruleset and signing/authorship verification remain operational follow-ups; project Go test/build/lint workflows are deferred until implementation. If no contradiction or unrecorded design decision remains, present the Define exit assessment for your explicit approval. No implementation or phase transition is authorized by this plan update.
+The project testing strategy (D-042), Git workflow baseline (D-043), and benchmark evidence policies (D-040/D-041) are approved and recorded. Final semantic review found no remaining contradiction among the active requirements, architecture, acceptance, testing, performance/benchmark, Git workflow, decision, and cycle records. Repository-protection/ruleset and signing/authorship verification remain operational follow-ups; project Go test/build/lint workflows are deferred until implementation. Present the Define exit assessment for explicit user approval; do not transition phases or begin implementation until approved. If no contradiction or unrecorded design decision remains, present the Define exit assessment for your explicit approval. No implementation or phase transition is authorized by this plan update.
 
 ## Acceptance criteria
 
@@ -100,7 +100,7 @@ The project testing strategy (D-042) and Git workflow baseline (D-043) are appro
 - [x] Benchmark measurement protocol, statistical reporting, artifact retention, and comparable-run selection are agreed and recorded in D-040/D-041.
 - [x] Project testing strategy is explicitly approved and recorded as D-042; implementation-specific suite locations, commands, and CI configuration remain deferred until implementation.
 - [x] Numeric product performance/memory targets are explicitly deferred until representative post-implementation baselines; diagnostic resource ceilings are not acceptance thresholds.
-- [ ] Requirements and architecture are coherent, internally consistent, and implementation-ready.
+- [x] Requirements and architecture are coherent, internally consistent, and implementation-ready after final cross-document review; implementation-specific operational follow-ups remain explicitly deferred.
 - [ ] User explicitly approves exit from Define before implementation begins.
 
 ## Verification
