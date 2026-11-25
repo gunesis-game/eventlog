@@ -1,6 +1,6 @@
 # Benchmark strategy
 
-**Status:** Benchmark workload scenarios, initial workload profiles, and per-process resource budgets are approved during Define. Numeric performance pass/fail thresholds and the statistical acceptance methodology remain unapproved. No benchmark implementation or measurements have started.
+**Status:** Benchmark workload scenarios, initial workload profiles, per-process diagnostic resource ceilings, and the measurement protocol are approved during Define. Numeric performance and product memory acceptance thresholds remain unapproved pending representative baselines. No benchmark implementation or measurements have started.
 
 This document defines the benchmark workloads used to evaluate the eventlog implementation. It is separate from the acceptance-test matrix: acceptance tests establish correctness, while benchmarks measure performance and resource behavior. A benchmark result is not valid unless its workload also verifies the relevant correctness guarantees.
 
@@ -27,7 +27,8 @@ Initial per-process resource budgets on the standard GitHub-hosted runner class 
 | Stress | 2 GiB |
 
 - Benchmark data stored on the runner is capped at 4 GiB per workload execution.
-- These are initial engineering budgets, not measured capabilities or performance guarantees. They are diagnostic targets until representative measurements establish achievable baselines and acceptable variance.
+- These memory and disk budgets are diagnostic execution ceilings, not product memory/performance acceptance thresholds, measured capabilities, or performance guarantees. If a workload exceeds a ceiling, stop or contain that execution where practicable, mark its result **incomplete/resource-limited**, and record the observed usage and termination reason. Do not report it as a successful benchmark or infer that the product failed an unapproved memory target.
+- The ceilings bound benchmark resource consumption on the selected runner class; they do not establish a product memory guarantee. Revisit them if observed runner capacity or workload needs justify a change.
 - Record the actual runner image/class, allocated CPU and memory, available disk, OS, filesystem, and toolchain version with every result. Runner specifications can change; record observed environment details rather than assuming a historical specification.
 - Run Linux and Windows separately. The profiles and resource budgets apply to both, but raw timings across different runner images/platforms must not be treated as directly comparable.
 
@@ -44,7 +45,10 @@ Unless a workload specifies otherwise:
 - Document hardware, operating system, filesystem, runtime/toolchain version, configuration, and benchmark command so results can be compared meaningfully.
 - Run comparable workloads on Linux and Windows. Document environmental differences rather than treating unlike hardware or filesystems as directly comparable.
 - Include correctness checks and report failures; never count lost, duplicated, reordered, or incorrectly recovered data as successful throughput.
-- Hard performance pass/fail thresholds, required repetitions, warm-up policy, and statistical acceptance rules remain to be agreed separately. The initial workload profiles and resource budgets above are approved, but do not imply achieved performance.
+- **PR smoke suite:** execute each selected representative scenario once, without repeated statistical sampling. Treat results as informational early-warning evidence only.
+- **Full/manual measurements:** perform one unreported warm-up execution followed by five measured repetitions for each workload/environment combination. Preserve the five individual results; report the median, minimum-to-maximum range, and median absolute deviation (MAD), alongside the workload's per-run latency percentiles and other applicable metrics. Do not discard an inconvenient sample unless a documented execution fault invalidates it; retain and explain invalidated samples.
+- Record the exact source SHA, runner image/class, allocated CPU and memory, available disk, operating system, filesystem, Go toolchain version, configuration, workload inputs, and exact command for every run. Compare baselines only within materially comparable environments; keep Linux and Windows results separate.
+- No numeric performance or product memory pass/fail thresholds are approved. Establish representative baselines first, then propose any justified numeric targets as a separately approved decision. Until then, all performance results are informational; no performance or memory measurement may fail CI based on a numeric threshold. Correctness failures remain independently enforceable.
 
 ## Layer 1 — Disk and storage
 
@@ -204,10 +208,10 @@ The PR smoke suite contains one representative benchmark scenario from each of t
 Resource constraints for this suite:
 
 - Linux only.
-- One benchmark execution per scenario initially; no repeated statistical sampling in the PR path.
+- One benchmark execution per scenario; no repeated statistical sampling in the PR path. The five-repetition protocol applies to full/manual measurements, not the smoke suite.
 - Small, fixed, bounded datasets and short benchmark durations.
 - No large-history, sustained-load, or high-concurrency stress workloads.
-- No strict timing-based pass/fail thresholds initially. The smoke suite is an early-warning signal, not a statistically strong performance gate.
+- No timing- or product-memory-based pass/fail thresholds. The smoke suite is an early-warning signal, not a statistically strong performance gate.
 - Correctness tests remain mandatory and independent of benchmark results; benchmark success cannot substitute for acceptance tests.
 
 The full benchmark matrix is not required on every push to `main`. Linux and Windows remain first-class correctness and benchmark platforms, but Windows benchmark runs are manual. Keep platform results separate and do not treat their absolute timings as directly comparable without accounting for runner and environment differences.
@@ -226,8 +230,8 @@ The eventual cleanup implementation must account for the currently running workf
 
 ## Remaining Define work
 
-- Agree numeric performance targets and thresholds for the workloads.
-- Agree measurable memory targets and measurement methodology, including representative target environments and resource ceilings.
+- Establish representative performance and memory baselines when an implementation exists; then propose any justified numeric product targets and thresholds for approval.
+- Reassess the diagnostic runner resource ceilings only if observed runner capacity or workload needs justify a change.
 - Complete the consistency review across requirements, architecture, decisions, acceptance tests, and benchmark strategy.
 
 No benchmark results or performance guarantees are claimed by this document.
