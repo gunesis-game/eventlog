@@ -117,14 +117,14 @@ The user explicitly approved exiting Define and transitioning Cycle 1 to Impleme
 
 ### Ordered implementation work
 
-1. [x] Inspect repository contents and Go toolchain/runtime evidence; establish module metadata. The module is `github.com/gunesis-game/eventlog`, declares `go 1.18` as the language floor required by generics, and has no external dependencies. CI resolves stable Go; the initial verified runner toolchain was Go 1.27.4.
+1. [x] Inspect repository contents and Go toolchain/runtime evidence; establish module metadata. The module is `github.com/gunesis-game/eventlog`, now declares `go 1.27` and `toolchain go1.27.4`, following the decision to use the latest stable Go release as both the minimum and CI baseline. CI pins Go 1.27.4; no external dependencies are currently declared.
 2. [ ] Define canonical v1 record/field schemas and their repository path from the approved architecture; then implement strict record serialization and framing with focused tests. The architecture requires canonical standalone schemas embedded with `go:embed`, but none exist in the repository yet.
 3. Implement storage and canonical framing primitives bottom-up, with focused tests for file operations, encoding bounds, checksums/validation, and corruption handling as specified by architecture and acceptance.
 4. Implement append transaction commit/recovery and metadata reconstruction; test atomicity, interrupted writes, restart recovery, and authoritative committed sequence.
 5. Implement Event identity, typed field encoding/reconstruction, registration, and Channel snapshot/change observation according to the public API and architecture.
 6. Implement per-Channel Reader progression, replay-to-live handoff, bounded notification backlog, retry/backoff, and terminal error behavior; test ordering, isolation, backpressure, and the documented crash-window duplicate boundary.
 7. Implement process-lifetime runtime ownership and `PrepareLog` integration; add consumer-defined Event/Channel public API and lifecycle/recovery tests without adding a public shutdown control.
-8. [x] Establish initial verified Go test/build/vet commands and Linux/Windows CI. The first run passed on both platforms; no acceptance test files exist yet. Expand suite locations and full-verification gates as implementation adds tests. Keep governance CI evidence distinct from Go verification.
+8. [x] Establish initial verified Go test/build/vet commands and Linux/Windows CI. The initial run passed on both platforms; no acceptance test files exist yet. The Go baseline was subsequently updated to the latest stable release, 1.27.4, and pinned in CI; the updated verification is pending. Expand suite locations and full-verification gates as implementation adds tests. Keep governance CI evidence distinct from Go verification.
 9. Add approved benchmark workloads and evidence capture after representative behavior exists; do not invent numeric product performance or memory thresholds.
 
 Implementation proceeds in small increments. At each boundary, update the relevant fast tests and acceptance evidence. Changes that require an architectural or public API deviation stop for explicit design approval before implementation continues.
