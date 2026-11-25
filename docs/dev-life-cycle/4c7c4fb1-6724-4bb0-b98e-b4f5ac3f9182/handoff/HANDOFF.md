@@ -149,3 +149,12 @@ Finish the final semantic review of requirements, architecture, acceptance, benc
 - **Mandatory gate:** full verification is required before implementation exit. No acceptance layer is excluded and no numeric coverage threshold is invented.
 - **Deferred until implementation:** executable suite locations, verified commands and triggers, platform runner configuration, and project Go CI. The current governance workflows do not constitute Go test verification.
 - **Next:** complete the final semantic review of all active project and cycle records, including confirmation of the Git workflow approval gate. Then present the Define exit assessment for explicit user approval. Cycle 1 remains `in-progress / define`; no implementation or phase transition is authorized.
+
+
+## Latest resumption checkpoint — Git workflow approved, 2026-11-25
+
+- **User approval:** the project Git workflow baseline is approved and recorded as D-043 in `docs/project/decisions.md`.
+- **Approved baseline:** main-only direct commits; no branches, pull requests, or merge commits; never bypass protections; stop if direct-main operations are blocked; use GitHub MCP for repository work and evidence; fetch back and verify published artifacts; associate CI evidence with exact commit SHAs; follow documented workflow-run retention and recovery rules.
+- **Explicit follow-ups:** repository protection/ruleset settings and signing/authorship requirements remain to be verified. Project Go test/build/lint workflows are deferred until those suites exist. Approval does not imply that these settings have been inspected or waive any repository control.
+- **Define gate status:** testing strategy D-042 and Git workflow D-043 are approved. Benchmark/performance methodology and evidence policy D-040/D-041 are recorded. The remaining work is final semantic review and the explicit user decision to exit Define.
+- **Current state:** Cycle 1 remains `in-progress / define`; no implementation, Go build, Go tests, or benchmark measurements have started. No phase transition has been made.
