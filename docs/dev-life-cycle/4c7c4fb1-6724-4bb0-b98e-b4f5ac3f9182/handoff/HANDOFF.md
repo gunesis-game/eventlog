@@ -61,7 +61,7 @@ The current requirements, architecture, decisions, acceptance matrix, and benchm
 | Metadata UTF-8 policy | Resolved | D-036 and architecture section “Metadata UTF-8 policy” |
 | Maximum framing sizes | Resolved | D-038 and architecture section “Canonical identity framing limits (v1)” |
 | Exact internal registry-key composition | Resolved/deferred to implementation | D-039: representation is internal; architecture specifies required registration, identity, reuse, and Channel-isolation behavior |
-| Numeric performance pass/fail thresholds and statistical measurement criteria | Unresolved | Initial workload profiles and resource budgets are approved in `benchmarks.md`; still agree repetitions, warm-up, variance/acceptance methodology, and whether any thresholds are appropriate |
+| Benchmark measurement protocol, evidence retention, and comparable-run selection | Resolved | D-040 approves the warm-up/five-repetition protocol and diagnostic ceilings; D-041 approves 20-day artifact retention and comparable-run selection in `benchmarks.md`. Numeric product targets remain deferred pending representative baselines |
 
 ### Resolved
 
@@ -75,13 +75,12 @@ The current requirements, architecture, decisions, acceptance matrix, and benchm
 
 ### Unresolved
 
-- Final cross-document consistency review, including the benchmark/requirements/architecture/performance-strategy alignment.
-- Benchmark artifact retention and comparable-run selection policy.
-- Numeric product performance/memory targets remain intentionally deferred until representative baselines exist; any proposed targets require a separate approval and decision record.
+- Final cross-document consistency review, including the benchmark/requirements/architecture/performance-strategy/acceptance alignment.
+- Numeric product performance/memory targets remain intentionally deferred until representative baselines exist; any proposed targets require a separate approval and decision record. This is a post-implementation evidence task, not authorization to invent targets during Define.
 
 ### Next action
 
-Complete the final cross-document consistency review and specify benchmark artifact retention/comparable-run selection. Establish representative baselines after implementation exists, then propose any justified numeric product targets as a separate decision. Do not exit Define until its remaining work is settled and you explicitly approve the phase transition.
+Complete the final cross-document consistency review. Benchmark measurement, artifact retention, and comparable-run selection are now approved and recorded. Establish representative baselines after implementation exists, then propose any justified numeric product targets as a separate decision. Do not exit Define until its remaining design work is settled and you explicitly approve the phase transition.
 
 ## Verification
 
@@ -117,3 +116,11 @@ Complete the final cross-document consistency review and specify benchmark artif
 - **Comparison:** use only the latest successful, complete, correctness-valid run with matching workload parameters and a materially comparable environment. Keep Linux and Windows separate; material environment or workload changes create separate comparison series.
 - **Specifications updated:** benchmarks.md is authoritative; performance-strategy.md is aligned; D-041 records provenance.
 - **Still open:** final cross-document consistency review. Numeric product targets remain deferred until representative baselines exist and require separate approval. Cycle 1 remains in Define; implementation has not started.
+
+
+## Latest resumption checkpoint — cross-document reconciliation, 2026-11-25
+
+- **Benchmark policy:** D-040 and D-041 are recorded. Full/manual measurements use one unreported warm-up and five measured repetitions; smoke scenarios run once. Benchmark artifacts are retained for 20 days. Baseline selection requires successful, complete, correctness-valid and materially comparable evidence.
+- **Acceptance alignment:** acceptance.md now explicitly separates correctness acceptance from the approved benchmark methodology and defers numeric product targets until representative baselines exist.
+- **Cross-document review:** requirements, architecture, acceptance, benchmark strategy, performance strategy, and decisions were inspected for stale measurement-policy language. The acceptance strategy's former claim that workload and measurement methodology remained unapproved was corrected.
+- **Remaining Define work:** finish the final semantic consistency review and any remaining design decisions. Numeric product performance/memory targets are deferred until implementation and representative measurements exist; no implementation or benchmark measurements have started.
