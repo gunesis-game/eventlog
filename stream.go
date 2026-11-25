@@ -18,8 +18,13 @@ type streamValidation struct {
 // accepts only complete transactions and returns the start of a trailing
 // uncommitted transaction (or partial final frame) for recovery.
 func validateRecordStream(data []byte, validator *recordSchemaValidator) (streamValidation, error) {
-	result := streamValidation{}
-	expectedSequence := uint64(1)
+	return validateRecordStreamFrom(data, validator, 1)
+}
+
+// validateRecordStreamFrom validates a segment whose first global sequence is
+// expectedSequence. Segment sequences are global and therefore do not restart at 1.
+func validateRecordStreamFrom(data []byte, validator *recordSchemaValidator, expectedSequence uint64) (streamValidation, error) {
+	result := streamValidation{CommittedSequence: expectedSequence - 1}
 	var pendingRecords []interface{}
 	var pendingFrames [][]byte
 	var pendingStart int64
