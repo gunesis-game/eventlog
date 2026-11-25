@@ -3,8 +3,8 @@
 ## Go toolchain
 
 - Module: `github.com/gunesis-game/eventlog`.
-- The `go.mod` language directive is `go 1.18`, the minimum language level required by the approved generic public API. No external module dependencies are declared.
-- CI currently resolves `stable`; the verified run used Go 1.27.4 on both `ubuntu-latest` (linux/amd64) and `windows-latest` (windows/amd64). The module directive is not a pin to that CI toolchain version.
+- The `go.mod` language directive is `go 1.27`, and its toolchain directive is `go1.27.4`. The project policy is to use the latest stable released Go version, not retain older compatibility floors. No external module dependencies are declared.
+- CI explicitly pins Go `1.27.4` on both `ubuntu-latest` (linux/amd64) and `windows-latest` (windows/amd64), matching the current latest stable release as of this update.
 
 ## Verified commands
 
