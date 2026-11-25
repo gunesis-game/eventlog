@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://eventlog.gunesis-game.dev/schemas/v1/commit.schema.json",
+  "title": "Eventlog v1 Commit record",
+  "type": "object",
+  "properties": {
+    "schema_version": { "const": 1 },
+    "sequence": { "type": "integer", "minimum": 1 },
+    "kind": { "const": "commit" },
+    "transaction_id": { "type": "integer", "minimum": 1 },
+    "record_count": { "type": "integer", "minimum": 1 },
+    "checksum": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+  },
+  "required": ["schema_version", "sequence", "kind", "transaction_id", "record_count", "checksum"],
+  "additionalProperties": false
+}
