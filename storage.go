@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath
+	"path/filepath"
 )
 
 var ErrShortStorageWrite = errors.New("short storage write")
