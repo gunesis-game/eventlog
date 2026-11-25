@@ -75,11 +75,13 @@ The current requirements, architecture, decisions, acceptance matrix, and benchm
 
 ### Unresolved
 
-- Benchmark measurement/acceptance methodology (repetitions, warm-up, statistical treatment/variance) and any justified hard performance/memory pass/fail thresholds.
+- Final cross-document consistency review, including the benchmark/requirements/architecture/performance-strategy alignment.
+- Benchmark artifact retention and comparable-run selection policy.
+- Numeric product performance/memory targets remain intentionally deferred until representative baselines exist; any proposed targets require a separate approval and decision record.
 
 ### Next action
 
-Agree benchmark measurement/acceptance methodology and any justified hard thresholds, then perform the final cross-document consistency review. Do not begin implementation or exit Define until the remaining work is settled and you explicitly approve the phase transition.
+Complete the final cross-document consistency review and specify benchmark artifact retention/comparable-run selection. Establish representative baselines after implementation exists, then propose any justified numeric product targets as a separate decision. Do not exit Define until its remaining work is settled and you explicitly approve the phase transition.
 
 ## Verification
 
@@ -96,3 +98,12 @@ Agree benchmark measurement/acceptance methodology and any justified hard thresh
 - **CI evidence:** steering validation and workflow-history cleanup both completed successfully for this exact revision. The preceding validation run on `11dbb389aba9a785771ab42734a29d88c4997a93` failed because the validator expected a project-strategy reference in the lifecycle README that the template no longer owns there; the validator expectation was corrected in `77652b7`, and the latest validation passed. These workflows validate governance only, not Go implementation.
 - **Benchmark policy remains the next Define item:** Typical/Heavy/Stress profiles, initial diagnostic memory budgets (512 MiB / 1 GiB / 2 GiB), and the 4 GiB per-workload disk cap remain recorded. They are diagnostic guardrails, not measured capabilities or hard performance gates. The unresolved work is the resource-bounded measurement/acceptance methodology and consistent treatment of performance/memory thresholds across the owning specifications.
 - **Next action:** agree the measurement protocol and whether any hard performance/memory thresholds are justified; then reconcile the benchmark/performance specifications and decision provenance, fetch back and verify them, and complete the final cross-document consistency review. Define remains open; do not begin implementation or exit Define until the remaining work is settled and you explicitly approve the phase transition.
+
+
+## Latest resumption checkpoint — benchmark protocol approved, 2026-11-25
+
+- **Approved decision:** D-040 records the user's approval of the benchmark measurement protocol and diagnostic resource-ceiling policy.
+- **Measurement protocol:** full/manual workloads use one unreported warm-up followed by five measured repetitions; retain individual samples and report median, min-to-max range, and median absolute deviation (MAD). PR smoke scenarios run once and remain informational.
+- **Resource policy:** the Typical/Heavy/Stress process-memory budgets and 4 GiB per-workload disk cap are diagnostic execution ceilings, not product acceptance thresholds. An exceeded ceiling makes that run incomplete/resource-limited; it is not a product acceptance failure. No numeric performance or product-memory threshold may fail CI.
+- **Specifications updated and fetched back exactly:** `benchmarks.md`, `performance-strategy.md`, `requirements.md`, and `architecture.md`. D-040 points to the verified benchmark specification revision.
+- **Still open:** final cross-document consistency review and benchmark artifact retention/comparable-run selection. Numeric product targets remain deferred until representative baselines exist and require a separate approval. Cycle 1 remains in Define; implementation has not started.
