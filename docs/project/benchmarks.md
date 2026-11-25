@@ -218,6 +218,24 @@ The full benchmark matrix is not required on every push to `main`. Linux and Win
 
 Performance benchmark results are informational and diagnostic. There are no hard performance thresholds in CI, and performance measurements must not fail a CI run based on timing, throughput, or resource-use values. Correctness and acceptance tests remain independently enforceable and may fail CI for correctness defects. The exact manual workload sizes, repetition counts, and any future performance regression gates remain to be established against actual free-runner limits and observed measurement noise. Benchmark execution must remain bounded and must not consume disproportionate CI capacity.
 
+## Benchmark artifact retention and comparable-run selection
+
+Retain benchmark artifacts for **20 days** from the workflow run that produced them. This applies to uploaded benchmark evidence, including raw measured samples, summaries, workload inputs, correctness outcomes, and environment metadata. It is separate from GitHub Actions workflow run-history retention below.
+
+- Retain evidence from successful, failed, and incomplete/resource-limited runs for the retention period so that investigations remain possible.
+- A cancelled run does not need benchmark artifact retention.
+- For full/manual measurements, retain all individual measured samples, the unreported warm-up marker/result where available, summary statistics, correctness outcome, exact source SHA, and the complete environment/workload/command metadata already required by this document.
+- For smoke runs, retain the summary and environment metadata; raw output may also be retained where useful.
+- Expiry after 20 days is an evidence-storage policy, not permission to delete source specifications, decision records, or other project governance history.
+
+Select a comparison baseline only from the **latest successful, complete, correctness-valid run** that is materially comparable to the run being evaluated. Comparability requires the same workload ID and workload parameters, operating system, filesystem, materially equivalent runner image/class and allocated resources, Go toolchain version, and relevant configuration. Record the source SHA for every run; different source SHAs are expected when measuring changes and do not by themselves make runs incomparable.
+
+- Do not use failed, cancelled, incomplete/resource-limited, or correctness-invalid runs as baselines.
+- Keep Linux and Windows in separate comparison series.
+- Treat material changes to runner image/class, allocated resources, OS, filesystem, Go toolchain, workload parameters, or relevant configuration as a new comparison series rather than silently combining results.
+- Preserve and report invalidated samples with their reason; do not silently discard them or use them to claim a successful baseline.
+- A successful comparable run is eligible evidence, not an automatically approved product performance target or acceptance threshold.
+
 ## GitHub Actions run-history retention
 
 For each individual GitHub Actions workflow, retain the four most recent workflow runs. When that workflow starts, its run-history cleanup should remove older runs belonging to that same workflow, leaving the four newest runs available for comparison.
