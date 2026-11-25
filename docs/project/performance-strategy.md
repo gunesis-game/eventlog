@@ -63,4 +63,4 @@ No workload category is excluded. Numeric targets are intentionally absent pendi
 - [ ] Representative baselines are measured once an implementation exists; environment recording and comparability controls are defined.
 - [x] Numeric targets are explicitly deferred until representative baselines exist; no hard performance or product-memory threshold is currently approved.
 - [x] Execution, statistical reporting, artifact retention, and comparable-run selection are defined; numeric regression thresholds remain deferred pending representative baselines and separate approval.
-- [ ] The completed strategy is approved and recorded in the decision ledger.
+- [x] The measurement and evidence policy is approved and recorded in D-040/D-041; numeric targets remain deferred pending representative baselines.
