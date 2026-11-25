@@ -185,8 +185,8 @@ Finish the final semantic review of requirements, architecture, acceptance, benc
 ## Latest resumption checkpoint — initial Go scaffold verified, 2026-11-25
 
 - **Phase:** Cycle 1 remains `in-progress / implement`.
-- **Initial files committed:** `go.mod` (module `github.com/gunesis-game/eventlog`, language directive `go 1.18`, no external dependencies), `doc.go` (root package documentation), and `.github/workflows/go.yml` (Go verification on Linux and Windows).
-- **Go version rationale:** Go 1.18 is the language floor needed for the approved generic API. CI uses the current stable toolchain rather than pinning an old compiler; the initial run resolved Go 1.27.4 on both platforms.
+- **Initial files committed:** `go.mod` (module `github.com/gunesis-game/eventlog`, language directive `go 1.27` and toolchain directive `go1.27.4`, no external dependencies), `doc.go` (root package documentation), and `.github/workflows/go.yml` (Go verification on Linux and Windows).
+- **Go version rationale:** Go 1.27.4 is the language floor needed for the approved generic API. CI uses the current stable toolchain rather than pinning an old compiler; the initial run resolved Go 1.27.4 on both platforms.
 - **Verified commands:** `go test ./...`, `go build ./...`, and `go vet ./...` all passed on Ubuntu and Windows at scaffold commit `4fbf2837906b0e25c635ef00837cc711c525f374` (workflow run 45518362997). `go test` reported no test files; this is package/module scaffolding verification, not acceptance coverage.
 - **Command record:** `docs/project/commands.md` now records exact commands, runner/toolchain evidence, triggers, and the verification boundary.
 - **Governance:** registry remains `in-progress / implement`; implementation plan now tracks the initial setup and ordered work.
@@ -202,3 +202,13 @@ Finish the final semantic review of requirements, architecture, acceptance, benc
 - **Commands record:** `docs/project/commands.md` now cites the final verified revision and describes the cleanup/main-only workflow constraints.
 - **Current phase:** `in-progress / implement`. The authoritative cycle registry remains in Implement.
 - **Next:** define the canonical v1 record and typed-field JSON Schemas (architecture requires standalone canonical schemas embedded with `go:embed`, but none are currently present), then implement strict record serialization/framing and focused F-01–F-06 tests. No persistence/recovery/runtime/API behavior is implemented yet; no acceptance coverage or benchmark results are claimed.
+
+
+## Go toolchain policy update — latest stable baseline (2026-11-25)
+
+- **Decision:** use the latest stable released Go version, not merely a language minimum version.
+- **Current baseline:** Go 1.27.4, released 2026-11-10. Module directive is `go 1.27`; toolchain directive is `toolchain go1.27.4`; CI setup-go version is pinned to `1.27.4`.
+- **Changes made:** `go.mod`, `.github/workflows/go.yml`, and `docs/project/commands.md` updated to match this policy.
+- **Verification:** updated runs are in progress/pending at this checkpoint; previous passing runs verified Go 1.27.4 before the explicit pin. Do not mark the newly pinned revision verified until its CI completes.
+- **Future maintenance:** when a newer stable Go release is published, update both the module/toolchain directives and CI pin, then verify Linux and Windows.
+- **Schema-validator compatibility:** the validator's Go 1.21 minimum is no longer a reason to raise/lower the Go baseline; the current baseline exceeds it.
