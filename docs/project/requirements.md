@@ -87,7 +87,7 @@ from replay into live tailing. It is not tied to an event-sourcing framework or 
 
 ### Reading
 - One unified Reader progression per runtime Channel provides committed history and live updates in
-  order, without gaps or duplicates when transitioning from replay to tailing. The same progression
+  order, without gaps or duplicates during normal replay-to-live progression. The same progression
   advances through replay and live tailing; separate typed Readers must not be combined to synthesize
   the heterogeneous notification stream.
 - All concrete Event types and their decoders required by a logical Channel's committed history must
@@ -115,7 +115,7 @@ from replay into live tailing. It is not tied to an event-sourcing framework or 
   interrupt an append or notification delivery. Incomplete trailing transactions are discarded during
   recovery; committed occurrences still present in the authoritative append log, including undelivered
   notifications, are replayed before newer occurrences on the next start. Duplicates may occur around a
-  crash because consumers do not acknowledge delivery; exactly-once processing is not guaranteed.
+  crash because consumers do not acknowledge delivery; exactly-once processing is not guaranteed. The no-gap/no-duplicate progression guarantee applies during normal operation, not across a crash boundary.
 
 ## Quality expectations and constraints
 - Correctness, recovery safety, predictable memory use, and Linux/Windows parity are prioritized ahead
