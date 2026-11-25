@@ -60,7 +60,7 @@ Approved project decisions are recorded in the project decision register and int
 | Metadata UTF-8 policy | Resolved | D-036 and architecture section “Metadata UTF-8 policy” |
 | Maximum framing sizes | Resolved | D-038 and architecture section “Canonical identity framing limits (v1)” |
 | Exact internal registry-key composition | Resolved/deferred to implementation | D-039: representation is internal; architecture specifies required registration, identity, reuse, and Channel-isolation behavior |
-| Numeric performance pass/fail thresholds and statistical measurement criteria | Unresolved | Initial workload profiles and resource budgets are approved in `benchmarks.md`; still agree repetitions, warm-up, variance/acceptance methodology, and whether any thresholds are appropriate |
+| Benchmark measurement protocol and evidence policy | Resolved | D-040 approves the measurement/statistical protocol and diagnostic ceilings; D-041 approves 20-day artifact retention and comparable-run selection. Numeric product targets are deferred until representative implementation baselines exist |
 
 The current requirements, architecture, decision register, acceptance matrix, and benchmark strategy have been reviewed together against the active cycle records.
 
