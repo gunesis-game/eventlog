@@ -8,7 +8,7 @@
 
 ## Verified commands
 
-The following commands completed successfully on both supported CI operating systems at commit `4fbf2837906b0e25c635ef00837cc711c525f374`:
+The following commands completed successfully on both supported CI operating systems at commit `06a824de578880cdaf50078e1d9dca6a56a51a5261` (workflow run 45518701043):
 
 | Command | Purpose | Observed result |
 |---|---|---|
@@ -16,6 +16,6 @@ The following commands completed successfully on both supported CI operating sys
 | `go build ./...` | Build all packages | Success |
 | `go vet ./...` | Static analysis | Success |
 
-The commands are executed by [Go verification](../../.github/workflows/go.yml) on pushes to `main` and manual dispatch, with Linux and Windows matrix jobs. This initial run verifies module/package scaffolding only; it is not evidence of acceptance-test coverage or runtime behavior.
+The commands are executed by [Go verification](../../.github/workflows/go.yml) on pushes to `main` and manual dispatch, with Linux and Windows matrix jobs. The workflow also invokes the shared workflow-history cleanup at startup and restricts its jobs to `main`, as required by repository governance. This run verifies module/package scaffolding only; it is not evidence of acceptance-test coverage or runtime behavior.
 
 Update this document when commands, prerequisites, suite locations, or CI triggers change. Do not claim tests or checks that were not actually run.
