@@ -183,8 +183,6 @@ End-to-end tests use actual consumer-defined Event and Channel types, not only i
 - Keep test-only fault injection and process termination controls out of the public API.
 - Record test commands, platform, outcomes, and relevant failure evidence when implementation begins. This document defines acceptance criteria; it is not evidence that tests have run.
 
-## Separate Define work
+## Post-implementation performance evidence
 
-The acceptance scenarios above are agreed. Benchmark workload scenarios are separately defined in [Benchmark strategy](benchmarks.md) and are also agreed. The following remain separate Define work:
-- Establish representative performance and memory baselines after implementation exists; then propose any justified numeric product targets or thresholds for separate approval.
-- Establish representative performance and memory baselines after implementation exists; any numeric product targets require separate justification and approval.
+The acceptance scenarios and benchmark workload/measurement specifications are agreed. Representative performance and memory baselines can only be established after an implementation exists. Any numeric product targets or thresholds proposed from those baselines require separate justification and approval; they are not currently approved acceptance criteria.
