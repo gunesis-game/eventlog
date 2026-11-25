@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://eventlog.gunesis-game.dev/schemas/v1/channel.schema.json",
+  "title": "Eventlog v1 Channel record",
+  "type": "object",
+  "properties": {
+    "schema_version": { "const": 1 },
+    "sequence": { "type": "integer", "minimum": 1 },
+    "kind": { "const": "channel" },
+    "id": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$" },
+    "type": { "$ref": "event-type.schema.json" },
+    "fields": { "type": "object", "propertyNames": { "minLength": 1 }, "additionalProperties": { "$ref": "field-value.schema.json" } }
+  },
+  "required": ["schema_version", "sequence", "kind", "id", "type", "fields"],
+  "additionalProperties": false
+}
