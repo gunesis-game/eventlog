@@ -2,7 +2,7 @@
 
 ## Purpose and status
 
-This document is the project-specific implementation of the [Git Workflow Standard](../standards/git-workflow.md). The repository's main-only policy is mandatory and overrides any generic examples in the standard.
+This document is the project-specific implementation of the [Git Workflow Standard](../standards/git-workflow.md). The repository's main-only policy is mandatory and overrides any generic examples in the standard. **This workflow is approved as the project baseline (D-043).** Repository-protection settings and signing/authorship requirements remain explicit verification follow-ups; this approval does not assume their state or waive any controls.
 
 ## Branch and integration model
 
@@ -58,6 +58,6 @@ Every ongoing workflow must clean its own history at startup using the shared sc
 - [x] Main-only direct-commit policy is explicit and consistent with steering.md.
 - [x] GitHub MCP is the required repository interaction and evidence interface.
 - [x] Governance validation and cleanup workflow paths are documented.
-- [ ] Repository protection settings and signing requirements are verified.
-- [ ] Project test/build/lint workflows are defined when those suites are implemented.
+- [ ] Repository protection/ruleset settings and signing/authorship requirements are verified (operational follow-up; this does not block approval of the documented workflow baseline).
+- [ ] Project test/build/lint workflows are defined when those suites are implemented (implementation follow-up).
 - [x] Workflow-run retention and trusted cleanup behavior are explicit.
