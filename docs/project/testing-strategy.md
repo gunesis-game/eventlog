@@ -4,7 +4,7 @@
 
 This document is the project-specific implementation of the [Testing Standard](../standards/testing.md). The approved acceptance scenarios are maintained in [acceptance.md](acceptance.md). This strategy maps those scenarios to architectural boundaries, feedback tiers, and verification evidence.
 
-**Current status:** Acceptance scenarios are defined, but implementation and test execution have not started. The repository currently has a steering-governance validation workflow; it does not yet define a project Go test workflow or verified Go test commands. Do not report acceptance coverage as implemented or passing until executable tests have been added and run.
+**Current status:** Approved as the project testing baseline for Define (D-042). Acceptance scenarios are defined, but implementation and test execution have not started. The repository currently has a steering-governance validation workflow; it does not yet define a project Go test workflow or verified Go test commands. Do not report acceptance coverage as implemented or passing until executable tests have been added and run.
 
 ## Architecture and test ownership
 
@@ -59,6 +59,8 @@ No acceptance layer is excluded. Performance measurement is separate and governe
 - [ ] Executable suite locations and architecture-to-test ownership are confirmed during implementation.
 - [ ] Fast, integration, and full-verification commands and triggers are verified.
 - [ ] Linux and Windows test execution is configured.
-- [ ] Full verification is mandatory before implementation exit.
-- [ ] Exclusions and non-blocking checks have documented rationale and approval.
-- [ ] The completed strategy is approved and recorded in the decision ledger.
+- [x] Full verification is mandatory before implementation exit.
+- [x] No acceptance layer is excluded; blocking behavior and any future exclusion approval requirements are explicit.
+- [x] The Define-level strategy is approved and recorded in the decision ledger (D-042).
+
+Implementation-dependent items remain intentionally open: executable suite locations, verified commands and triggers, Linux/Windows runner configuration, and project test CI. They must be established during implementation before those checks can be treated as configured or passing.
