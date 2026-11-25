@@ -416,8 +416,7 @@ memory use and platform parity precede numeric performance targets.
 ## Unresolved architectural details
 
 - Canonical type naming is settled by D-037: reflected package path and runtime-provided name, with aliases resolving to their target and instantiated generic names treated as opaque text; v1 framing limits are settled by D-038.
-- Numeric benchmark targets, memory targets, representative measurement environments, repetitions,
-  warm-up policy, and statistical acceptance criteria.
+- Numeric product performance and memory acceptance targets, to be proposed only after representative baselines are measured. The approved workload, environment-recording, repetition, warm-up, and statistical reporting protocol is specified in [benchmarks.md](benchmarks.md).
 
 Channel identity immutability and snapshot consistency, Reader wake-up/recheck behavior, retry ordering and
 termination, and bounded notification backpressure are specified and approved; their numeric queue/retry
