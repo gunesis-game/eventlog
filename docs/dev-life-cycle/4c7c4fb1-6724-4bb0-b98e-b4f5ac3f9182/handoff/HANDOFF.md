@@ -132,4 +132,11 @@ Finish the final semantic review of requirements, architecture, acceptance, benc
 - **Acceptance semantics:** API-09 now scopes no-gap/no-duplicate behavior to normal replay-to-live progression and explicitly preserves the approved crash-window duplicate caveat.
 - **Reader lifecycle semantics:** architecture states that a terminal per-Channel Reader error is reported before that Channel's streams close. This is distinct from process termination, for which eventlog does not initiate stream closure or graceful cleanup.
 - **Cycle plan:** stale benchmark-methodology open items were removed; D-040/D-041 and the post-implementation target deferral are reflected.
-- **Remaining:** final read-through of all active project/cycle records and verification of CI for the latest changes. Cycle 1 remains `in-progress / define`; implementation, Go tests, and benchmark measurements have not started.
+- **Remaining:** obtain explicit approval and record the project testing strategy; then complete the final read-through of all active project/cycle records and verify CI for the latest changes. Implementation-specific suite locations, commands, and Go CI configuration remain deferred until implementation. Cycle 1 remains `in-progress / define`; implementation, Go tests, and benchmark measurements have not started.
+
+
+## Latest resumption checkpoint — testing strategy alignment, 2026-11-25
+
+- **Testing strategy corrected:** runtime lifecycle coverage now refers to caller-Context cancellation, process termination, and recovery; it does not imply a public or library-managed graceful shutdown. Replay-to-live duplicate guarantees are scoped to normal operation; the approved crash-window duplicate caveat is explicit.
+- **Outstanding approval:** the project testing strategy (`docs/project/testing-strategy.md`) has not yet been explicitly approved and recorded as required by the Define phase gate. Its Define-level proposal covers bottom-up acceptance layers, architecture-aware test selection, fast/integration/full-verification tiers, consumer API tests, Linux/Windows parity, process-termination recovery, evidence requirements, and no unapproved coverage thresholds. Implementation-specific suite locations, exact commands, and Go CI configuration are deferred until implementation.
+- **Next:** obtain your approval of the testing strategy, record it in the decision ledger, then complete final cross-document review and CI verification. No implementation or phase transition has started.
