@@ -52,6 +52,8 @@ This is the durable register of approved project decisions. It records outcomes 
 
 | D-041 | Retain benchmark artifacts for 20 days; retain failed and incomplete evidence for investigation (cancelled runs need not be retained); select the latest successful, complete, correctness-valid baseline only within materially comparable workload and environment series; keep Linux and Windows separate; material environment/workload changes start a new comparison series | Recorded | docs/project/benchmarks.md | 9c87b78c4cd6255366df181d6e95eccba40c1f00 |
 
+| D-042 | Approve the Define-level project testing strategy: bottom-up architecture-aware acceptance coverage; fast, integration, and mandatory full-verification tiers; consumer-defined public API types; Linux and Windows platform coverage; process-termination recovery without a public shutdown API; normal replay-to-live continuity with crash-window duplicates permitted; no unapproved numeric coverage threshold. Implementation-specific suite locations, commands, runner configuration, and Go CI remain deferred until implementation | Recorded | docs/project/testing-strategy.md | 18a2110235c56785ca6e16409b2927feec966d97 |
+
 ## Decision maintenance
 
 When a user approves a material project decision:
