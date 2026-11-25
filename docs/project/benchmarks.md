@@ -216,7 +216,7 @@ Resource constraints for this suite:
 
 The full benchmark matrix is not required on every push to `main`. Linux and Windows remain first-class correctness and benchmark platforms, but Windows benchmark runs are manual. Keep platform results separate and do not treat their absolute timings as directly comparable without accounting for runner and environment differences.
 
-Performance benchmark results are informational and diagnostic. There are no hard performance thresholds in CI, and performance measurements must not fail a CI run based on timing, throughput, or resource-use values. Correctness and acceptance tests remain independently enforceable and may fail CI for correctness defects. The exact manual workload sizes, repetition counts, and any future performance regression gates remain to be established against actual free-runner limits and observed measurement noise. Benchmark execution must remain bounded and must not consume disproportionate CI capacity.
+Performance benchmark results are informational and diagnostic. There are no hard performance thresholds in CI, and performance measurements must not fail a CI run based on timing, throughput, or resource-use values. Correctness and acceptance tests remain independently enforceable and may fail CI for correctness defects. Extended manual workload sizes remain to be selected within actual free-runner limits. The warm-up and five-measured-repetition protocol is approved; any future numeric performance regression gates remain deferred until representative baselines and observed measurement noise justify a separately approved target. Benchmark execution must remain bounded and must not consume disproportionate CI capacity.
 
 ## Benchmark artifact retention and comparable-run selection
 
