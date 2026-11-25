@@ -43,8 +43,8 @@ Approved project decisions are recorded in the project decision register and int
 - **Repository revision inspected before this decision:** `8a142a6b2483f11ac6e248835c14bef60a828aad` (`main`).
 - **Project records reviewed in full:** `docs/project/requirements.md`, `architecture.md`, `decisions.md`, `acceptance.md`, and `benchmarks.md`.
 - **Cycle records reviewed:** this plan, current handoff, and `docs/dev-life-cycle/cycle-index.json`.
-- **Decision register:** D-001 through D-039 are Recorded; D-029 is refined by D-032 and D-030/D-031 are historical and superseded for process termination by D-034.
-- **Cross-document corrections made:** stale Channel snapshot, Reader wake-up, retry, and backlog open-item claims were reconciled; the duplicate runtime-shutdown section was consolidated; D-034 replaces the former shutdown-drain sequence with process-lifetime runtime ownership and recovery after process termination; D-035 assigns UUID identity tag `0x03`; D-036 requires valid UTF-8 metadata keys and values and rejects invalid bytes without normalization; D-037 settles reflected Go type naming, alias resolution, opaque instantiated generic names, and the cross-toolchain compatibility limitation. D-038 sets explicit v1 canonical identity framing limits; D-039 leaves exact registry-key representation as an implementation detail while preserving the observable registration, identity, reuse, and Channel-isolation rules. The benchmark strategy was aligned with D-034 process-lifetime behavior, and initial Typical/Heavy/Stress workload profiles plus per-process memory and disk budgets were approved and recorded.
+- **Decision register:** D-001 through D-041 are Recorded (D-040 and D-041 cover the approved benchmark protocol and evidence policy); D-029 is refined by D-032 and D-030/D-031 are historical and superseded for process termination by D-034.
+- **Cross-document corrections made:** stale Channel snapshot, Reader wake-up, retry, backlog, and lifecycle claims were reconciled; D-034 establishes process-lifetime runtime ownership and recovery after process termination; D-035–D-039 settle UUID identity framing, metadata UTF-8, type naming, identity bounds, and observable registry behavior. D-040 approves one warm-up plus five measured repetitions for full/manual benchmarks, one informational smoke execution, summary statistics, and diagnostic resource ceilings. D-041 approves 20-day artifact retention and materially comparable baseline selection. The acceptance strategy now distinguishes normal replay-to-live continuity from permitted crash-window duplicates, and architecture explicitly specifies per-Channel stream closure after a terminal Reader error while preserving no stream closure merely for process termination.
 - **Validation boundary:** this is a semantic document reconciliation. No implementation, Go build, Go tests, or benchmark measurements have been run.
 
 | Candidate item | Classification | Current evidence / next action |
@@ -77,15 +77,15 @@ The current requirements, architecture, decision register, acceptance matrix, an
 
 ### Unresolved
 
-1. Benchmark measurement/acceptance methodology: repetitions, warm-up, statistical treatment/variance, and any justified hard performance or memory pass/fail thresholds. Initial workload profiles and resource budgets are recorded in `benchmarks.md`.
+No additional product or architecture design decision is currently identified by the cross-document review. Numeric product performance and memory targets are intentionally deferred until an implementation exists and representative baselines can be measured; they are not a prerequisite to completing Define and must not be invented from the diagnostic runner ceilings.
 
 ### Explicitly not open
 
 Channel snapshot consistency, Reader wake-up behavior, retry policy, process-lifetime runtime ownership, and notification backlog/backpressure are settled design decisions. Their numeric queue/retry parameters are internal implementation/test policy.
 
-### Next Define work
+### Remaining Define work
 
-Agree benchmark measurement/acceptance methodology and any justified hard thresholds, then perform the final cross-document consistency review. Define exit still requires your explicit approval.
+Complete the final semantic review of the reconciled specifications and cycle records. If no contradiction or unrecorded design decision remains, present the Define exit assessment for your explicit approval. No implementation or phase transition is authorized by this plan update.
 
 ## Acceptance criteria
 
@@ -97,7 +97,8 @@ Agree benchmark measurement/acceptance methodology and any justified hard thresh
 - [x] Bottom-up acceptance matrix and scenario pass conditions are agreed and recorded.
 - [x] Benchmark workload scenarios are defined and approved.
 - [x] Initial benchmark workload profiles and resource budgets are agreed and recorded.
-- [ ] Statistical measurement/acceptance methodology and any justified hard performance/memory thresholds are agreed.
+- [x] Benchmark measurement protocol, statistical reporting, artifact retention, and comparable-run selection are agreed and recorded in D-040/D-041.
+- [x] Numeric product performance/memory targets are explicitly deferred until representative post-implementation baselines; diagnostic resource ceilings are not acceptance thresholds.
 - [ ] Requirements and architecture are coherent, internally consistent, and implementation-ready.
 - [ ] User explicitly approves exit from Define before implementation begins.
 
