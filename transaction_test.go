@@ -2,29 +2,56 @@ package eventlog
 
 import "testing"
 
-func TestTransactionChecksumExactSerializedBytes(t *testing.T) {
-	records := [][]byte{
-		[]byte("{\"kind\":\"channel\"}\n"),
-		[]byte("{\"kind\":\"event\"}\n"),
-	}
-	const want = "40b89aed5ed45a476a7e7984de6f0f58e6e732ea06b4a759bd45555108a9c63b"
-	if got := transactionChecksum(records); got != want {
-		t.Fatalf("checksum = %s, want %s", got, want)
+func makeTestCommit(records []interface{}, frames [][]byte, first, commitSeq uint64) commitRecord {
+	return commitRecord{SchemaVersion: 1, Sequence: commitSeq, Kind: recordKindCommit, TransactionID: first, RecordCount: uint64(len(records)), Checksum: transactionChecksum(frames)}
+}
+
+func TestValidateTransactionChannelEvent(t *testing.T) {
+	channel := channelRecord{Sequence: 7, Kind: recordKindChannel}
+	event := eventRecord{Sequence: 8, Kind: recordKindEvent}
+	records := []interface{}{channel, event}
+	frames := [][]byte{[]byte("channel\n"), []byte("event\n")}
+	if err := validateTransaction(records, frames, makeTestCommit(records, frames, 7, 9)); err != nil {
+		t.Fatalf("valid Channel+Event transaction: %v", err)
 	}
 }
 
-func TestTransactionChecksumIncludesNewline(t *testing.T) {
-	withNewline := transactionChecksum([][]byte{[]byte("record\n")})
-	withoutNewline := transactionChecksum([][]byte{[]byte("record")})
-	if withNewline == withoutNewline {
-		t.Fatal("checksum must include the terminating newline")
+func TestValidateTransactionEventOnly(t *testing.T) {
+	event := eventRecord{Sequence: 20, Kind: recordKindEvent}
+	records := []interface{}{event}
+	frames := [][]byte{[]byte("event\n")}
+	if err := validateTransaction(records, frames, makeTestCommit(records, frames, 20, 21)); err != nil {
+		t.Fatalf("valid Event-only transaction: %v", err)
 	}
 }
 
-func TestTransactionChecksumChangesWithRecordOrder(t *testing.T) {
-	first := [][]byte{[]byte("channel\n"), []byte("event\n")}
-	second := [][]byte{[]byte("event\n"), []byte("channel\n")}
-	if transactionChecksum(first) == transactionChecksum(second) {
-		t.Fatal("record order must affect checksum")
+func TestValidateTransactionRejectsContractViolations(t *testing.T) {
+	channel := channelRecord{Sequence: 1, Kind: recordKindChannel}
+	event := eventRecord{Sequence: 2, Kind: recordKindEvent}
+	records := []interface{}{channel, event}
+	frames := [][]byte{[]byte("channel\n"), []byte("event\n")}
+	valid := makeTestCommit(records, frames, 1, 3)
+
+	tests := []struct {
+		name string
+		records []interface{}
+		frames [][]byte
+		commit commitRecord
+	}{
+		{name: "wrong transaction ID", records: records, frames: frames, commit: commitRecord{Sequence: 3, TransactionID: 99, RecordCount: 2, Checksum: valid.Checksum}},
+		{name: "wrong count", records: records, frames: frames, commit: commitRecord{Sequence: 3, TransactionID: 1, RecordCount: 1, Checksum: valid.Checksum}},
+		{name: "wrong commit sequence", records: records, frames: frames, commit: commitRecord{Sequence: 4, TransactionID: 1, RecordCount: 2, Checksum: valid.Checksum}},
+		{name: "checksum mismatch", records: records, frames: frames, commit: commitRecord{Sequence: 3, TransactionID: 1, RecordCount: 2, Checksum: "invalid"}},
+		{name: "nonconsecutive sequence", records: []interface{}{channelRecord{Sequence: 1, Kind: recordKindChannel}, eventRecord{Sequence: 4, Kind: recordKindEvent}}, frames: frames, commit: commitRecord{Sequence: 5, TransactionID: 1, RecordCount: 2, Checksum: valid.Checksum}},
+		{name: "event not last", records: []interface{}{event, channel}, frames: frames, commit: valid},
+		{name: "missing event", records: []interface{}{channel}, frames: frames[:1], commit: commitRecord{Sequence: 2, TransactionID: 1, RecordCount: 1, Checksum: transactionChecksum(frames[:1])}},
+		{name: "frame mismatch", records: records, frames: frames[:1], commit: valid},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := validateTransaction(tt.records, tt.frames, tt.commit); err == nil {
+				t.Fatal("expected validation error")
+			}
+		})
 	}
 }
