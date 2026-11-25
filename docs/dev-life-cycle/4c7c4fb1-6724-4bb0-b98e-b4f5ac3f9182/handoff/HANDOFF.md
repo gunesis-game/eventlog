@@ -140,3 +140,12 @@ Finish the final semantic review of requirements, architecture, acceptance, benc
 - **Testing strategy corrected:** runtime lifecycle coverage now refers to caller-Context cancellation, process termination, and recovery; it does not imply a public or library-managed graceful shutdown. Replay-to-live duplicate guarantees are scoped to normal operation; the approved crash-window duplicate caveat is explicit.
 - **Outstanding approval:** the project testing strategy (`docs/project/testing-strategy.md`) has not yet been explicitly approved and recorded as required by the Define phase gate. Its Define-level proposal covers bottom-up acceptance layers, architecture-aware test selection, fast/integration/full-verification tiers, consumer API tests, Linux/Windows parity, process-termination recovery, evidence requirements, and no unapproved coverage thresholds. Implementation-specific suite locations, exact commands, and Go CI configuration are deferred until implementation.
 - **Next:** obtain your approval of the testing strategy, record it in the decision ledger, then complete final cross-document review and CI verification. No implementation or phase transition has started.
+
+
+## Latest resumption checkpoint — testing strategy approved, 2026-11-25
+
+- **User approval:** the Define-level project testing strategy is approved and recorded as D-042 in `docs/project/decisions.md`.
+- **Owning specification:** `docs/project/testing-strategy.md` identifies the strategy as the approved baseline. Its Define-level scope includes bottom-up architecture-aware acceptance coverage, fast/integration/full-verification tiers, consumer-defined public API types, Linux and Windows coverage, process-termination recovery without a public shutdown API, and the documented crash-window duplicate boundary.
+- **Mandatory gate:** full verification is required before implementation exit. No acceptance layer is excluded and no numeric coverage threshold is invented.
+- **Deferred until implementation:** executable suite locations, verified commands and triggers, platform runner configuration, and project Go CI. The current governance workflows do not constitute Go test verification.
+- **Next:** complete the final semantic review of all active project and cycle records, including confirmation of the Git workflow approval gate. Then present the Define exit assessment for explicit user approval. Cycle 1 remains `in-progress / define`; no implementation or phase transition is authorized.
