@@ -166,7 +166,7 @@ Tests verify that consumers can use the library through its approved public API 
 | API-06 | Concrete Event types | Consumer receives concrete Event values through the common Event interface. |
 | API-07 | Multiple Channels | Consumer can use multiple independent Channels in one runtime. |
 | API-08 | Append and replay | Consumer appends Events, restarts the runtime, and receives the committed history. |
-| API-09 | Replay and live continuity | Consumer receives historical and newly committed Events in the correct order. |
+| API-09 | Replay and live continuity | Consumer receives historical and newly committed Events in the correct order without gaps or duplicates during normal replay-to-live progression; crash-window duplicates remain permitted by the delivery contract. |
 | API-10 | Concurrent consumers | Multiple consumers operate concurrently without violating the approved guarantees. |
 | API-11 | Recovery after process termination | Consumer can restart after an abrupt process termination and recover committed history. |
 | API-12 | Platform integration | The same public workflows work on Linux and Windows. |
@@ -187,4 +187,4 @@ End-to-end tests use actual consumer-defined Event and Channel types, not only i
 
 The acceptance scenarios above are agreed. Benchmark workload scenarios are separately defined in [Benchmark strategy](benchmarks.md) and are also agreed. The following remain separate Define work:
 - Establish representative performance and memory baselines after implementation exists; then propose any justified numeric product targets or thresholds for separate approval.
-- Final consistency review across requirements, architecture, decision records, acceptance tests, and benchmark strategy.
+- Establish representative performance and memory baselines after implementation exists; any numeric product targets require separate justification and approval.
