@@ -85,7 +85,7 @@ Channel snapshot consistency, Reader wake-up behavior, retry policy, process-lif
 
 ### Remaining Define work
 
-Complete the final semantic review of the reconciled specifications and cycle records. If no contradiction or unrecorded design decision remains, present the Define exit assessment for your explicit approval. No implementation or phase transition is authorized by this plan update.
+Obtain explicit approval of the project testing strategy and record it in the decision ledger; then complete the final semantic review of the reconciled specifications and cycle records. If no contradiction or unrecorded design decision remains, present the Define exit assessment for your explicit approval. No implementation or phase transition is authorized by this plan update.
 
 ## Acceptance criteria
 
@@ -98,6 +98,7 @@ Complete the final semantic review of the reconciled specifications and cycle re
 - [x] Benchmark workload scenarios are defined and approved.
 - [x] Initial benchmark workload profiles and resource budgets are agreed and recorded.
 - [x] Benchmark measurement protocol, statistical reporting, artifact retention, and comparable-run selection are agreed and recorded in D-040/D-041.
+- [ ] Project testing strategy is explicitly approved and recorded; implementation-specific suite locations, commands, and CI configuration remain deferred until implementation.
 - [x] Numeric product performance/memory targets are explicitly deferred until representative post-implementation baselines; diagnostic resource ceilings are not acceptance thresholds.
 - [ ] Requirements and architecture are coherent, internally consistent, and implementation-ready.
 - [ ] User explicitly approves exit from Define before implementation begins.
