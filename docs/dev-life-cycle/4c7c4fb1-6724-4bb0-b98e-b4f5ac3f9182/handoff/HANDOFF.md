@@ -168,3 +168,15 @@ Finish the final semantic review of requirements, architecture, acceptance, benc
 - **Governance CI:** steering state validation completed successfully for commit `97137f21340ce5ab4ecded97f47e7b6890ff0d2a` (run 45517769692). Workflow-history cleanup also completed successfully on that revision (run 45517779402).
 - **Current state:** Cycle 1 remains `in-progress / define`. No Go implementation, build, tests, or benchmark measurements have started. No phase transition has occurred.
 - **Next required action:** present the Define exit assessment and obtain your explicit approval to transition to Implement. Approval of individual specifications above does not itself authorize that transition.
+
+
+## Latest resumption checkpoint — Define approved; Implement entered, 2026-11-25
+
+- **User authorization:** explicit approval received to exit Define and transition Cycle 1 to Implement.
+- **Authoritative registry:** `docs/dev-life-cycle/cycle-index.json` now records Cycle 1 as `in-progress / implement`; execution_order 1, original start timestamp, identity, and sequence are unchanged.
+- **Approved baselines:** D-040/D-041 benchmark methodology/evidence policy; D-042 testing strategy; D-043 Git workflow. The project coding standard is `docs/standards/coding.md` (blob `19e2bebe182ec6d7b3e9fa645a5469f07b5ee4ac`).
+- **Implementation approach:** follow the ordered bottom-up plan in the cycle plan: inspect toolchain and repository; storage/framing; transactions/recovery; identity/metadata/Channel observation; Reader and notification delivery; runtime/public API; platform/full-verification CI; then representative benchmarks.
+- **Public API constraint:** preserve `PrepareLog[TEvent, TChannel](ctx, newChannel)`, `Notifications() <-chan Event`, and `Errors() <-chan error`. No public shutdown API; no execution-lock concept.
+- **Operational follow-ups:** verify repository protection/ruleset and signing/authorship requirements without bypassing controls. Establish exact Go commands, suite locations and Linux/Windows project CI as implementation proceeds.
+- **Verification at phase entry:** no Go implementation, build, test, or benchmark measurement had started. Governance validation is not Go verification.
+- **Next concrete action:** inspect the repository root and toolchain evidence, then establish the Go module/toolchain baseline from approved project constraints before implementing the first storage/framing unit. Do not invent a minimum Go version or add dependencies without evidence.
