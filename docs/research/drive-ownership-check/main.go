@@ -184,6 +184,16 @@ func (c *check) callback(w http.ResponseWriter, r *http.Request) {
 	c.accessToken = tokens.AccessToken
 	c.email = strings.ToLower(c.signedInEmail())
 	c.logf("Step %q, signed in as: %s (granted: %s)", c.step, c.email, tokens.Scope)
+	if c.folderID != "" {
+		// Drive calls folders files too, so a missing folder is reported
+		// as "File not found". Look it up first to say so plainly.
+		status, body := c.do(http.MethodGet, driveAPI+"/files/"+url.PathEscape(c.folderID)+"?fields=id,name,mimeType,owners(emailAddress),capabilities(canAddChildren)", nil, "")
+		c.logf("0. Look up the shared folder -> HTTP %d %s", status, compact(body))
+		if status != http.StatusOK {
+			c.logf("   This account cannot see the folder: it is not shared with this account, or the ID is wrong.")
+			return
+		}
+	}
 	switch c.step {
 	case "offer":
 		c.offer()
