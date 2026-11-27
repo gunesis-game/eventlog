@@ -1,4 +1,4 @@
-package eventlog
+package storage
 
 import (
 	"bytes"
@@ -9,57 +9,61 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
+
+	"github.com/gunesis-game/eventlog/internal/fieldschema"
+	"github.com/gunesis-game/eventlog/internal/identity"
 )
 
-var testEventType = typeKey{pkgPath: "example.org/test", name: "Event"}
-var testChannelType = typeKey{pkgPath: "example.org/test", name: "Channel"}
+var testEventType = fieldschema.TypeKey{PackagePath: "example.org/test", Name: "Event"}
+var testChannelType = fieldschema.TypeKey{PackagePath: "example.org/test", Name: "Channel"}
 
-func openTestStore(t *testing.T, dir string, options segmentStoreOptions) *segmentStore {
+func openTestStore(t *testing.T, dir string, options Options) *Store {
 	t.Helper()
-	s, err := openSegmentStore(dir, options)
+	s, err := Open(dir, options)
 	if err != nil {
 		t.Fatalf("open store: %v", err)
 	}
 	t.Cleanup(func() {
-		_ = s.close()
+		_ = s.Close()
 	})
 	return s
 }
 
-func testOccurrence(event byte, payload string) occurrenceWrite {
-	return occurrenceWrite{
-		channelFields: map[string]interface{}{"region": fieldValue{Type: "string", Value: "eu"}},
-		eventID:       uuid(testUUID(event)),
-		eventType:     testEventType,
-		eventFields:   map[string]interface{}{"payload": fieldValue{Type: "string", Value: payload}},
+func testOccurrence(event byte, payload string) OccurrenceWrite {
+	return OccurrenceWrite{
+		ChannelFields: map[string]interface{}{"region": fieldschema.Value{Type: "string", Value: "eu"}},
+		EventID:       identity.UUID(testUUID(event)),
+		EventType:     testEventType,
+		EventFields:   map[string]interface{}{"payload": fieldschema.Value{Type: "string", Value: payload}},
 	}
 }
 
 // appendTestOccurrence appends a one-occurrence transaction and returns the
 // Event record's global sequence.
-func appendTestOccurrence(t *testing.T, s *segmentStore, channel byte, event byte, payload string) uint64 {
+func appendTestOccurrence(t *testing.T, s *Store, channel byte, event byte, payload string) uint64 {
 	t.Helper()
-	if err := s.appendTransaction(channelWrite{id: uuid(testUUID(channel)), typ: testChannelType}, []occurrenceWrite{testOccurrence(event, payload)}); err != nil {
+	if err := s.AppendTransaction(ChannelWrite{ID: identity.UUID(testUUID(channel)), Type: testChannelType}, []OccurrenceWrite{testOccurrence(event, payload)}); err != nil {
 		t.Fatalf("append: %v", err)
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.entries[len(s.entries)-1].sequence
+	return s.index.occurrences[len(s.index.occurrences)-1].Sequence
 }
 
 // storeSummary captures recovered state for equality comparisons.
-func storeSummary(s *segmentStore) string {
+func storeSummary(s *Store) string {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	var b strings.Builder
 	fmt.Fprintf(&b, "next=%d gen=%d segs=%v\n", s.nextSequence, s.manifest.Generation, s.manifest.Segments)
-	for _, e := range s.entries {
-		fmt.Fprintf(&b, "%d %s %s %s\n", e.sequence, e.eventID, e.channelID, e.typ)
+	for _, e := range s.index.occurrences {
+		fmt.Fprintf(&b, "%d %s %s %s\n", e.Sequence, e.EventID, e.ChannelID, e.Type)
 	}
 	return b.String()
 }
 
-func activeSegmentPath(s *segmentStore) string {
+func activeSegmentPath(s *Store) string {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.active.path
@@ -80,14 +84,14 @@ func TestSegmentStoreAppendAndRecover(t *testing.T) {
 		t.Fatalf("third event sequence = %d, want 7 (new Channel record first)", got)
 	}
 	before := storeSummary(s)
-	if err := s.close(); err != nil {
+	if err := s.Close(); err != nil {
 		t.Fatal(err)
 	}
 	reopened := openTestStore(t, dir, fastStoreOptions())
 	if after := storeSummary(reopened); after != before {
 		t.Fatalf("recovered state differs:\n%s\nvs\n%s", after, before)
 	}
-	frame, err := reopened.readOccurrenceFrame(uuid(testUUID(1)), 1)
+	frame, err := reopened.ReadOccurrenceFrame(identity.UUID(testUUID(1)), 1)
 	if err != nil || !bytes.Contains(frame, []byte(`"value":"b"`)) {
 		t.Fatalf("read occurrence = %s, %v", frame, err)
 	}
@@ -103,8 +107,8 @@ func TestSegmentStoreValidationFailureWritesNothing(t *testing.T) {
 	s := openTestStore(t, dir, fastStoreOptions())
 	good := testOccurrence(2, "ok")
 	bad := testOccurrence(3, "bad")
-	bad.eventFields = map[string]interface{}{"bad": fieldValue{Type: "int8", Value: "not-a-number"}}
-	if err := s.appendTransaction(channelWrite{id: uuid(testUUID(1)), typ: testChannelType}, []occurrenceWrite{good, bad}); err == nil {
+	bad.EventFields = map[string]interface{}{"bad": fieldschema.Value{Type: "int8", Value: "not-a-number"}}
+	if err := s.AppendTransaction(ChannelWrite{ID: identity.UUID(testUUID(1)), Type: testChannelType}, []OccurrenceWrite{good, bad}); err == nil {
 		t.Fatal("expected validation failure")
 	}
 	info, err := os.Stat(activeSegmentPath(s))
@@ -132,17 +136,17 @@ func TestRecoveryTruncatesIncompleteTrailingTransaction(t *testing.T) {
 			committed, _ := os.ReadFile(path)
 			appendTestOccurrence(t, s, 2, 11, "interrupted")
 			full, _ := os.ReadFile(path)
-			_ = s.close()
+			_ = s.Close()
 			interrupted := append(append([]byte(nil), committed...), tail(full[len(committed):])...)
 			if err := os.WriteFile(path, interrupted, 0o600); err != nil {
 				t.Fatal(err)
 			}
 			first := openTestStore(t, dir, fastStoreOptions())
 			summary := storeSummary(first)
-			if committedCount(&logRuntime{store: first}) != 1 {
+			if len(first.index.occurrences) != 1 {
 				t.Fatalf("recovered entries:\n%s", summary)
 			}
-			_ = first.close()
+			_ = first.Close()
 			data, _ := os.ReadFile(path)
 			if !bytes.Equal(data, committed) {
 				t.Fatal("incomplete transaction was not truncated to its start")
@@ -172,13 +176,13 @@ func TestRecoveryFailsClosedOnCorruption(t *testing.T) {
 			s := openTestStore(t, dir, fastStoreOptions())
 			appendTestOccurrence(t, s, 1, 10, "a")
 			path := activeSegmentPath(s)
-			_ = s.close()
+			_ = s.Close()
 			data, _ := os.ReadFile(path)
 			if err := os.WriteFile(path, corrupt(data), 0o600); err != nil {
 				t.Fatal(err)
 			}
-			if store, err := openSegmentStore(dir, fastStoreOptions()); err == nil {
-				_ = store.close()
+			if store, err := Open(dir, fastStoreOptions()); err == nil {
+				_ = store.Close()
 				t.Fatal("expected recovery to fail closed")
 			} else if !errors.Is(err, errCorruptStorage) {
 				t.Fatalf("error %v is not a corruption error", err)
@@ -194,7 +198,7 @@ func TestRecoveryRebuildsDerivedIndex(t *testing.T) {
 	s := openTestStore(t, dir, fastStoreOptions())
 	appendTestOccurrence(t, s, 1, 10, "a")
 	appendTestOccurrence(t, s, 1, 10, "b")
-	_ = s.close()
+	_ = s.Close()
 	indexPath := filepath.Join(dir, indexFileName)
 	good, err := os.ReadFile(indexPath)
 	if err != nil {
@@ -205,7 +209,7 @@ func TestRecoveryRebuildsDerivedIndex(t *testing.T) {
 	if clean.indexRebuilt {
 		t.Fatal("a consistent index must not be rebuilt")
 	}
-	_ = clean.close()
+	_ = clean.Close()
 
 	for name, damage := range map[string]func(){
 		"missing": func() { _ = os.Remove(indexPath) },
@@ -223,7 +227,7 @@ func TestRecoveryRebuildsDerivedIndex(t *testing.T) {
 			if !rebuilt.indexRebuilt {
 				t.Fatal("expected index rebuild")
 			}
-			_ = rebuilt.close()
+			_ = rebuilt.Close()
 			after, _ := os.ReadFile(indexPath)
 			if !bytes.Equal(after, good) {
 				t.Fatalf("rebuilt index differs:\n%s\nvs\n%s", after, good)
@@ -236,7 +240,7 @@ func TestRecoveryRebuildsDerivedIndex(t *testing.T) {
 func TestOpenInitializesMissingStorage(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "nested", "log")
 	s := openTestStore(t, dir, fastStoreOptions())
-	for _, path := range []string{filepath.Join(dir, manifestFileName), storageSegmentPath(filepath.Join(dir, segmentsDirName), 1)} {
+	for _, path := range []string{filepath.Join(dir, manifestFileName), segmentPath(filepath.Join(dir, segmentsDirName), 1)} {
 		if _, err := os.Stat(path); err != nil {
 			t.Fatalf("expected %s: %v", path, err)
 		}
@@ -249,16 +253,16 @@ func TestOpenInitializesMissingStorage(t *testing.T) {
 func TestStorageLockIsExclusive(t *testing.T) {
 	dir := t.TempDir()
 	openTestStore(t, dir, fastStoreOptions())
-	if second, err := openSegmentStore(dir, fastStoreOptions()); err == nil {
-		_ = second.close()
+	if second, err := Open(dir, fastStoreOptions()); err == nil {
+		_ = second.Close()
 		t.Fatal("a second owner must be rejected")
 	}
 }
 
-func smallSegmentOptions() segmentStoreOptions {
+func smallSegmentOptions() Options {
 	options := fastStoreOptions()
-	options.targetSegmentSize = 1
-	options.compactionThreshold = 1 << 30
+	options.TargetSegmentSize = 1
+	options.CompactionThreshold = 1 << 30
 	return options
 }
 
@@ -273,7 +277,7 @@ func TestSegmentRotationKeepsGlobalSequence(t *testing.T) {
 		t.Fatalf("segments = %v", s.manifest.Segments)
 	}
 	before := storeSummary(s)
-	_ = s.close()
+	_ = s.Close()
 	reopened := openTestStore(t, dir, smallSegmentOptions())
 	if storeSummary(reopened) != before {
 		t.Fatal("rotated segments did not recover identically")
@@ -288,23 +292,23 @@ func TestMissingManifestRecovery(t *testing.T) {
 		appendTestOccurrence(t, s, 1, 10, fmt.Sprint(i))
 	}
 	before := storeSummary(s)
-	_ = s.close()
+	_ = s.Close()
 	_ = os.Remove(filepath.Join(dir, manifestFileName))
 	reopened := openTestStore(t, dir, smallSegmentOptions())
 	if storeSummary(reopened) != before {
 		t.Fatal("manifest rebuild changed recovered history")
 	}
-	_ = reopened.close()
+	_ = reopened.Close()
 
 	// Add an overlapping copy, as an interrupted compaction would leave.
 	segments := filepath.Join(dir, segmentsDirName)
-	first, _ := os.ReadFile(storageSegmentPath(segments, 1))
-	if err := os.WriteFile(storageSegmentPath(segments, 99), first, 0o600); err != nil {
+	first, _ := os.ReadFile(segmentPath(segments, 1))
+	if err := os.WriteFile(segmentPath(segments, 99), first, 0o600); err != nil {
 		t.Fatal(err)
 	}
 	_ = os.Remove(filepath.Join(dir, manifestFileName))
-	if store, err := openSegmentStore(dir, smallSegmentOptions()); err == nil {
-		_ = store.close()
+	if store, err := Open(dir, smallSegmentOptions()); err == nil {
+		_ = store.Close()
 		t.Fatal("ambiguous segments without a manifest must fail closed")
 	}
 }
@@ -314,8 +318,8 @@ func TestMissingManifestRecovery(t *testing.T) {
 func TestCompactionPreservesHistory(t *testing.T) {
 	dir := t.TempDir()
 	options := fastStoreOptions()
-	options.targetSegmentSize = 1
-	options.compactionThreshold = 3
+	options.TargetSegmentSize = 1
+	options.CompactionThreshold = 3
 	s := openTestStore(t, dir, options)
 	var concatenated []byte
 	for i := 0; i < 7; i++ {
@@ -325,19 +329,19 @@ func TestCompactionPreservesHistory(t *testing.T) {
 	generation := s.manifest.Generation
 	finalized := len(s.finalized)
 	s.mu.Unlock()
-	if generation < 2 || finalized >= options.compactionThreshold {
+	if generation < 2 || finalized >= options.CompactionThreshold {
 		t.Fatalf("expected compaction: generation=%d finalized=%d", generation, finalized)
 	}
 	for i := 0; i < 7; i++ {
-		frame, err := s.readOccurrenceFrame(uuid(testUUID(1)), i)
+		frame, err := s.ReadOccurrenceFrame(identity.UUID(testUUID(1)), i)
 		if err != nil || !bytes.Contains(frame, []byte(fmt.Sprintf(`"value":"%d"`, i))) {
 			t.Fatalf("occurrence %d after compaction: %s, %v", i, frame, err)
 		}
 		concatenated = append(concatenated, frame...)
 	}
 	before := storeSummary(s)
-	_ = s.close()
-	ids, _ := (&segmentStore{segmentsDir: filepath.Join(dir, segmentsDirName)}).listSegmentIDs()
+	_ = s.Close()
+	ids, _ := (&recovery{segmentsDir: filepath.Join(dir, segmentsDirName)}).listSegmentIDs()
 	m, _ := readManifest(dir)
 	if len(ids) != len(m.Segments) {
 		t.Fatalf("old generation files were not removed: files=%v manifest=%v", ids, m.Segments)
@@ -352,8 +356,8 @@ func TestCompactionPreservesHistory(t *testing.T) {
 func TestCompactionRespectsReaderPins(t *testing.T) {
 	dir := t.TempDir()
 	options := fastStoreOptions()
-	options.targetSegmentSize = 1
-	options.compactionThreshold = 1 << 30
+	options.TargetSegmentSize = 1
+	options.CompactionThreshold = 1 << 30
 	s := openTestStore(t, dir, options)
 	for i := 0; i < 3; i++ {
 		appendTestOccurrence(t, s, 1, 10, fmt.Sprint(i))
@@ -361,7 +365,7 @@ func TestCompactionRespectsReaderPins(t *testing.T) {
 	s.mu.Lock()
 	pinned := s.finalized[0]
 	pinned.refs++
-	s.options.compactionThreshold = 1
+	s.options.CompactionThreshold = 1
 	if err := s.rotateLocked(); err != nil {
 		s.mu.Unlock()
 		t.Fatal(err)
@@ -381,9 +385,9 @@ func TestRecoveryCleansOrphans(t *testing.T) {
 	dir := t.TempDir()
 	s := openTestStore(t, dir, fastStoreOptions())
 	appendTestOccurrence(t, s, 1, 10, "a")
-	_ = s.close()
+	_ = s.Close()
 	segments := filepath.Join(dir, segmentsDirName)
-	orphans := []string{storageSegmentPath(segments, 50), storageSegmentPath(segments, 51) + temporaryFileSuffix, filepath.Join(dir, manifestFileName+temporaryFileSuffix)}
+	orphans := []string{segmentPath(segments, 50), segmentPath(segments, 51) + temporaryFileSuffix, filepath.Join(dir, manifestFileName+temporaryFileSuffix)}
 	for _, path := range orphans {
 		_ = os.WriteFile(path, []byte("x"), 0o600)
 	}
@@ -405,31 +409,25 @@ func TestConcurrentAppends(t *testing.T) {
 		go func(worker int) {
 			defer wg.Done()
 			for i := 0; i < 25; i++ {
-				occurrence := occurrenceWrite{channelFields: map[string]interface{}{}, eventID: uuid(testUUID(byte(worker + 100))), eventType: testEventType, eventFields: map[string]interface{}{"i": fieldValue{Type: "int", Value: fmt.Sprint(i)}}}
-				if err := s.appendTransaction(channelWrite{id: uuid(testUUID(byte(worker + 1))), typ: testChannelType}, []occurrenceWrite{occurrence}); err != nil {
+				occurrence := OccurrenceWrite{ChannelFields: map[string]interface{}{}, EventID: identity.UUID(testUUID(byte(worker + 100))), EventType: testEventType, EventFields: map[string]interface{}{"i": fieldschema.Value{Type: "int", Value: fmt.Sprint(i)}}}
+				if err := s.AppendTransaction(ChannelWrite{ID: identity.UUID(testUUID(byte(worker + 1))), Type: testChannelType}, []OccurrenceWrite{occurrence}); err != nil {
 					t.Error(err)
 				}
 			}
 		}(worker)
 	}
 	wg.Wait()
-	_ = s.close()
+	_ = s.Close()
 	reopened := openTestStore(t, dir, fastStoreOptions())
-	if len(reopened.entries) != 200 {
-		t.Fatalf("recovered %d occurrences, want 200", len(reopened.entries))
+	if len(reopened.index.occurrences) != 200 {
+		t.Fatalf("recovered %d occurrences, want 200", len(reopened.index.occurrences))
 	}
-	for channel, entries := range reopened.byChannel {
+	for channel, entries := range reopened.index.byChannel {
 		for i := 1; i < len(entries); i++ {
-			if entries[i].sequence <= entries[i-1].sequence {
+			if entries[i].Sequence <= entries[i-1].Sequence {
 				t.Fatalf("channel %s out of order", channel)
 			}
 		}
-	}
-}
-
-func TestValidateRecordStreamRejectsZeroStart(t *testing.T) {
-	if _, err := validateRecordStream(nil, nil, 0); !errors.Is(err, errInvalidTransaction) {
-		t.Fatalf("zero start sequence: %v", err)
 	}
 }
 
@@ -439,8 +437,8 @@ func TestMultiOccurrenceTransactionRecovers(t *testing.T) {
 	dir := t.TempDir()
 	s := openTestStore(t, dir, fastStoreOptions())
 	changed := testOccurrence(11, "c")
-	changed.channelFields = map[string]interface{}{"region": fieldValue{Type: "string", Value: "us"}}
-	if err := s.appendTransaction(channelWrite{id: uuid(testUUID(1)), typ: testChannelType}, []occurrenceWrite{testOccurrence(10, "a"), testOccurrence(10, "b"), changed}); err != nil {
+	changed.ChannelFields = map[string]interface{}{"region": fieldschema.Value{Type: "string", Value: "us"}}
+	if err := s.AppendTransaction(ChannelWrite{ID: identity.UUID(testUUID(1)), Type: testChannelType}, []OccurrenceWrite{testOccurrence(10, "a"), testOccurrence(10, "b"), changed}); err != nil {
 		t.Fatal(err)
 	}
 	// Channel, Event, Event, Channel, Event, Commit
@@ -448,12 +446,34 @@ func TestMultiOccurrenceTransactionRecovers(t *testing.T) {
 		t.Fatalf("next sequence = %d, want 7", s.nextSequence)
 	}
 	before := storeSummary(s)
-	_ = s.close()
+	_ = s.Close()
 	reopened := openTestStore(t, dir, fastStoreOptions())
 	if storeSummary(reopened) != before {
 		t.Fatal("multi-occurrence transaction did not recover identically")
 	}
-	if fields, _ := persistedChannelFields(reopened, uuid(testUUID(1))); !strings.Contains(fields, `"us"`) {
+	if fields, _ := persistedChannelFields(reopened, identity.UUID(testUUID(1))); !strings.Contains(fields, `"us"`) {
 		t.Fatalf("latest Channel snapshot = %s", fields)
 	}
+}
+
+func testUUID(n byte) [16]byte {
+	var u [16]byte
+	for i := range u {
+		u[i] = n
+	}
+	return u
+}
+
+func fastStoreOptions() Options {
+	options := DefaultOptions()
+	options.SyncInterval = 20 * time.Millisecond
+	return options
+}
+
+// persistedChannelFields returns the latest persisted Channel fields JSON.
+func persistedChannelFields(s *Store, channelID identity.UUID) (string, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	channel, ok := s.index.channel(channelID)
+	return channel.fields, ok
 }

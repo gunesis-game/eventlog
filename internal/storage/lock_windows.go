@@ -1,6 +1,6 @@
 //go:build windows
 
-package eventlog
+package storage
 
 import (
 	"fmt"
@@ -8,10 +8,10 @@ import (
 	"syscall"
 )
 
-// acquireStorageLock opens the lock file with no sharing, so any other open of
+// acquireLock opens the lock file with no sharing, so any other open of
 // it fails until the owning handle closes, which the operating system does when
 // the owning process exits.
-func acquireStorageLock(path string) (*os.File, error) {
+func acquireLock(path string) (*os.File, error) {
 	name, err := syscall.UTF16PtrFromString(path)
 	if err != nil {
 		return nil, fmt.Errorf("storage lock path %q: %w", path, err)

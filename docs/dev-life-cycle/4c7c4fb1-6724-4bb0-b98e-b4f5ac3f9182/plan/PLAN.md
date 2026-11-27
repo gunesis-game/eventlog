@@ -35,6 +35,7 @@ Implement eventlog according to approved requirements, public API, architecture,
 6. [x] Segment store, rotation, manifest, derived index, fail-closed recovery, size-triggered compaction with reader pins; unified Channel Reader with decoder waits, backpressure, delivery retry, and fatal `ReaderFailed`/`DeliveryFailed`.
 7. [x] Transaction model replacing polling (D-049–D-052): Event factories, shared ordered transaction channel per Channel with exact-boundary intake, group commit, prefix-rule rejection with rollback, pause-until-received `ChannelError` delivery. Polling, the change manager, and their tests and docs are removed.
 8. [x] Exact-SHA CI for `69dbed5` passed on Linux and Windows (run 45985063315). Re-run for the final implementation SHA at the exit gate.
+10. [x] Package layout (D-053): `internal/identity`, `internal/fieldschema`, `internal/record` (with schemas), `internal/storage` split into store, segment, index, index file, recovery, and compaction types; Reader split from the Channel runtime; runtime depends on a storage interface; tests beside their code; public API verified unchanged with `go doc`.
 9. [~] Benchmarks: smoke set (B-F01, B-L01, B-L05, B-T03/B-M06, replay). The full catalogue, profile protocol, and baselines remain.
 
 ## Known gaps and follow-ups
@@ -43,7 +44,7 @@ Implement eventlog according to approved requirements, public API, architecture,
 - Coding-standard review of the final implementation is not yet done.
 
 ## Next action
-Implement the full benchmark catalogue and capture baselines, complete the coding-standard review, then re-run CI on the final SHA and assess the Implement exit gate.
+Publish the restructure and check exact-SHA CI. Then implement the full benchmark catalogue and capture baselines, complete the coding-standard review, re-run CI on the final SHA, and assess the Implement exit gate.
 
 ## Phase exit
 Implement exit requires the mandatory full verification suite, applicable performance checks, coding-standard review, and evidence tied to the exact final implementation SHA. Do not transition phases until the documented gate is satisfied and user authorization is obtained where required.

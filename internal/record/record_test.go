@@ -1,4 +1,4 @@
-package eventlog
+package record
 
 import (
 	"bytes"
@@ -7,9 +7,9 @@ import (
 	"testing"
 )
 
-func testValidator(t *testing.T) *recordSchemaValidator {
+func testValidator(t *testing.T) *Validator {
 	t.Helper()
-	v, err := newRecordSchemaValidator()
+	v, err := NewValidator()
 	if err != nil {
 		t.Fatalf("create validator: %v", err)
 	}
@@ -18,29 +18,29 @@ func testValidator(t *testing.T) *recordSchemaValidator {
 
 func TestEncodeDecodeRecord(t *testing.T) {
 	v := testValidator(t)
-	record := eventRecord{
+	record := Event{
 		SchemaVersion: 1,
 		Sequence:      2,
-		Kind:          recordKindEvent,
+		Kind:          KindEvent,
 		ID:            "12345678-1234-1234-1234-123456789abc",
 		ChannelID:     "87654321-4321-4321-4321-cba987654321",
-		Type:          recordType{PackagePath: "example.org/app", Name: "Event"},
+		Type:          Type{PackagePath: "example.org/app", Name: "Event"},
 		Fields:        map[string]interface{}{"message": map[string]interface{}{"type": "string", "value": "hello"}},
 	}
-	frame, err := encodeRecord(recordKindEvent, record, v)
+	frame, err := Encode(KindEvent, record, v)
 	if err != nil {
 		t.Fatalf("encode: %v", err)
 	}
 	if !bytes.HasSuffix(frame, []byte{'\n'}) {
 		t.Fatal("encoded frame must end with newline")
 	}
-	decoded, err := decodeRecord(bytes.TrimSuffix(frame, []byte{'\n'}), v)
+	decoded, err := Decode(bytes.TrimSuffix(frame, []byte{'\n'}), v)
 	if err != nil {
 		t.Fatalf("decode: %v", err)
 	}
-	got, ok := decoded.(eventRecord)
+	got, ok := decoded.(Event)
 	if !ok {
-		t.Fatalf("decoded record has type %T, want eventRecord", decoded)
+		t.Fatalf("decoded record has type %T, want Event", decoded)
 	}
 	if got.Sequence != record.Sequence || got.ID != record.ID || got.ChannelID != record.ChannelID || got.Type != record.Type {
 		t.Fatalf("decoded record mismatch: %#v", got)
@@ -49,8 +49,8 @@ func TestEncodeDecodeRecord(t *testing.T) {
 
 func TestEncodeRecordRejectsSchemaInvalid(t *testing.T) {
 	v := testValidator(t)
-	record := commitRecord{SchemaVersion: 1, Sequence: 3, Kind: recordKindCommit, TransactionID: 1, RecordCount: 1, Checksum: "not-a-checksum"}
-	if _, err := encodeRecord(recordKindCommit, record, v); err == nil {
+	record := Commit{SchemaVersion: 1, Sequence: 3, Kind: KindCommit, TransactionID: 1, RecordCount: 1, Checksum: "not-a-checksum"}
+	if _, err := Encode(KindCommit, record, v); err == nil {
 		t.Fatal("expected schema-invalid record to fail encoding")
 	}
 }
@@ -68,7 +68,7 @@ func TestDecodeRecordRejectsMalformedAndUnsupported(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if _, err := decodeRecord([]byte(tt.raw), v); err == nil {
+			if _, err := Decode([]byte(tt.raw), v); err == nil {
 				t.Fatal("expected decode error")
 			}
 		})
@@ -77,9 +77,9 @@ func TestDecodeRecordRejectsMalformedAndUnsupported(t *testing.T) {
 
 func TestRecordFramer(t *testing.T) {
 	input := "one\ntwo\n"
-	f := newRecordFramer(bytes.NewBufferString(input))
+	f := NewFramer(bytes.NewBufferString(input))
 	for _, want := range []string{"one", "two"} {
-		got, err := f.next()
+		got, err := f.Next()
 		if err != nil {
 			t.Fatalf("next: %v", err)
 		}
@@ -87,20 +87,20 @@ func TestRecordFramer(t *testing.T) {
 			t.Fatalf("got %q, want %q", got, want)
 		}
 	}
-	if _, err := f.next(); !errors.Is(err, io.EOF) {
+	if _, err := f.Next(); !errors.Is(err, io.EOF) {
 		t.Fatalf("got %v, want EOF", err)
 	}
 }
 
 func TestRecordFramerIncompleteTail(t *testing.T) {
-	f := newRecordFramer(bytes.NewBufferString("complete\npartial"))
-	first, err := f.next()
+	f := NewFramer(bytes.NewBufferString("complete\npartial"))
+	first, err := f.Next()
 	if err != nil || string(first) != "complete" {
 		t.Fatalf("first frame: %q, %v", first, err)
 	}
-	partial, err := f.next()
-	if !errors.Is(err, errIncompleteRecord) {
-		t.Fatalf("got %v, want errIncompleteRecord", err)
+	partial, err := f.Next()
+	if !errors.Is(err, ErrIncompleteRecord) {
+		t.Fatalf("got %v, want ErrIncompleteRecord", err)
 	}
 	if string(partial) != "partial" {
 		t.Fatalf("partial bytes %q", partial)
@@ -108,15 +108,15 @@ func TestRecordFramerIncompleteTail(t *testing.T) {
 }
 
 func TestRecordFramerEmptyFrame(t *testing.T) {
-	f := newRecordFramer(bytes.NewBufferString("\n"))
-	frame, err := f.next()
+	f := NewFramer(bytes.NewBufferString("\n"))
+	frame, err := f.Next()
 	if err != nil {
 		t.Fatalf("empty frame read: %v", err)
 	}
 	if len(frame) != 0 {
 		t.Fatalf("frame should be empty, got %q", frame)
 	}
-	if _, err := decodeRecord(frame, testValidator(t)); err == nil {
+	if _, err := Decode(frame, testValidator(t)); err == nil {
 		t.Fatal("empty complete record must be malformed")
 	}
 }

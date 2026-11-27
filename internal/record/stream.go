@@ -1,26 +1,26 @@
-package eventlog
+package record
 
 import (
 	"bytes"
 	"fmt"
 )
 
-// streamValidation describes the verified prefix of a segment. IncompleteStart is
+// StreamValidation describes the verified prefix of a segment. IncompleteStart is
 // set when the final transaction or frame is incomplete and identifies the byte
 // offset at which recovery must truncate.
-type streamValidation struct {
+type StreamValidation struct {
 	CommittedSequence uint64
 	CommittedOffset   int64
 	IncompleteStart   *int64
 }
 
-// validateRecordStream validates a segment whose first global sequence is
+// ValidateStream validates a segment whose first global sequence is
 // expectedSequence. Segment sequences are global and therefore do not restart at 1.
-func validateRecordStream(data []byte, validator *recordSchemaValidator, expectedSequence uint64) (streamValidation, error) {
+func ValidateStream(data []byte, validator *Validator, expectedSequence uint64) (StreamValidation, error) {
 	if expectedSequence == 0 {
-		return streamValidation{}, fmt.Errorf("%w: stream starting sequence must be positive", errInvalidTransaction)
+		return StreamValidation{}, fmt.Errorf("%w: stream starting sequence must be positive", ErrInvalidTransaction)
 	}
-	result := streamValidation{CommittedSequence: expectedSequence - 1}
+	result := StreamValidation{CommittedSequence: expectedSequence - 1}
 	var pendingRecords []interface{}
 	var pendingFrames [][]byte
 	var pendingStart int64
@@ -43,11 +43,11 @@ func validateRecordStream(data []byte, validator *recordSchemaValidator, expecte
 		frameEnd := offset + int64(newline) + 1
 		offset = frameEnd
 
-		record, err := decodeRecord(raw, validator)
+		record, err := Decode(raw, validator)
 		if err != nil {
 			return result, fmt.Errorf("decode record at byte offset %d: %w", frameStart, err)
 		}
-		sequence, kind, err := recordSequenceAndKind(record)
+		sequence, kind, err := SequenceAndKind(record)
 		if err != nil {
 			return result, fmt.Errorf("record at byte offset %d: %w", frameStart, err)
 		}
@@ -56,7 +56,7 @@ func validateRecordStream(data []byte, validator *recordSchemaValidator, expecte
 		}
 		expectedSequence++
 
-		if kind != recordKindCommit {
+		if kind != KindCommit {
 			if len(pendingRecords) == 0 {
 				pendingStart = frameStart
 			}
@@ -65,14 +65,14 @@ func validateRecordStream(data []byte, validator *recordSchemaValidator, expecte
 			continue
 		}
 
-		commit, ok := record.(commitRecord)
+		commit, ok := record.(Commit)
 		if !ok {
 			return result, fmt.Errorf("unexpected Commit record type %T", record)
 		}
 		if len(pendingRecords) == 0 {
-			return result, fmt.Errorf("%w: Commit without transaction records at byte offset %d", errInvalidTransaction, frameStart)
+			return result, fmt.Errorf("%w: Commit without transaction records at byte offset %d", ErrInvalidTransaction, frameStart)
 		}
-		if err := validateTransaction(pendingRecords, pendingFrames, commit); err != nil {
+		if err := ValidateTransaction(pendingRecords, pendingFrames, commit); err != nil {
 			return result, fmt.Errorf("validate transaction starting at byte offset %d: %w", pendingStart, err)
 		}
 		result.CommittedSequence = commit.Sequence
@@ -88,13 +88,13 @@ func validateRecordStream(data []byte, validator *recordSchemaValidator, expecte
 	return result, nil
 }
 
-func recordSequenceAndKind(record interface{}) (uint64, string, error) {
+func SequenceAndKind(record interface{}) (uint64, string, error) {
 	switch r := record.(type) {
-	case channelRecord:
+	case Channel:
 		return r.Sequence, r.Kind, nil
-	case eventRecord:
+	case Event:
 		return r.Sequence, r.Kind, nil
-	case commitRecord:
+	case Commit:
 		return r.Sequence, r.Kind, nil
 	default:
 		return 0, "", fmt.Errorf("unsupported decoded record type %T", record)

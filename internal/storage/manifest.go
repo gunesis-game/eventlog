@@ -1,4 +1,4 @@
-package eventlog
+package storage
 
 import (
 	"encoding/json"
@@ -65,7 +65,7 @@ func segmentIDFromName(name string) (uint64, error) {
 }
 
 func segmentFileName(id uint64) string {
-	return filepath.Base(storageSegmentPath("", id))
+	return filepath.Base(segmentPath("", id))
 }
 
 // readManifest returns the manifest, os.ErrNotExist when absent, or a
@@ -94,5 +94,5 @@ func writeManifest(directory string, m manifest) error {
 	if err != nil {
 		return fmt.Errorf("encode manifest: %w", err)
 	}
-	return storageReplaceFile(filepath.Join(directory, manifestFileName), append(raw, '\n'))
+	return replaceFile(filepath.Join(directory, manifestFileName), append(raw, '\n'))
 }

@@ -67,7 +67,7 @@ This is the durable register of approved project decisions. It records outcomes 
 | D-051 | Transaction failures keep the prefix: a refused, panicking, or invalid transaction is rolled back (selected Event and Channel fields), earlier accepted transactions commit, and everything queued behind it is rejected; a failed commit rolls back the whole batch; transaction functions return error to refuse | Recorded | docs/project/architecture.md | dbdd6528517ea82cabcc480c31f480fd86353dbd |
 | D-052 | Errors() becomes `<-chan *ChannelError` (unbuffered) with `Kind ErrorKind`, `Cause error`, and `Events []Event`; a rejection pauses the Channel until the consumer receives it, then transactions still queued are rejected; ReaderFailed and DeliveryFailed close the Channel's streams. Supersedes the capacity-one best-effort error stream of D-003 and the error channel of D-047 | Recorded | docs/project/architecture.md | dbdd6528517ea82cabcc480c31f480fd86353dbd |
 
-| D-053 | Organize code as the public root package plus `internal/identity`, `internal/fieldschema`, `internal/record` (with the embedded schemas), and `internal/storage`; the runtime stays in the root; tests live beside their code; the public API is unchanged | Recorded | docs/project/architecture.md | PENDING |
+| D-053 | Organize code as the public root package plus `internal/identity`, `internal/fieldschema`, `internal/record` (with the embedded schemas), and `internal/storage`; the runtime stays in the root; tests live beside their code; the public API is unchanged | Recorded | docs/project/architecture.md | 128ac54d7d38b07b596e48c89d54515a1448a18f |
 
 ## Decision maintenance
 

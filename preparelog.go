@@ -5,6 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+
+	"github.com/gunesis-game/eventlog/internal/fieldschema"
+	"github.com/gunesis-game/eventlog/internal/identity"
 )
 
 // PrepareLog returns the live Event and Channel for the logical identities
@@ -53,7 +56,7 @@ func prepareInRuntime[TEvent Event, TChannel Channel](ctx context.Context, rt *l
 		return zeroEvent, zeroChannel, errors.New("eventlog: Event and Channel factories must not be nil")
 	}
 
-	eventSchema, err := resolveTypeSchema(reflect.New(eventType.Elem()).Interface())
+	eventSchema, err := resolveSchema(reflect.New(eventType.Elem()).Interface())
 	if err != nil {
 		return zeroEvent, zeroChannel, fmt.Errorf("eventlog: Event: %w", err)
 	}
@@ -101,15 +104,15 @@ func resolveChannel[TChannel Channel](rt *logRuntime, newChannel func(chan Event
 	if err != nil {
 		return nil, fmt.Errorf("eventlog: Channel factory: %w", err)
 	}
-	schema, err := resolveTypeSchema(candidate)
+	schema, err := resolveSchema(candidate)
 	if err != nil {
 		return nil, fmt.Errorf("eventlog: Channel: %w", err)
 	}
-	_, identity, err := captureSnapshot(schema, reflect.ValueOf(candidate))
+	_, raw, err := fieldschema.Capture(schema, reflect.ValueOf(candidate))
 	if err != nil {
 		return nil, fmt.Errorf("eventlog: Channel: %w", err)
 	}
-	id, err := deriveIdentity(channelIdentityDomain, schema, identity)
+	id, err := identity.Derive(identity.ChannelDomain, schema.Descriptor(), raw)
 	if err != nil {
 		return nil, fmt.Errorf("eventlog: Channel: %w", err)
 	}
@@ -118,9 +121,9 @@ func resolveChannel[TChannel Channel](rt *logRuntime, newChannel func(chan Event
 	if runtime := rt.channels[id]; runtime != nil {
 		return runtime, nil
 	}
-	runtime := newChannelRuntime(rt, id, identity, schema, candidate, notifications, errs)
+	runtime := newChannelRuntime(rt, id, raw, schema, candidate, notifications, errs)
 	rt.channels[id] = runtime
-	rt.startWorker(runtime.runReader)
+	rt.startWorker((&channelReader{channel: runtime}).run)
 	runtime.processor = newTransactionProcessor(runtime)
 	rt.startWorker(runtime.processor.runIntake)
 	rt.startWorker(runtime.processor.run)
@@ -129,7 +132,7 @@ func resolveChannel[TChannel Channel](rt *logRuntime, newChannel func(chan Event
 
 // constructEvent builds an Event candidate wired to the Channel's transaction
 // channel and validates its schema, fields, and identity.
-func constructEvent[TEvent Event](newEvent func(chan<- func() error) TEvent, runtime *channelRuntime, schema *typeSchema) (*liveEvent, error) {
+func constructEvent[TEvent Event](newEvent func(chan<- func() error) TEvent, runtime *channelRuntime, schema *fieldschema.Schema) (*liveEvent, error) {
 	candidate, err := callFactory(func() TEvent {
 		return newEvent(runtime.transactions)
 	})
@@ -139,23 +142,23 @@ func constructEvent[TEvent Event](newEvent func(chan<- func() error) TEvent, run
 	if candidate.Transaction() != (chan<- func() error)(runtime.transactions) {
 		return nil, errors.New("eventlog: Event.Transaction() must return the channel its factory received")
 	}
-	own, err := resolveTypeSchema(candidate)
+	own, err := resolveSchema(candidate)
 	if err != nil {
 		return nil, fmt.Errorf("eventlog: Event: %w", err)
 	}
-	if !own.sameShape(schema) {
-		return nil, fmt.Errorf("%w: %s", ErrSchemaConflict, schema.key())
+	if !own.SameShape(schema) {
+		return nil, fmt.Errorf("%w: %s", ErrSchemaConflict, schema.Key())
 	}
 	instance := reflect.ValueOf(candidate)
-	_, identity, err := captureSnapshot(schema, instance)
+	_, raw, err := fieldschema.Capture(schema, instance)
 	if err != nil {
 		return nil, fmt.Errorf("eventlog: Event: %w", err)
 	}
-	id, err := deriveIdentity(eventIdentityDomain, schema, identity)
+	id, err := identity.Derive(identity.EventDomain, schema.Descriptor(), raw)
 	if err != nil {
 		return nil, fmt.Errorf("eventlog: Event: %w", err)
 	}
-	return &liveEvent{id: id, identity: identity, schema: schema, instance: instance, event: candidate}, nil
+	return &liveEvent{id: id, identity: raw, schema: schema, instance: instance, event: candidate}, nil
 }
 
 // callFactory runs a consumer factory, rejecting a panic or a nil result.

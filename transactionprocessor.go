@@ -3,6 +3,10 @@ package eventlog
 import (
 	"errors"
 	"fmt"
+
+	"github.com/gunesis-game/eventlog/internal/fieldschema"
+	"github.com/gunesis-game/eventlog/internal/identity"
+	"github.com/gunesis-game/eventlog/internal/storage"
 )
 
 var errChannelChangeWithoutEvent = errors.New("a transaction that changes the Channel must also change an Event")
@@ -98,17 +102,17 @@ func (p *transactionProcessor) pauseUntilReceived(failure *ChannelError) {
 // liveState is a captured snapshot of a Channel and a fixed list of its live
 // Events, with their raw identity values.
 type liveState struct {
-	channel    fieldSnapshot
-	channelRaw uuid
+	channel    fieldschema.Snapshot
+	channelRaw identity.UUID
 	events     []*liveEvent
-	snapshots  []fieldSnapshot
-	raws       []uuid
+	snapshots  []fieldschema.Snapshot
+	raws       []identity.UUID
 }
 
 type pendingOccurrence struct {
 	event    *liveEvent
-	snapshot fieldSnapshot
-	channel  fieldSnapshot
+	snapshot fieldschema.Snapshot
+	channel  fieldschema.Snapshot
 }
 
 // transactionBatch collects accepted, uncommitted occurrences. original keeps
@@ -116,8 +120,8 @@ type pendingOccurrence struct {
 // commit.
 type transactionBatch struct {
 	occurrences     []pendingOccurrence
-	channelOriginal fieldSnapshot
-	originals       map[*liveEvent]fieldSnapshot
+	channelOriginal fieldschema.Snapshot
+	originals       map[*liveEvent]fieldschema.Snapshot
 	order           []*liveEvent
 }
 
@@ -138,7 +142,7 @@ func (p *transactionProcessor) run() {
 // committed and the failure is reported.
 func (p *transactionProcessor) processBatch(first func() error) {
 	c := p.channel
-	batch := &transactionBatch{originals: make(map[*liveEvent]fieldSnapshot)}
+	batch := &transactionBatch{originals: make(map[*liveEvent]fieldschema.Snapshot)}
 	next := first
 	for applied := 1; ; applied++ {
 		if failure := p.apply(batch, next); failure != nil {
@@ -180,18 +184,18 @@ func (p *transactionProcessor) apply(batch *transactionBatch, fn func() error) *
 		return p.rollback(before, InvalidState, err)
 	}
 	if after.channelRaw != c.identity {
-		return p.rollback(before, InvalidState, fmt.Errorf("channel identity field %q was changed", c.schema.identityField().name))
+		return p.rollback(before, InvalidState, fmt.Errorf("channel identity field %q was changed", c.schema.IdentityField().Name))
 	}
 	var changed []int
 	for i, event := range before.events {
 		if after.raws[i] != event.identity {
-			return p.rollback(before, InvalidState, fmt.Errorf("%s identity field %q was changed", event.schema.key(), event.schema.identityField().name))
+			return p.rollback(before, InvalidState, fmt.Errorf("%s identity field %q was changed", event.schema.Key(), event.schema.IdentityField().Name))
 		}
-		if !after.snapshots[i].equal(before.snapshots[i]) {
+		if !after.snapshots[i].Equal(before.snapshots[i]) {
 			changed = append(changed, i)
 		}
 	}
-	channelChanged := !after.channel.equal(before.channel)
+	channelChanged := !after.channel.Equal(before.channel)
 	if channelChanged && len(changed) == 0 {
 		return p.rollback(before, InvalidState, errChannelChangeWithoutEvent)
 	}
@@ -227,14 +231,14 @@ func runTransaction(fn func() error) (kind ErrorKind, cause error) {
 
 func (p *transactionProcessor) capture(events []*liveEvent) (liveState, error) {
 	c := p.channel
-	state := liveState{events: events, snapshots: make([]fieldSnapshot, len(events)), raws: make([]uuid, len(events))}
+	state := liveState{events: events, snapshots: make([]fieldschema.Snapshot, len(events)), raws: make([]identity.UUID, len(events))}
 	var err error
-	if state.channel, state.channelRaw, err = captureSnapshot(c.schema, c.instance); err != nil {
+	if state.channel, state.channelRaw, err = fieldschema.Capture(c.schema, c.instance); err != nil {
 		return state, fmt.Errorf("channel: %w", err)
 	}
 	for i, event := range events {
-		if state.snapshots[i], state.raws[i], err = captureSnapshot(event.schema, event.instance); err != nil {
-			return state, fmt.Errorf("%s: %w", event.schema.key(), err)
+		if state.snapshots[i], state.raws[i], err = fieldschema.Capture(event.schema, event.instance); err != nil {
+			return state, fmt.Errorf("%s: %w", event.schema.Key(), err)
 		}
 	}
 	return state, nil
@@ -246,8 +250,8 @@ func (p *transactionProcessor) rollback(before liveState, kind ErrorKind, cause 
 	c := p.channel
 	var attempted []Event
 	for i, event := range before.events {
-		current, _, err := captureSnapshot(event.schema, event.instance)
-		if err != nil || !current.equal(before.snapshots[i]) {
+		current, _, err := fieldschema.Capture(event.schema, event.instance)
+		if err != nil || !current.Equal(before.snapshots[i]) {
 			attempted = append(attempted, copyEvent(event))
 		}
 	}
@@ -255,16 +259,16 @@ func (p *transactionProcessor) rollback(before liveState, kind ErrorKind, cause 
 	return c.newError(kind, cause, attempted)
 }
 
-func (p *transactionProcessor) restore(channel fieldSnapshot, events []*liveEvent, snapshots []fieldSnapshot) {
+func (p *transactionProcessor) restore(channel fieldschema.Snapshot, events []*liveEvent, snapshots []fieldschema.Snapshot) {
 	c := p.channel
-	_ = restoreSnapshot(c.schema, c.instance, channel)
+	_ = fieldschema.Restore(c.schema, c.instance, channel)
 	for i, event := range events {
-		_ = restoreSnapshot(event.schema, event.instance, snapshots[i])
+		_ = fieldschema.Restore(event.schema, event.instance, snapshots[i])
 	}
 }
 
 func copyEvent(event *liveEvent) Event {
-	return copySelectedFields(event.schema, event.instance).Interface().(Event)
+	return fieldschema.CopySelected(event.schema, event.instance).Interface().(Event)
 }
 
 // commit persists the batch atomically. On failure every transaction in the
@@ -274,21 +278,21 @@ func (p *transactionProcessor) commit(batch *transactionBatch) *ChannelError {
 	if len(batch.occurrences) == 0 {
 		return nil
 	}
-	writes := make([]occurrenceWrite, len(batch.occurrences))
+	writes := make([]storage.OccurrenceWrite, len(batch.occurrences))
 	for i, occurrence := range batch.occurrences {
-		writes[i] = occurrenceWrite{
-			channelFields: occurrence.channel.toRecordFields(c.schema),
-			eventID:       occurrence.event.id,
-			eventType:     occurrence.event.schema.key(),
-			eventFields:   occurrence.snapshot.toRecordFields(occurrence.event.schema),
+		writes[i] = storage.OccurrenceWrite{
+			ChannelFields: occurrence.channel.RecordFields(c.schema),
+			EventID:       occurrence.event.id,
+			EventType:     occurrence.event.schema.Key(),
+			EventFields:   occurrence.snapshot.RecordFields(occurrence.event.schema),
 		}
 	}
-	err := c.rt.store.appendTransaction(channelWrite{id: c.id, typ: c.schema.key()}, writes)
+	err := c.rt.store.AppendTransaction(storage.ChannelWrite{ID: c.id, Type: c.schema.Key()}, writes)
 	if err == nil {
 		return nil
 	}
 	attempted := make([]Event, 0, len(batch.order))
-	originals := make([]fieldSnapshot, 0, len(batch.order))
+	originals := make([]fieldschema.Snapshot, 0, len(batch.order))
 	for _, event := range batch.order {
 		attempted = append(attempted, copyEvent(event))
 		originals = append(originals, batch.originals[event])

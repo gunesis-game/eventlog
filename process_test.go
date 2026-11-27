@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"testing"
@@ -126,7 +127,7 @@ func scenarioConfig(dir string) error {
 	if _, _, err := PrepareLog[*OrderPlaced, *Orders](context.Background(), placedFactory(testUUID(2)), ordersFactory(testUUID(1))); err != nil {
 		return fmt.Errorf("PrepareLog: %v", err)
 	}
-	if _, err := os.Stat(filepath.Join(dir, manifestFileName)); err != nil {
+	if _, err := os.Stat(filepath.Join(dir, "manifest.json")); err != nil {
 		return fmt.Errorf("PrepareLog must create storage: %v", err)
 	}
 	fmt.Println("RESULT ok")
@@ -145,11 +146,11 @@ func scenarioAppend(dir string, amounts []int64) error {
 	if abrupt {
 		amounts = amounts[:len(amounts)-1]
 	}
-	base := committedOccurrences()
+	base := committedOccurrences(dir)
 	for i, amount := range amounts {
 		setAmount(event, amount)
 		deadline := time.Now().Add(testWait)
-		for committedOccurrences() < base+i+1 {
+		for committedOccurrences(dir) < base+i+1 {
 			if time.Now().After(deadline) {
 				return errors.New("timed out waiting for commit")
 			}
@@ -163,14 +164,8 @@ func scenarioAppend(dir string, amounts []int64) error {
 	return nil
 }
 
-func committedOccurrences() int {
-	processLog.mu.Lock()
-	rt := processLog.runtime
-	processLog.mu.Unlock()
-	if rt == nil {
-		return 0
-	}
-	return committedCount(rt)
+func committedOccurrences(dir string) int {
+	return countRecords(dir, "event")
 }
 
 // scenarioReplay reads expected history, then appends one live occurrence.
@@ -215,12 +210,12 @@ func TestProcessTerminationAndRecovery(t *testing.T) {
 		t.Fatalf("second lifetime committed %s", got)
 	}
 
-	m, err := readManifest(dir)
-	if err != nil {
-		t.Fatal(err)
+	segments, _ := filepath.Glob(filepath.Join(dir, "segments", "segment-*.ndjson"))
+	if len(segments) == 0 {
+		t.Fatal("no segments")
 	}
-	active := filepath.Join(dir, segmentsDirName, m.Segments[len(m.Segments)-1])
-	f, err := os.OpenFile(active, os.O_WRONLY|os.O_APPEND, 0)
+	sort.Strings(segments)
+	f, err := os.OpenFile(segments[len(segments)-1], os.O_WRONLY|os.O_APPEND, 0)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+
+	"github.com/gunesis-game/eventlog/internal/fieldschema"
+	"github.com/gunesis-game/eventlog/internal/identity"
 )
 
 // ErrorKind classifies a ChannelError.
@@ -60,7 +63,7 @@ type ChannelError struct {
 	// CommitFailed.
 	Events []Event
 
-	channelID uuid
+	channelID identity.UUID
 }
 
 func (e *ChannelError) Error() string {
@@ -91,15 +94,15 @@ func (e *ChannelError) Unwrap() error {
 func describeEvent(event Event) string {
 	value := reflect.ValueOf(event)
 	name := value.Type().Elem().Name()
-	schema, err := resolveTypeSchema(event)
+	schema, err := resolveSchema(event)
 	if err != nil {
 		return name
 	}
-	_, raw, err := captureSnapshot(schema, value)
-	if err != nil || raw.isZero() {
+	_, raw, err := fieldschema.Capture(schema, value)
+	if err != nil || raw.IsZero() {
 		return name
 	}
-	id, err := deriveIdentity(eventIdentityDomain, schema, raw)
+	id, err := identity.Derive(identity.EventDomain, schema.Descriptor(), raw)
 	if err != nil {
 		return name
 	}

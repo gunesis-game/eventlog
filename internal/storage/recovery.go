@@ -1,4 +1,4 @@
-package eventlog
+package storage
 
 import (
 	"encoding/json"
@@ -10,87 +10,60 @@ import (
 	"sort"
 	"strings"
 	"unicode/utf8"
+
+	"github.com/gunesis-game/eventlog/internal/fieldschema"
+	"github.com/gunesis-game/eventlog/internal/identity"
+	"github.com/gunesis-game/eventlog/internal/record"
 )
 
 // errCorruptStorage marks authoritative storage that cannot be recovered
 // without guessing. Recovery fails closed rather than skipping data.
 var errCorruptStorage = errors.New("corrupt storage")
 
-// openSegmentStore creates or recovers the storage directory and returns a
-// store ready for appends. Recovery validates the manifest, every segment,
-// transaction, and sequence; truncates an incomplete trailing transaction;
-// rebuilds the derived index; and only then cleans orphaned artifacts.
-func openSegmentStore(directory string, options segmentStoreOptions) (*segmentStore, error) {
-	if err := storageCreateDirectory(directory); err != nil {
-		return nil, err
-	}
-	segmentsDir := filepath.Join(directory, segmentsDirName)
-	if err := storageCreateDirectory(segmentsDir); err != nil {
-		return nil, err
-	}
-	validator, err := newRecordSchemaValidator()
-	if err != nil {
-		return nil, err
-	}
-	s := &segmentStore{
-		directory:    directory,
-		segmentsDir:  segmentsDir,
-		validator:    validator,
-		options:      options,
-		nextSequence: 1,
-		byChannel:    make(map[uuid][]*indexEntry),
-		channels:     make(map[uuid]persistedChannel),
-		wake:         make(chan struct{}),
-		stop:         make(chan struct{}),
-		stopped:      make(chan struct{}),
-	}
-	if s.lockFile, err = acquireStorageLock(s.lockPath()); err != nil {
-		return nil, err
-	}
-	if err := s.recover(); err != nil {
-		_ = s.lockFile.Close()
-		if s.activeFile != nil {
-			_ = s.activeFile.Close()
-		}
-		return nil, err
-	}
-	go s.runSyncLoop()
-	return s, nil
+// recovery rebuilds the store's state from the storage directory: it
+// validates the manifest, every segment, transaction, and sequence; truncates
+// an incomplete trailing transaction; rebuilds the derived index; and only then
+// cleans orphaned artifacts.
+type recovery struct {
+	directory    string
+	segmentsDir  string
+	validator    *record.Validator
+	index        *index
+	nextSequence uint64
+	manifest     manifest
+	finalized    []*segment
+	active       *segment
+	indexRebuilt bool
 }
 
-func (s *segmentStore) recover() error {
-	m, err := s.resolveManifest()
+func (r *recovery) run() (*recovery, error) {
+	m, err := r.resolveManifest()
 	if err != nil {
-		return err
+		return nil, err
 	}
-	s.manifest = m
+	r.manifest = m
 	for i, name := range m.Segments {
-		last := i == len(m.Segments)-1
-		if err := s.recoverSegment(name, last); err != nil {
-			return err
+		if err := r.recoverSegment(name, i == len(m.Segments)-1); err != nil {
+			return nil, err
 		}
 	}
-	s.mu.Lock()
-	err = s.reconcileIndexLocked()
-	s.mu.Unlock()
-	if err != nil {
-		return err
+	if r.indexRebuilt, err = r.index.persisted(r.manifest.Generation, r.nextSequence-1).reconcile(r.directory); err != nil {
+		return nil, err
 	}
-	s.cleanOrphans()
-	s.activeFile, err = storageOpenSegmentAppend(s.active.path)
-	return err
+	r.cleanOrphans()
+	return r, nil
 }
 
 // resolveManifest returns the authoritative manifest. A fresh directory gets a
 // new generation. A missing or unreadable manifest is reconstructed only when
 // the segment files form exactly one unambiguous contiguous history.
-func (s *segmentStore) resolveManifest() (manifest, error) {
-	m, err := readManifest(s.directory)
+func (r *recovery) resolveManifest() (manifest, error) {
+	m, err := readManifest(r.directory)
 	if err == nil {
 		return m, nil
 	}
 	missing := errors.Is(err, fs.ErrNotExist)
-	ids, listErr := s.listSegmentIDs()
+	ids, listErr := r.listSegmentIDs()
 	if listErr != nil {
 		return manifest{}, listErr
 	}
@@ -99,27 +72,27 @@ func (s *segmentStore) resolveManifest() (manifest, error) {
 			return manifest{}, fmt.Errorf("%w: manifest is unusable and no segments exist: %v", errCorruptStorage, err)
 		}
 		fresh := manifest{FormatVersion: manifestFormatVersion, Generation: 1, Segments: []string{segmentFileName(1)}, NextSegmentID: 2}
-		f, createErr := storageCreateSegment(storageSegmentPath(s.segmentsDir, 1))
+		f, createErr := createSegment(segmentPath(r.segmentsDir, 1))
 		if createErr != nil {
 			return manifest{}, createErr
 		}
 		if closeErr := f.Close(); closeErr != nil {
 			return manifest{}, closeErr
 		}
-		return fresh, writeManifest(s.directory, fresh)
+		return fresh, writeManifest(r.directory, fresh)
 	}
 	rebuilt := manifest{FormatVersion: manifestFormatVersion, Generation: 1, NextSegmentID: ids[len(ids)-1] + 1}
 	for _, id := range ids {
 		rebuilt.Segments = append(rebuilt.Segments, segmentFileName(id))
 	}
-	if chainErr := s.checkUnambiguousChain(ids); chainErr != nil {
+	if chainErr := r.checkUnambiguousChain(ids); chainErr != nil {
 		return manifest{}, fmt.Errorf("%w: manifest unusable (%v) and segments are ambiguous: %v", errCorruptStorage, err, chainErr)
 	}
-	return rebuilt, writeManifest(s.directory, rebuilt)
+	return rebuilt, writeManifest(r.directory, rebuilt)
 }
 
-func (s *segmentStore) listSegmentIDs() ([]uint64, error) {
-	entries, err := os.ReadDir(s.segmentsDir)
+func (r *recovery) listSegmentIDs() ([]uint64, error) {
+	entries, err := os.ReadDir(r.segmentsDir)
 	if err != nil {
 		return nil, fmt.Errorf("list segments: %w", err)
 	}
@@ -143,14 +116,14 @@ func (s *segmentStore) listSegmentIDs() ([]uint64, error) {
 // checkUnambiguousChain verifies that the segment files, in ID order, form one
 // contiguous global sequence from 1. Overlapping generations (for example the
 // sources and output of an interrupted compaction) are ambiguous.
-func (s *segmentStore) checkUnambiguousChain(ids []uint64) error {
+func (r *recovery) checkUnambiguousChain(ids []uint64) error {
 	expected := uint64(1)
 	for i, id := range ids {
-		data, err := os.ReadFile(storageSegmentPath(s.segmentsDir, id))
+		data, err := os.ReadFile(segmentPath(r.segmentsDir, id))
 		if err != nil {
 			return err
 		}
-		result, err := validateRecordStream(data, s.validator, expected)
+		result, err := record.ValidateStream(data, r.validator, expected)
 		if err != nil {
 			return fmt.Errorf("segment %d: %w", id, err)
 		}
@@ -165,21 +138,21 @@ func (s *segmentStore) checkUnambiguousChain(ids []uint64) error {
 // recoverSegment validates one manifest segment and indexes its committed
 // occurrences. Only the last (active) segment may end with an incomplete
 // transaction, which is truncated from its start.
-func (s *segmentStore) recoverSegment(name string, last bool) error {
+func (r *recovery) recoverSegment(name string, last bool) error {
 	id, err := segmentIDFromName(name)
 	if err != nil {
 		return err
 	}
-	path := storageSegmentPath(s.segmentsDir, id)
+	path := segmentPath(r.segmentsDir, id)
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return fmt.Errorf("%w: manifest segment %s: %v", errCorruptStorage, name, err)
 	}
-	result, err := validateRecordStream(data, s.validator, s.nextSequence)
+	result, err := record.ValidateStream(data, r.validator, r.nextSequence)
 	if err != nil {
 		return fmt.Errorf("%w: segment %s: %v", errCorruptStorage, name, err)
 	}
-	segment := &segmentFile{id: id, path: path, size: int64(len(data))}
+	seg := &segment{id: id, path: path, size: int64(len(data))}
 	if result.IncompleteStart != nil {
 		if !last {
 			return fmt.Errorf("%w: finalized segment %s ends with an incomplete transaction", errCorruptStorage, name)
@@ -188,16 +161,16 @@ func (s *segmentStore) recoverSegment(name string, last bool) error {
 			return err
 		}
 		data = data[:*result.IncompleteStart]
-		segment.size = *result.IncompleteStart
+		seg.size = *result.IncompleteStart
 	}
-	if err := s.indexSegment(segment, data); err != nil {
+	if err := r.indexSegment(seg, data); err != nil {
 		return fmt.Errorf("%w: segment %s: %v", errCorruptStorage, name, err)
 	}
-	s.nextSequence = result.CommittedSequence + 1
+	r.nextSequence = result.CommittedSequence + 1
 	if last {
-		s.active = segment
+		r.active = seg
 	} else {
-		s.finalized = append(s.finalized, segment)
+		r.finalized = append(r.finalized, seg)
 	}
 	return nil
 }
@@ -207,11 +180,11 @@ func truncateSegment(path string, size int64) error {
 	if err != nil {
 		return fmt.Errorf("open segment for truncation: %w", err)
 	}
-	if err := storageTruncate(f, size); err != nil {
+	if err := truncateFile(f, size); err != nil {
 		_ = f.Close()
 		return err
 	}
-	if err := storageSync(f); err != nil {
+	if err := syncFile(f); err != nil {
 		_ = f.Close()
 		return err
 	}
@@ -221,7 +194,7 @@ func truncateSegment(path string, size int64) error {
 // indexSegment applies the semantic checks the stream validator does not:
 // valid UTF-8, value ranges, Channel references, and Channel type stability.
 // data contains only complete, committed transactions.
-func (s *segmentStore) indexSegment(segment *segmentFile, data []byte) error {
+func (r *recovery) indexSegment(seg *segment, data []byte) error {
 	offset := int64(0)
 	for offset < int64(len(data)) {
 		end := offset
@@ -232,7 +205,7 @@ func (s *segmentStore) indexSegment(segment *segmentFile, data []byte) error {
 		if !utf8.Valid(raw) {
 			return fmt.Errorf("record at byte offset %d is not valid UTF-8", offset)
 		}
-		if err := s.indexRecord(segment, raw, offset); err != nil {
+		if err := r.indexRecord(seg, raw, offset); err != nil {
 			return fmt.Errorf("record at byte offset %d: %w", offset, err)
 		}
 		offset = end + 1
@@ -240,7 +213,7 @@ func (s *segmentStore) indexSegment(segment *segmentFile, data []byte) error {
 	return nil
 }
 
-func (s *segmentStore) indexRecord(segment *segmentFile, raw []byte, offset int64) error {
+func (r *recovery) indexRecord(seg *segment, raw []byte, offset int64) error {
 	var header struct {
 		Kind string `json:"kind"`
 	}
@@ -248,60 +221,58 @@ func (s *segmentStore) indexRecord(segment *segmentFile, raw []byte, offset int6
 		return err
 	}
 	switch header.Kind {
-	case recordKindChannel:
-		var record channelRecord
-		if err := json.Unmarshal(raw, &record); err != nil {
+	case record.KindChannel:
+		var channel record.Channel
+		if err := json.Unmarshal(raw, &channel); err != nil {
 			return err
 		}
-		id, err := parseUUID(record.ID)
+		id, err := identity.ParseUUID(channel.ID)
 		if err != nil {
 			return err
 		}
-		if err := validateRecordFields(record.Fields); err != nil {
+		if err := validateRecordFields(channel.Fields); err != nil {
 			return err
 		}
-		typ := typeKey{pkgPath: record.Type.PackagePath, name: record.Type.Name}
-		if existing, ok := s.channels[id]; ok && existing.typ != typ {
+		typ := fieldschema.TypeKey{PackagePath: channel.Type.PackagePath, Name: channel.Type.Name}
+		if existing, ok := r.index.channel(id); ok && existing.typ != typ {
 			return fmt.Errorf("channel %s changes type from %s to %s", id, existing.typ, typ)
 		}
-		fields, err := canonicalRecordFields(record.Fields)
+		fields, err := canonicalRecordFields(channel.Fields)
 		if err != nil {
 			return err
 		}
-		s.channels[id] = persistedChannel{typ: typ, fields: fields}
-	case recordKindEvent:
-		var record eventRecord
-		if err := json.Unmarshal(raw, &record); err != nil {
+		r.index.setChannel(id, channelSnapshot{typ: typ, fields: fields})
+	case record.KindEvent:
+		var event record.Event
+		if err := json.Unmarshal(raw, &event); err != nil {
 			return err
 		}
-		id, err := parseUUID(record.ID)
+		id, err := identity.ParseUUID(event.ID)
 		if err != nil {
 			return err
 		}
-		channelID, err := parseUUID(record.ChannelID)
+		channelID, err := identity.ParseUUID(event.ChannelID)
 		if err != nil {
 			return err
 		}
-		if _, ok := s.channels[channelID]; !ok {
+		if _, ok := r.index.channel(channelID); !ok {
 			return fmt.Errorf("event %s references unknown channel %s", id, channelID)
 		}
-		if err := validateRecordFields(record.Fields); err != nil {
+		if err := validateRecordFields(event.Fields); err != nil {
 			return err
 		}
-		entry := &indexEntry{sequence: record.Sequence, eventID: id, channelID: channelID, typ: typeKey{pkgPath: record.Type.PackagePath, name: record.Type.Name}, segment: segment, offset: offset, length: int64(len(raw)) + 1}
-		s.entries = append(s.entries, entry)
-		s.byChannel[channelID] = append(s.byChannel[channelID], entry)
+		r.index.add(&Occurrence{Sequence: event.Sequence, EventID: id, ChannelID: channelID, Type: fieldschema.TypeKey{PackagePath: event.Type.PackagePath, Name: event.Type.Name}, segment: seg, offset: offset, length: int64(len(raw)) + 1})
 	}
 	return nil
 }
 
 func validateRecordFields(fields map[string]interface{}) error {
 	for name, raw := range fields {
-		value, err := fieldValueFromRecord(raw)
+		value, err := fieldschema.ValueFromRecord(raw)
 		if err != nil {
 			return fmt.Errorf("field %q: %w", name, err)
 		}
-		if err := validatePersistedValue(value); err != nil {
+		if err := fieldschema.ValidatePersisted(value); err != nil {
 			return fmt.Errorf("field %q: %w", name, err)
 		}
 	}
@@ -309,11 +280,11 @@ func validateRecordFields(fields map[string]interface{}) error {
 }
 
 // canonicalRecordFields re-encodes decoded fields in the same canonical form
-// appendTransaction uses, so persisted and live Channel snapshots compare equal.
+// AppendTransaction uses, so persisted and live Channel snapshots compare equal.
 func canonicalRecordFields(fields map[string]interface{}) (string, error) {
 	canonical := make(map[string]interface{}, len(fields))
 	for name, raw := range fields {
-		value, err := fieldValueFromRecord(raw)
+		value, err := fieldschema.ValueFromRecord(raw)
 		if err != nil {
 			return "", err
 		}
@@ -325,12 +296,12 @@ func canonicalRecordFields(fields map[string]interface{}) (string, error) {
 
 // cleanOrphans removes temporary files and segments outside the manifest. It
 // runs only after every manifest segment has validated.
-func (s *segmentStore) cleanOrphans() {
-	listed := make(map[string]bool, len(s.manifest.Segments))
-	for _, name := range s.manifest.Segments {
+func (r *recovery) cleanOrphans() {
+	listed := make(map[string]bool, len(r.manifest.Segments))
+	for _, name := range r.manifest.Segments {
 		listed[name] = true
 	}
-	for _, dir := range []string{s.directory, s.segmentsDir} {
+	for _, dir := range []string{r.directory, r.segmentsDir} {
 		entries, err := os.ReadDir(dir)
 		if err != nil {
 			continue
@@ -340,7 +311,7 @@ func (s *segmentStore) cleanOrphans() {
 			if entry.IsDir() {
 				continue
 			}
-			orphanSegment := dir == s.segmentsDir && segmentFileNamePattern.MatchString(name) && !listed[name]
+			orphanSegment := dir == r.segmentsDir && segmentFileNamePattern.MatchString(name) && !listed[name]
 			if strings.HasSuffix(name, temporaryFileSuffix) || orphanSegment {
 				_ = os.Remove(filepath.Join(dir, name))
 			}

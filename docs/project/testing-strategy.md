@@ -43,19 +43,21 @@ The system boundary and component responsibilities are defined in [architecture.
 
 ## Suite locations
 
+Tests live beside the code they test (D-053).
+
 | Acceptance layer | Test files |
 |---|---|
-| Disk and storage (D-*) | `storage_test.go`, `segmentstore_test.go` (lock, missing directory, replace and cleanup) |
-| Persistence format and transactions (F-*, T-*) | `record_test.go`, `schema_test.go`, `transaction_test.go`, `stream_test.go`, `segmentstore_test.go` |
-| Metadata and recovery (M-*) | `segmentstore_test.go` (index rebuild, manifest recovery, corruption, compaction) |
-| Core Event/Channel behavior (L-*) | `typeschema_test.go`, `fieldvalue_test.go`, `identity_test.go`, `segmentstore_test.go`, `runtime_test.go` |
+| Disk and storage (D-*) | `internal/storage/files_test.go`, `internal/storage/store_test.go` (lock, missing directory, replace and cleanup) |
+| Persistence format and transactions (F-*, T-*) | `internal/record/*_test.go`, `internal/storage/store_test.go` |
+| Metadata and recovery (M-*) | `internal/storage/store_test.go` (index rebuild, manifest recovery, corruption, compaction) |
+| Core Event/Channel behavior (L-*) | `internal/identity/*_test.go`, `internal/fieldschema/*_test.go`, `internal/storage/store_test.go`, `runtime_test.go`, `declaredschema_test.go` |
 | Channel and Reader (R-*) | `runtime_test.go` |
 | Notification delivery (N-*) | `runtime_test.go`, `process_test.go` |
 | Runtime lifecycle (RT-*) | `runtime_test.go`, `process_test.go` (subprocess Config contract and process termination) |
 | Public API and integration (API-*) | `example_test.go` (external consumer compile check), `process_test.go`, `runtime_test.go` |
-| Benchmarks (smoke set) | `benchmark_test.go` |
+| Benchmarks (smoke set) | `internal/record/record_bench_test.go`, `internal/storage/store_bench_test.go`, `benchmark_test.go` |
 
-Test-only controls (closing an in-process runtime, delivery fault injection, lowered storage and batch thresholds, injecting a storage write failure) are unexported and are not part of the public API. All tests, including subprocess children, change live instances only through transactions and run clean under the race detector.
+Test-only controls (closing an in-process runtime, delivery fault injection, lowered storage and batch thresholds, a failing store wrapper injected through the runtime's storage interface) are unexported and are not part of the public API. All tests, including subprocess children, change live instances only through transactions and run clean under the race detector.
 
 ## CI and evidence
 

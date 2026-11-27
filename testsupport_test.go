@@ -2,8 +2,17 @@ package eventlog
 
 import (
 	"context"
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"sort"
+	"strings"
+	"sync"
 	"testing"
 	"time"
+
+	"github.com/gunesis-game/eventlog/internal/identity"
+	"github.com/gunesis-game/eventlog/internal/storage"
 )
 
 // Consumer-style test types: named UUID identity types, primitives, named
@@ -93,9 +102,9 @@ func testUUID(n byte) [16]byte {
 
 const testWait = 5 * time.Second
 
-func fastStoreOptions() segmentStoreOptions {
-	options := defaultSegmentStoreOptions()
-	options.syncInterval = 20 * time.Millisecond
+func fastStoreOptions() storage.Options {
+	options := storage.DefaultOptions()
+	options.SyncInterval = 20 * time.Millisecond
 	return options
 }
 
@@ -106,12 +115,13 @@ func fastPolicy() runtimePolicy {
 }
 
 // openTestRuntime opens a runtime on dir and closes it (test-only) at cleanup.
-func openTestRuntime(t *testing.T, dir string, options segmentStoreOptions, policy runtimePolicy) *logRuntime {
+func openTestRuntime(t *testing.T, dir string, options storage.Options, policy runtimePolicy) *logRuntime {
 	t.Helper()
 	rt, err := openLogRuntime(dir, options, policy)
 	if err != nil {
 		t.Fatalf("open runtime: %v", err)
 	}
+	runtimeDirectories.Store(rt, dir)
 	t.Cleanup(func() {
 		_ = rt.close()
 	})
@@ -160,10 +170,61 @@ func waitCommitted(t *testing.T, rt *logRuntime, n int) {
 	t.Fatalf("timed out waiting for %d committed occurrences (have %d)", n, committedCount(rt))
 }
 
+// runtimeDirectories maps each test runtime to its storage directory, so tests
+// can inspect the persisted records.
+var runtimeDirectories sync.Map
+
 func committedCount(rt *logRuntime) int {
-	rt.store.mu.Lock()
-	defer rt.store.mu.Unlock()
-	return len(rt.store.entries)
+	return countRecords(runtimeDirectory(rt), "event")
+}
+
+func runtimeDirectory(rt *logRuntime) string {
+	dir, _ := runtimeDirectories.Load(rt)
+	return dir.(string)
+}
+
+// persistedRecords decodes every complete record in the directory's segments,
+// in segment order. A trailing line still being written is skipped.
+func persistedRecords(dir string) []map[string]any {
+	paths, _ := filepath.Glob(filepath.Join(dir, "segments", "segment-*.ndjson"))
+	sort.Strings(paths)
+	var records []map[string]any
+	for _, path := range paths {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			continue
+		}
+		for _, line := range strings.Split(string(data), "\n") {
+			var decoded map[string]any
+			if json.Unmarshal([]byte(line), &decoded) == nil {
+				records = append(records, decoded)
+			}
+		}
+	}
+	return records
+}
+
+func countRecords(dir, kind string) int {
+	count := 0
+	for _, decoded := range persistedRecords(dir) {
+		if decoded["kind"] == kind {
+			count++
+		}
+	}
+	return count
+}
+
+// lastChannelFields returns the JSON fields of the last Channel record written
+// for channelID.
+func lastChannelFields(rt *logRuntime, channelID identity.UUID) string {
+	fields := ""
+	for _, decoded := range persistedRecords(runtimeDirectory(rt)) {
+		if decoded["kind"] == "channel" && decoded["id"] == channelID.String() {
+			raw, _ := json.Marshal(decoded["fields"])
+			fields = string(raw)
+		}
+	}
+	return fields
 }
 
 // read runs fn inside a transaction, the race-free way to read live fields,
@@ -228,18 +289,10 @@ func stringPointer(s string) *string {
 	return &s
 }
 
-func (c *Orders) id() uuid {
-	schema, _ := resolveTypeSchema(&Orders{})
-	id, _ := deriveIdentity(channelIdentityDomain, schema, uuid(c.ID))
+func (c *Orders) id() identity.UUID {
+	schema, _ := resolveSchema(&Orders{})
+	id, _ := identity.Derive(identity.ChannelDomain, schema.Descriptor(), identity.UUID(c.ID))
 	return id
-}
-
-// persistedChannelFields returns the latest persisted Channel fields JSON.
-func persistedChannelFields(s *segmentStore, channelID uuid) (string, bool) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	channel, ok := s.channels[channelID]
-	return channel.fields, ok
 }
 
 // waitPending waits until intake has moved n sends into the Channel's pending

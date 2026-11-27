@@ -1,8 +1,9 @@
-package eventlog
+package fieldschema
 
 import (
 	"errors"
 	"fmt"
+	"github.com/gunesis-game/eventlog/internal/identity"
 	"math"
 	"reflect"
 	"strconv"
@@ -14,18 +15,18 @@ const (
 	fieldTagUUID = "uuid"
 )
 
-// fieldValue is the strict type-tagged persisted form of one field value.
+// Value is the strict type-tagged persisted form of one field value.
 // Value holds a string for string, integer, float, and uuid tags, a bool for the
 // bool tag, and nil for null.
-type fieldValue struct {
+type Value struct {
 	Type  string `json:"type"`
 	Value any    `json:"value,omitempty"`
 }
 
-// fieldSnapshot is an immutable, ordered capture of a schema's selected fields.
-type fieldSnapshot []fieldValue
+// Snapshot is an immutable, ordered capture of a schema's selected fields.
+type Snapshot []Value
 
-func (s fieldSnapshot) equal(other fieldSnapshot) bool {
+func (s Snapshot) Equal(other Snapshot) bool {
 	if len(s) != len(other) {
 		return false
 	}
@@ -37,96 +38,96 @@ func (s fieldSnapshot) equal(other fieldSnapshot) bool {
 	return true
 }
 
-func (s fieldSnapshot) toRecordFields(schema *typeSchema) map[string]interface{} {
+func (s Snapshot) RecordFields(schema *Schema) map[string]interface{} {
 	out := make(map[string]interface{}, len(s))
 	for i, value := range s {
-		out[schema.fields[i].name] = value
+		out[schema.Fields[i].Name] = value
 	}
 	return out
 }
 
-// captureSnapshot reads and validates every selected field of instance. It also
+// Capture reads and validates every selected field of instance. It also
 // returns the raw identity value.
-func captureSnapshot(schema *typeSchema, instance reflect.Value) (fieldSnapshot, uuid, error) {
-	snapshot := make(fieldSnapshot, len(schema.fields))
-	var identity uuid
-	for i, binding := range schema.fields {
-		field := schema.fieldValueOf(instance, binding)
-		if binding.role == fieldRoleIdentity {
-			reflect.Copy(reflect.ValueOf(identity[:]), field)
-			snapshot[i] = fieldValue{Type: fieldTagUUID, Value: identity.String()}
+func Capture(schema *Schema, instance reflect.Value) (Snapshot, identity.UUID, error) {
+	snapshot := make(Snapshot, len(schema.Fields))
+	var raw identity.UUID
+	for i, binding := range schema.Fields {
+		field := schema.FieldValue(instance, binding)
+		if binding.Role == RoleIdentity {
+			reflect.Copy(reflect.ValueOf(raw[:]), field)
+			snapshot[i] = Value{Type: fieldTagUUID, Value: raw.String()}
 			continue
 		}
-		if binding.role == fieldRoleNullable {
+		if binding.Role == RoleNullable {
 			if field.IsNil() {
-				snapshot[i] = fieldValue{Type: fieldTagNull}
+				snapshot[i] = Value{Type: fieldTagNull}
 				continue
 			}
 			field = field.Elem()
 		}
 		value, err := encodePrimitive(field)
 		if err != nil {
-			return nil, uuid{}, fmt.Errorf("field %q: %w", binding.name, err)
+			return nil, identity.UUID{}, fmt.Errorf("field %q: %w", binding.Name, err)
 		}
 		snapshot[i] = value
 	}
-	return snapshot, identity, nil
+	return snapshot, raw, nil
 }
 
-func encodePrimitive(field reflect.Value) (fieldValue, error) {
+func encodePrimitive(field reflect.Value) (Value, error) {
 	kind := field.Kind()
 	switch kind {
 	case reflect.String:
 		text := field.String()
 		if !utf8.ValidString(text) {
-			return fieldValue{}, errors.New("string value is not valid UTF-8")
+			return Value{}, errors.New("string value is not valid UTF-8")
 		}
-		return fieldValue{Type: kind.String(), Value: text}, nil
+		return Value{Type: kind.String(), Value: text}, nil
 	case reflect.Bool:
-		return fieldValue{Type: kind.String(), Value: field.Bool()}, nil
+		return Value{Type: kind.String(), Value: field.Bool()}, nil
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		return fieldValue{Type: kind.String(), Value: strconv.FormatInt(field.Int(), 10)}, nil
+		return Value{Type: kind.String(), Value: strconv.FormatInt(field.Int(), 10)}, nil
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-		return fieldValue{Type: kind.String(), Value: strconv.FormatUint(field.Uint(), 10)}, nil
+		return Value{Type: kind.String(), Value: strconv.FormatUint(field.Uint(), 10)}, nil
 	case reflect.Float32:
 		number := float32(field.Float())
 		if math.IsNaN(float64(number)) || math.IsInf(float64(number), 0) {
-			return fieldValue{}, errors.New("float32 value is not finite")
+			return Value{}, errors.New("float32 value is not finite")
 		}
-		return fieldValue{Type: kind.String(), Value: fmt.Sprintf("%08x", math.Float32bits(number))}, nil
+		return Value{Type: kind.String(), Value: fmt.Sprintf("%08x", math.Float32bits(number))}, nil
 	case reflect.Float64:
 		number := field.Float()
 		if math.IsNaN(number) || math.IsInf(number, 0) {
-			return fieldValue{}, errors.New("float64 value is not finite")
+			return Value{}, errors.New("float64 value is not finite")
 		}
-		return fieldValue{Type: kind.String(), Value: fmt.Sprintf("%016x", math.Float64bits(number))}, nil
+		return Value{Type: kind.String(), Value: fmt.Sprintf("%016x", math.Float64bits(number))}, nil
 	default:
-		return fieldValue{}, fmt.Errorf("unsupported field kind %s", kind)
+		return Value{}, fmt.Errorf("unsupported field kind %s", kind)
 	}
 }
 
-// fieldValueFromRecord converts a decoded JSON field object into fieldValue.
-func fieldValueFromRecord(raw interface{}) (fieldValue, error) {
+// ValueFromRecord converts a decoded JSON field object into Value.
+func ValueFromRecord(raw interface{}) (Value, error) {
 	object, ok := raw.(map[string]interface{})
 	if !ok {
-		return fieldValue{}, fmt.Errorf("field value is %T, not an object", raw)
+		return Value{}, fmt.Errorf("field value is %T, not an object", raw)
 	}
 	tag, ok := object["type"].(string)
 	if !ok {
-		return fieldValue{}, errors.New("field value has no type tag")
+		return Value{}, errors.New("field value has no type tag")
 	}
-	return fieldValue{Type: tag, Value: object["value"]}, nil
+	return Value{Type: tag, Value: object["value"]}, nil
 }
 
-// validatePersistedValue checks value-level rules the JSON Schema cannot
+// ValidatePersisted checks value-level rules the JSON Schema cannot
 // express: exact integer ranges, finite floats, and canonical UUID text.
-func validatePersistedValue(value fieldValue) error {
+func ValidatePersisted(value Value) error {
 	switch value.Type {
 	case fieldTagNull, "string", "bool":
 		return nil
 	case fieldTagUUID:
 		text, _ := value.Value.(string)
-		_, err := parseUUID(text)
+		_, err := identity.ParseUUID(text)
 		return err
 	}
 	kind, ok := persistedKinds[value.Type]
@@ -197,55 +198,55 @@ func parsePrimitive(kind reflect.Kind, text string) (interface{}, error) {
 	}
 }
 
-// decodeFieldInto sets a bound field from its persisted value, preserving the
+// Decode sets a bound field from its persisted value, preserving the
 // field's concrete type, width, and nullability.
-func decodeFieldInto(binding fieldBinding, target reflect.Value, value fieldValue) error {
-	if err := validatePersistedValue(value); err != nil {
-		return fmt.Errorf("field %q: %w", binding.name, err)
+func Decode(binding Binding, target reflect.Value, value Value) error {
+	if err := ValidatePersisted(value); err != nil {
+		return fmt.Errorf("field %q: %w", binding.Name, err)
 	}
-	switch binding.role {
-	case fieldRoleIdentity:
+	switch binding.Role {
+	case RoleIdentity:
 		if value.Type != fieldTagUUID {
-			return fmt.Errorf("identity field %q has type %q, want uuid", binding.name, value.Type)
+			return fmt.Errorf("identity field %q has type %q, want uuid", binding.Name, value.Type)
 		}
-		parsed, _ := parseUUID(value.Value.(string))
+		parsed, _ := identity.ParseUUID(value.Value.(string))
 		reflect.Copy(target, reflect.ValueOf(parsed[:]))
 		return nil
-	case fieldRoleNullable:
+	case RoleNullable:
 		if value.Type == fieldTagNull {
 			target.SetZero()
 			return nil
 		}
-		element := reflect.New(binding.typ.Elem())
-		if err := decodePrimitiveInto(binding, element.Elem(), value); err != nil {
+		element := reflect.New(binding.Type.Elem())
+		if err := decodePrimitive(binding, element.Elem(), value); err != nil {
 			return err
 		}
 		target.Set(element)
 		return nil
 	default:
-		return decodePrimitiveInto(binding, target, value)
+		return decodePrimitive(binding, target, value)
 	}
 }
 
-func decodePrimitiveInto(binding fieldBinding, target reflect.Value, value fieldValue) error {
-	if value.Type != binding.kind.String() {
-		return fmt.Errorf("field %q has persisted type %q, want %q", binding.name, value.Type, binding.kind.String())
+func decodePrimitive(binding Binding, target reflect.Value, value Value) error {
+	if value.Type != binding.Kind.String() {
+		return fmt.Errorf("field %q has persisted type %q, want %q", binding.Name, value.Type, binding.Kind.String())
 	}
-	switch binding.kind {
+	switch binding.Kind {
 	case reflect.String:
 		target.SetString(value.Value.(string))
 		return nil
 	case reflect.Bool:
 		flag, ok := value.Value.(bool)
 		if !ok {
-			return fmt.Errorf("field %q bool value is %T", binding.name, value.Value)
+			return fmt.Errorf("field %q bool value is %T", binding.Name, value.Value)
 		}
 		target.SetBool(flag)
 		return nil
 	}
-	parsed, err := parsePrimitive(binding.kind, value.Value.(string))
+	parsed, err := parsePrimitive(binding.Kind, value.Value.(string))
 	if err != nil {
-		return fmt.Errorf("field %q: %w", binding.name, err)
+		return fmt.Errorf("field %q: %w", binding.Name, err)
 	}
 	switch number := parsed.(type) {
 	case int64:
@@ -258,26 +259,26 @@ func decodePrimitiveInto(binding fieldBinding, target reflect.Value, value field
 	return nil
 }
 
-// restoreSnapshot writes a captured snapshot back into instance's selected
+// Restore writes a captured snapshot back into instance's selected
 // fields. It is used to roll back a rejected transaction.
-func restoreSnapshot(schema *typeSchema, instance reflect.Value, snapshot fieldSnapshot) error {
-	for i, binding := range schema.fields {
-		if err := decodeFieldInto(binding, schema.fieldValueOf(instance, binding), snapshot[i]); err != nil {
+func Restore(schema *Schema, instance reflect.Value, snapshot Snapshot) error {
+	for i, binding := range schema.Fields {
+		if err := Decode(binding, schema.FieldValue(instance, binding), snapshot[i]); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-// copySelectedFields returns a fresh instance holding isolated copies of
+// CopySelected returns a fresh instance holding isolated copies of
 // instance's selected field values, whether or not they are valid.
-func copySelectedFields(schema *typeSchema, instance reflect.Value) reflect.Value {
-	duplicate := reflect.New(schema.typ)
-	for _, binding := range schema.fields {
-		source := schema.fieldValueOf(instance, binding)
-		target := schema.fieldValueOf(duplicate, binding)
-		if binding.role == fieldRoleNullable && !source.IsNil() {
-			element := reflect.New(binding.typ.Elem())
+func CopySelected(schema *Schema, instance reflect.Value) reflect.Value {
+	duplicate := reflect.New(schema.Type)
+	for _, binding := range schema.Fields {
+		source := schema.FieldValue(instance, binding)
+		target := schema.FieldValue(duplicate, binding)
+		if binding.Role == RoleNullable && !source.IsNil() {
+			element := reflect.New(binding.Type.Elem())
 			element.Elem().Set(source.Elem())
 			target.Set(element)
 			continue

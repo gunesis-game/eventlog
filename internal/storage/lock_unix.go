@@ -1,6 +1,6 @@
 //go:build !windows
 
-package eventlog
+package storage
 
 import (
 	"fmt"
@@ -8,9 +8,9 @@ import (
 	"syscall"
 )
 
-// acquireStorageLock takes an exclusive, non-blocking advisory lock that the
+// acquireLock takes an exclusive, non-blocking advisory lock that the
 // operating system releases when the owning process exits.
-func acquireStorageLock(path string) (*os.File, error) {
+func acquireLock(path string) (*os.File, error) {
 	f, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0o600)
 	if err != nil {
 		return nil, fmt.Errorf("open storage lock %q: %w", path, err)

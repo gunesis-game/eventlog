@@ -5,12 +5,15 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"os"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/gunesis-game/eventlog/internal/fieldschema"
+	"github.com/gunesis-game/eventlog/internal/identity"
+	"github.com/gunesis-game/eventlog/internal/storage"
 )
 
 // API-03/04/06, N-01, N-02, L-06, R-02: each transaction that changes an Event
@@ -99,14 +102,7 @@ func TestBatchLimitSplitsCommits(t *testing.T) {
 
 func countCommits(t *testing.T, rt *logRuntime) int {
 	t.Helper()
-	rt.store.mu.Lock()
-	path := rt.store.active.path
-	rt.store.mu.Unlock()
-	data, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return strings.Count(string(data), `"kind":"commit"`)
+	return countRecords(runtimeDirectory(rt), "commit")
 }
 
 // The car scenario (D-051): when a transaction fails, the accepted prefix is
@@ -261,11 +257,19 @@ func TestRejectionPausesUntilReceived(t *testing.T) {
 
 // D-051: a failed commit rolls back every transaction in the batch.
 func TestCommitFailureRollsBackBatch(t *testing.T) {
-	rt := openTestRuntime(t, t.TempDir(), fastStoreOptions(), fastPolicy())
+	dir := t.TempDir()
+	store, err := storage.Open(dir, fastStoreOptions())
+	if err != nil {
+		t.Fatal(err)
+	}
+	failing := &failingStore{occurrenceStore: store}
+	rt := newLogRuntime(failing, fastPolicy())
+	runtimeDirectories.Store(rt, dir)
+	t.Cleanup(func() {
+		_ = rt.close()
+	})
 	event, channel := prepareOrder(t, rt, testUUID(1), testUUID(2))
-	rt.store.mu.Lock()
-	rt.store.writeFailure = errors.New("disk on fire")
-	rt.store.mu.Unlock()
+	failing.fail(errors.New("disk on fire"))
 	release := gate(event)
 	setAmount(event, 1)
 	event.Transaction() <- func() error { event.Amount = 2; channel.Region = "us"; return nil }
@@ -279,9 +283,7 @@ func TestCommitFailureRollsBackBatch(t *testing.T) {
 			t.Errorf("batch not rolled back: amount %d region %q", event.Amount, channel.Region)
 		}
 	})
-	rt.store.mu.Lock()
-	rt.store.writeFailure = nil
-	rt.store.mu.Unlock()
+	failing.fail(nil)
 	setAmount(event, 3)
 	expectAmount(t, channel, 3)
 }
@@ -297,16 +299,13 @@ func TestChannelChangesTravelWithEvents(t *testing.T) {
 	expectAmount(t, channel, 2)
 	setAmount(event, 3)
 	expectAmount(t, channel, 3)
-	fields, _ := persistedChannelFields(rt.store, channel.id())
+	fields := lastChannelFields(rt, channel.id())
 	if !strings.Contains(fields, `"value":"us"`) {
 		t.Fatalf("persisted Channel snapshot = %s", fields)
 	}
-	rt.store.mu.Lock()
-	next := rt.store.nextSequence
-	rt.store.mu.Unlock()
 	// (Channel, Event, Commit) + (Channel, Event, Commit) + (Event, Commit)
-	if next != 9 {
-		t.Fatalf("next sequence = %d, want 9", next)
+	if records := len(persistedRecords(runtimeDirectory(rt))); records != 8 {
+		t.Fatalf("records = %d, want 8", records)
 	}
 }
 
@@ -585,7 +584,7 @@ func TestDeliveryRetriesSameOccurrence(t *testing.T) {
 	policy := fastPolicy()
 	var failures atomic.Int32
 	failures.Store(3)
-	policy.deliveryFault = func(_ uuid, event Event) error {
+	policy.deliveryFault = func(_ identity.UUID, event Event) error {
 		if event.(*OrderPlaced).Amount == 1 && failures.Add(-1) >= 0 {
 			return errors.New("temporary")
 		}
@@ -608,7 +607,7 @@ func TestDeliveryRetriesSameOccurrence(t *testing.T) {
 func TestDeliveryRetryExhaustionTerminatesOnlyThatChannel(t *testing.T) {
 	policy := fastPolicy()
 	doomed := (&Orders{ID: testUUID(1)}).id()
-	policy.deliveryFault = func(channelID uuid, _ Event) error {
+	policy.deliveryFault = func(channelID identity.UUID, _ Event) error {
 		if channelID == doomed {
 			return errors.New("permanent")
 		}
@@ -665,12 +664,12 @@ func TestConsumerClosedStreamIsDeliveryFailure(t *testing.T) {
 func TestUndecodableOccurrenceIsFatal(t *testing.T) {
 	rt := openTestRuntime(t, t.TempDir(), fastStoreOptions(), fastPolicy())
 	_, channel := prepareOrder(t, rt, testUUID(1), testUUID(2))
-	schema, _ := resolveTypeSchema(&OrderPlaced{})
-	err := rt.store.appendTransaction(channelWrite{id: channel.id(), typ: typeKey{pkgPath: "github.com/gunesis-game/eventlog", name: "Orders"}}, []occurrenceWrite{{
-		channelFields: map[string]interface{}{"ID": fieldValue{Type: "uuid", Value: uuid(testUUID(1)).String()}, "Region": fieldValue{Type: "string", Value: "eu"}},
-		eventID:       uuid(testUUID(5)),
-		eventType:     schema.key(),
-		eventFields:   map[string]interface{}{"Unexpected": fieldValue{Type: "bool", Value: true}},
+	schema, _ := resolveSchema(&OrderPlaced{})
+	err := rt.store.AppendTransaction(storage.ChannelWrite{ID: channel.id(), Type: fieldschema.TypeKey{PackagePath: "github.com/gunesis-game/eventlog", Name: "Orders"}}, []storage.OccurrenceWrite{{
+		ChannelFields: map[string]interface{}{"ID": fieldschema.Value{Type: "uuid", Value: identity.UUID(testUUID(1)).String()}, "Region": fieldschema.Value{Type: "string", Value: "eu"}},
+		EventID:       identity.UUID(testUUID(5)),
+		EventType:     schema.Key(),
+		EventFields:   map[string]interface{}{"Unexpected": fieldschema.Value{Type: "bool", Value: true}},
 	}})
 	if err != nil {
 		t.Fatal(err)
@@ -698,18 +697,18 @@ func TestCallerContextDoesNotOwnRuntime(t *testing.T) {
 func TestBurstOfCommitsDeliversEveryOccurrence(t *testing.T) {
 	rt := openTestRuntime(t, t.TempDir(), fastStoreOptions(), fastPolicy())
 	_, channel := prepareOrder(t, rt, testUUID(1), testUUID(2))
-	schema, _ := resolveTypeSchema(&OrderPlaced{})
-	orderID := uuid(testUUID(2))
-	eventID, _ := deriveIdentity(eventIdentityDomain, schema, orderID)
+	schema, _ := resolveSchema(&OrderPlaced{})
+	orderID := identity.UUID(testUUID(2))
+	eventID, _ := identity.Derive(identity.EventDomain, schema.Descriptor(), orderID)
 	const burst = 200
 	for i := 0; i < burst; i++ {
-		err := rt.store.appendTransaction(channelWrite{id: channel.id(), typ: typeKey{pkgPath: "github.com/gunesis-game/eventlog", name: "Orders"}}, []occurrenceWrite{{
-			channelFields: map[string]interface{}{"ID": fieldValue{Type: "uuid", Value: uuid(testUUID(1)).String()}, "Region": fieldValue{Type: "string", Value: "eu"}},
-			eventID:       eventID,
-			eventType:     schema.key(),
-			eventFields: map[string]interface{}{
-				"ID": fieldValue{Type: "uuid", Value: orderID.String()}, "Amount": fieldValue{Type: "int64", Value: fmt.Sprint(i)},
-				"Status": fieldValue{Type: "string", Value: ""}, "Note": fieldValue{Type: "null"},
+		err := rt.store.AppendTransaction(storage.ChannelWrite{ID: channel.id(), Type: fieldschema.TypeKey{PackagePath: "github.com/gunesis-game/eventlog", Name: "Orders"}}, []storage.OccurrenceWrite{{
+			ChannelFields: map[string]interface{}{"ID": fieldschema.Value{Type: "uuid", Value: identity.UUID(testUUID(1)).String()}, "Region": fieldschema.Value{Type: "string", Value: "eu"}},
+			EventID:       eventID,
+			EventType:     schema.Key(),
+			EventFields: map[string]interface{}{
+				"ID": fieldschema.Value{Type: "uuid", Value: orderID.String()}, "Amount": fieldschema.Value{Type: "int64", Value: fmt.Sprint(i)},
+				"Status": fieldschema.Value{Type: "string", Value: ""}, "Note": fieldschema.Value{Type: "null"},
 			},
 		}})
 		if err != nil {
@@ -724,18 +723,39 @@ func TestBurstOfCommitsDeliversEveryOccurrence(t *testing.T) {
 // ChannelError messages name the Channel, kind, Event, and cause.
 func TestChannelErrorMessage(t *testing.T) {
 	attempted := &OrderPlaced{ID: testUUID(2)}
-	failure := &ChannelError{Kind: TransactionRefused, Cause: errors.New("door jammed"), Events: []Event{attempted}, channelID: uuid(testUUID(1))}
+	failure := &ChannelError{Kind: TransactionRefused, Cause: errors.New("door jammed"), Events: []Event{attempted}, channelID: identity.UUID(testUUID(1))}
 	message := failure.Error()
 	for _, part := range []string{"channel 01010101-", "transaction refused", "OrderPlaced ", "door jammed", "queued behind it are rejected"} {
 		if !strings.Contains(message, part) {
 			t.Fatalf("message %q lacks %q", message, part)
 		}
 	}
-	fatal := &ChannelError{Kind: ReaderFailed, Cause: errors.New("bad"), channelID: uuid(testUUID(1))}
+	fatal := &ChannelError{Kind: ReaderFailed, Cause: errors.New("bad"), channelID: identity.UUID(testUUID(1))}
 	if strings.Contains(fatal.Error(), "queued") {
 		t.Fatalf("fatal message mentions queued transactions: %q", fatal.Error())
 	}
 	if ErrorKind(99).String() != "ErrorKind(99)" {
 		t.Fatal(ErrorKind(99).String())
 	}
+}
+
+// failingStore makes appends fail on demand, to exercise commit failures.
+type failingStore struct {
+	occurrenceStore
+	failure atomic.Pointer[error]
+}
+
+func (f *failingStore) fail(err error) {
+	if err == nil {
+		f.failure.Store(nil)
+		return
+	}
+	f.failure.Store(&err)
+}
+
+func (f *failingStore) AppendTransaction(channel storage.ChannelWrite, occurrences []storage.OccurrenceWrite) error {
+	if err := f.failure.Load(); err != nil {
+		return *err
+	}
+	return f.occurrenceStore.AppendTransaction(channel, occurrences)
 }

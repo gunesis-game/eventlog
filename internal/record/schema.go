@@ -1,4 +1,4 @@
-package eventlog
+package record
 
 import (
 	"bytes"
@@ -14,15 +14,15 @@ var canonicalSchemas embed.FS
 const schemaBase = "https://eventlog.gunesis-game.dev/schemas/v1/"
 
 const (
-	recordKindChannel = "channel"
-	recordKindEvent   = "event"
-	recordKindCommit  = "commit"
+	KindChannel = "channel"
+	KindEvent   = "event"
+	KindCommit  = "commit"
 )
 
 var recordSchemaFiles = map[string]string{
-	recordKindChannel: "channel.schema.json",
-	recordKindEvent:   "event.schema.json",
-	recordKindCommit:  "commit.schema.json",
+	KindChannel: "channel.schema.json",
+	KindEvent:   "event.schema.json",
+	KindCommit:  "commit.schema.json",
 }
 
 var canonicalSchemaFiles = []string{
@@ -33,14 +33,14 @@ var canonicalSchemaFiles = []string{
 	"commit.schema.json",
 }
 
-// recordSchemaValidator validates persisted JSON records against the canonical,
+// Validator validates persisted JSON records against the canonical,
 // embedded JSON Schema documents. It is internal so validation does not expand
 // eventlog's consumer-facing API.
-type recordSchemaValidator struct {
+type Validator struct {
 	compiled map[string]*jsonschema.Schema
 }
 
-func newRecordSchemaValidator() (*recordSchemaValidator, error) {
+func NewValidator() (*Validator, error) {
 	compiler := jsonschema.NewCompiler()
 
 	// Register all schemas first, allowing relative references to resolve locally.
@@ -67,10 +67,10 @@ func newRecordSchemaValidator() (*recordSchemaValidator, error) {
 		}
 		compiled[kind] = sch
 	}
-	return &recordSchemaValidator{compiled: compiled}, nil
+	return &Validator{compiled: compiled}, nil
 }
 
-func (v *recordSchemaValidator) validate(kind string, raw []byte) error {
+func (v *Validator) Validate(kind string, raw []byte) error {
 	sch, ok := v.compiled[kind]
 	if !ok {
 		return fmt.Errorf("unsupported record kind %q", kind)

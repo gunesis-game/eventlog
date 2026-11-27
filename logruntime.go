@@ -5,6 +5,10 @@ import (
 	"errors"
 	"sync"
 	"time"
+
+	"github.com/gunesis-game/eventlog/internal/fieldschema"
+	"github.com/gunesis-game/eventlog/internal/identity"
+	"github.com/gunesis-game/eventlog/internal/storage"
 )
 
 // errRuntimeStopped is returned internally when a test closes a runtime. The
@@ -20,7 +24,7 @@ type runtimePolicy struct {
 	deliveryAttempts   int
 	deliveryBackoff    time.Duration
 	// deliveryFault is a test-only fault-injection hook; nil in production.
-	deliveryFault func(channelID uuid, event Event) error
+	deliveryFault func(channelID identity.UUID, event Event) error
 }
 
 func defaultRuntimePolicy() runtimePolicy {
@@ -37,31 +41,44 @@ func defaultRuntimePolicy() runtimePolicy {
 // Channel runtimes, their Readers, and their transaction processors. It is not
 // tied to any PrepareLog caller's Context.
 type logRuntime struct {
-	store    *segmentStore
+	store    occurrenceStore
 	registry *typeRegistry
 	policy   runtimePolicy
 
 	mu       sync.Mutex
-	channels map[uuid]*channelRuntime
+	channels map[identity.UUID]*channelRuntime
 
 	closed    chan struct{}
 	closeOnce sync.Once
 	workers   sync.WaitGroup
 }
 
-func openLogRuntime(directory string, storeOptions segmentStoreOptions, policy runtimePolicy) (*logRuntime, error) {
-	store, err := openSegmentStore(directory, storeOptions)
+// occurrenceStore is the authoritative append log the runtime persists to and
+// reads from; *storage.Store implements it.
+type occurrenceStore interface {
+	AppendTransaction(channel storage.ChannelWrite, occurrences []storage.OccurrenceWrite) error
+	ChannelOccurrence(channelID identity.UUID, position int) (storage.Occurrence, bool, <-chan struct{})
+	ReadOccurrenceFrame(channelID identity.UUID, position int) ([]byte, error)
+	ChannelHistoryTypes(channelID identity.UUID) []fieldschema.TypeKey
+	Close() error
+}
+
+func openLogRuntime(directory string, storeOptions storage.Options, policy runtimePolicy) (*logRuntime, error) {
+	store, err := storage.Open(directory, storeOptions)
 	if err != nil {
 		return nil, err
 	}
-	rt := &logRuntime{
+	return newLogRuntime(store, policy), nil
+}
+
+func newLogRuntime(store occurrenceStore, policy runtimePolicy) *logRuntime {
+	return &logRuntime{
 		store:    store,
 		registry: newTypeRegistry(),
 		policy:   policy,
-		channels: make(map[uuid]*channelRuntime),
+		channels: make(map[identity.UUID]*channelRuntime),
 		closed:   make(chan struct{}),
 	}
-	return rt, nil
 }
 
 func (rt *logRuntime) startWorker(work func()) {
@@ -79,7 +96,7 @@ func (rt *logRuntime) close() error {
 	rt.closeOnce.Do(func() {
 		close(rt.closed)
 		rt.workers.Wait()
-		err = rt.store.close()
+		err = rt.store.Close()
 	})
 	return err
 }
@@ -121,7 +138,7 @@ func sharedLogRuntime(ctx context.Context, settings *configSettings) (*logRuntim
 }
 
 func initializeProcessRuntime(attempt *runtimeInitialization, directory string) {
-	rt, err := openLogRuntime(directory, defaultSegmentStoreOptions(), defaultRuntimePolicy())
+	rt, err := openLogRuntime(directory, storage.DefaultOptions(), defaultRuntimePolicy())
 	processLog.mu.Lock()
 	if err == nil {
 		processLog.runtime = rt
