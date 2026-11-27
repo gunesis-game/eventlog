@@ -722,6 +722,11 @@ browser).
   12.10) serving Google's own paths, with only the service addresses changed. It models Drive's observed
   behaviour (docs/research/drive-access-model.md), keeps its files on a real file system, and counts
   calls and bytes per account. No automated run calls real Google services.
+- **Order and rules testing (D-078):** the emulator's Firebase part is built first; the Drive backend and
+  Firebase change notifications then come together, so the boundary's change-event stream arrives with
+  its first producer. The emulator models the Firebase security rules in Go, as it does Drive; the
+  published rules text is checked in the manual run with real accounts rather than in Google's Firebase
+  emulator, so CI needs no Java or Firebase CLI.
 - **Compaction on Drive (D-067):** compaction keeps its trigger and protocol, building the merged segment as
   a Drive file and removing replaced segments as it does today. The Drive backend carries out `Remove` by
   moving the file to the Drive trash, so reads already in progress on other devices can finish; Drive
