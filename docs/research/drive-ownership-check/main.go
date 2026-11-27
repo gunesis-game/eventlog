@@ -328,8 +328,11 @@ func (c *check) offer() {
 	offer, _ := json.Marshal(map[string]any{"type": "user", "role": "writer", "emailAddress": c.owner, "pendingOwner": true})
 	status, body := c.do(http.MethodPost, driveAPI+"/files/"+url.PathEscape(file.ID)+"/permissions?fields=id,role,emailAddress,pendingOwner", offer, "application/json")
 	c.logf("Offer ownership to %s (create permission, pendingOwner) -> HTTP %d %s", c.owner, status, compact(body))
-	if status != http.StatusOK {
-		if existing := c.findPermission(file.ID, c.owner); existing != nil {
+	// The owner usually already has a writer permission inherited from the
+	// folder; creating one then returns it unchanged, without pendingOwner.
+	// Set pendingOwner on that permission instead.
+	if existing := c.findPermission(file.ID, c.owner); existing == nil || !existing.PendingOwner {
+		if existing != nil {
 			update, _ := json.Marshal(map[string]any{"role": "writer", "pendingOwner": true})
 			status, body = c.do(http.MethodPatch, driveAPI+"/files/"+url.PathEscape(file.ID)+"/permissions/"+url.PathEscape(existing.ID)+"?fields=id,role,emailAddress,pendingOwner", update, "application/json")
 			c.logf("  Retry by updating the owner's existing permission %s -> HTTP %d %s", existing.ID, status, compact(body))
