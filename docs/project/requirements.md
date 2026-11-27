@@ -125,7 +125,12 @@ from replay into live tailing. It is not tied to an event-sourcing framework or 
   Channel's error stream.
 - Changes committed on other devices are applied to the local live Event and Channel instances through the
   Channel's transaction queue (D-059), so local transactions always start from the converged current state.
-  Remote changes are also delivered as notifications.
+  Remote changes are also delivered as notifications. Live Event and Channel instances always hold the
+  converged current state (D-075): every delivered occurrence that becomes an Event's current state, this
+  device's own included, sets that live Event's selected fields, at replay after a restart and when an Event
+  is first prepared too, so after a restart live instances show the persisted state rather than their
+  constructor values. The live Channel's fields follow the Channel fields of the current occurrence with the
+  greatest clock reading. Nothing is persisted by applying them.
 
 ### Change detection and notifications
 - Consumers change Events and Channels through transactions sent on the Event's transaction channel

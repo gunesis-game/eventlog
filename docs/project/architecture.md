@@ -181,8 +181,9 @@ declaration; the identity field is part of the exposed schema. Field names are i
 must resolve to exactly one direct field, and named primitive types are supported. Nil remains distinct
 from a pointer to the zero value.
 
-Historical occurrences are reconstructed into fresh concrete Event pointers and never overwrite the
-prepared live Event pointer. Notification snapshots are immutable and independent of live values,
+Historical occurrences are reconstructed into fresh concrete Event pointers and never replace the
+prepared live Event pointer; the live instance's selected fields are set to the converged current state
+(D-075). Notification snapshots are immutable and independent of live values,
 persistence storage, and other notification snapshots. Historical Channel snapshots are likewise
 separate from the live Channel pointer. Concrete primitive types, widths, and nullability are preserved.
 
