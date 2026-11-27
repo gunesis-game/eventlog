@@ -5,6 +5,8 @@ import (
 	"errors"
 	"io"
 	"testing"
+
+	"github.com/gunesis-game/eventlog/internal/causal"
 )
 
 func testValidator(t *testing.T) *Validator {
@@ -16,6 +18,9 @@ func testValidator(t *testing.T) *Validator {
 	return v
 }
 
+// testDevice is the writing device of test Event records.
+const testDevice = "0b0b0b0b-0b0b-4b0b-8b0b-0b0b0b0b0b0b"
+
 func TestEncodeDecodeRecord(t *testing.T) {
 	v := testValidator(t)
 	record := Event{
@@ -26,6 +31,9 @@ func TestEncodeDecodeRecord(t *testing.T) {
 		ChannelID:     "87654321-4321-4321-4321-cba987654321",
 		Type:          Type{PackagePath: "example.org/app", Name: "Event"},
 		Fields:        map[string]interface{}{"message": map[string]interface{}{"type": "string", "value": "hello"}},
+		DeviceID:      testDevice,
+		Vector:        map[string]uint64{testDevice: 3},
+		HLC:           causal.Timestamp{WallMS: 1_800_000_000_000, Logical: 2},
 	}
 	frame, err := Encode(KindEvent, record, v)
 	if err != nil {

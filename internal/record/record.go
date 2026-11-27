@@ -10,6 +10,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+
+	"github.com/gunesis-game/eventlog/internal/causal"
 )
 
 var ErrIncompleteRecord = errors.New("incomplete record")
@@ -28,6 +30,11 @@ type Channel struct {
 	Fields        map[string]interface{} `json:"fields"`
 }
 
+// Event is one Event occurrence. DeviceID names the device that wrote it;
+// Vector is the Channel's version vector: for each device that has written to
+// the Channel, how many of that device's occurrences of the Channel the writer
+// had when it wrote this one, counting this one for the writer itself; HLC is
+// the writer's hybrid logical clock reading (D-064).
 type Event struct {
 	SchemaVersion int                    `json:"schema_version"`
 	Sequence      uint64                 `json:"sequence"`
@@ -36,6 +43,9 @@ type Event struct {
 	ChannelID     string                 `json:"channel_id"`
 	Type          Type                   `json:"type"`
 	Fields        map[string]interface{} `json:"fields"`
+	DeviceID      string                 `json:"device_id"`
+	Vector        map[string]uint64      `json:"vector"`
+	HLC           causal.Timestamp       `json:"hlc"`
 }
 
 type Commit struct {

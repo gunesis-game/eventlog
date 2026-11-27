@@ -95,10 +95,10 @@ const steps = [
   {
     title: "A's app places an order",
     note: "A transaction on device A changes an OrderPlaced Event. A commits it by appending three lines to its own segment: the Orders Channel (new in A's log), the Event, and a commit line. Drive makes the uploading account, bob, the file's owner. Nothing in B's folder changes.",
-    built: ["Transactions and commits"], planned: ["Causal fields (12.3)", "Drive backend (12.7)"],
+    built: ["Transactions and commits", "Causal fields (12.3)"], planned: ["Drive backend (12.7)"],
     drive: { segA: "w" }, a: 612, b: 0, ownerA: "bob", board: { A: 0, B: 0 },
     linesTitle: "Appended to devices/A/segments/segment-000001.ndjson",
-    lines: '{"kind":"channel","sequence":1,"id":"<Orders>","fields":{"region":"eu"},...}\n{"kind":"event","sequence":2,"id":"<OrderPlaced>","channel_id":"<Orders>","fields":{"amount":40},\n "device":"A","vector":{"A":1},"hlc":"...",...}\n{"kind":"commit","sequence":3,"transaction_id":1,"record_count":2,"checksum":"...",...}\n\nThe device, vector, and hlc fields are planned in 12.3; their final names are settled there.'
+    lines: '{"kind":"channel","sequence":1,"id":"<Orders>","fields":{"region":"eu"},...}\n{"kind":"event","sequence":2,"id":"<OrderPlaced>","channel_id":"<Orders>","fields":{"amount":40},\n "device_id":"<A>","vector":{"<A>":1},"hlc":{"wall_ms":1800000000000,"logical":0},...}\n{"kind":"commit","sequence":3,"transaction_id":1,"record_count":2,"checksum":"...",...}\n\n<A> and <B> stand for the identities of devices A and B, random UUIDs.'
   },
   {
     title: "A offers ownership and posts its position",
@@ -119,10 +119,10 @@ const steps = [
   {
     title: "B's app ships the order",
     note: "A transaction on device B changes an OrderShipped Event. B appends to its own segment: the Orders Channel (new in B's log), the Event, and a commit. Its vector records that B had already seen A's first occurrence. B is the owner, so its file needs no handover.",
-    built: ["Transactions and commits"], planned: ["Causal fields (12.3)", "Drive backend (12.7)"],
+    built: ["Transactions and commits", "Causal fields (12.3)"], planned: ["Drive backend (12.7)"],
     drive: { segB: "w" }, a: 612, b: 598, ownerA: "owner", board: { A: 612, B: 0 },
     linesTitle: "Appended to devices/B/segments/segment-000001.ndjson",
-    lines: '{"kind":"channel","sequence":1,"id":"<Orders>","fields":{"region":"eu"},...}\n{"kind":"event","sequence":2,"id":"<OrderShipped>","channel_id":"<Orders>","fields":{"carrier":"post"},\n "device":"B","vector":{"A":1,"B":1},"hlc":"...",...}\n{"kind":"commit","sequence":3,"transaction_id":1,"record_count":2,"checksum":"...",...}'
+    lines: '{"kind":"channel","sequence":1,"id":"<Orders>","fields":{"region":"eu"},...}\n{"kind":"event","sequence":2,"id":"<OrderShipped>","channel_id":"<Orders>","fields":{"carrier":"post"},\n "device_id":"<B>","vector":{"<A>":1,"<B>":1},"hlc":{"wall_ms":1800000000420,"logical":0},...}\n{"kind":"commit","sequence":3,"transaction_id":1,"record_count":2,"checksum":"...",...}'
   },
   {
     title: "B posts, and A reads B's folder",

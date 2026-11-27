@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"errors"
 	"testing"
+
+	"github.com/gunesis-game/eventlog/internal/causal"
 )
 
 func streamTestChannel(sequence uint64) Channel {
@@ -11,7 +13,7 @@ func streamTestChannel(sequence uint64) Channel {
 }
 
 func streamTestEvent(sequence uint64) Event {
-	return Event{SchemaVersion: 1, Sequence: sequence, Kind: KindEvent, ID: "87654321-4321-4321-4321-cba987654321", ChannelID: "12345678-1234-1234-1234-123456789abc", Type: Type{PackagePath: "example.org/test", Name: "Event"}, Fields: map[string]interface{}{}}
+	return Event{SchemaVersion: 1, Sequence: sequence, Kind: KindEvent, ID: "87654321-4321-4321-4321-cba987654321", ChannelID: "12345678-1234-1234-1234-123456789abc", Type: Type{PackagePath: "example.org/test", Name: "Event"}, Fields: map[string]interface{}{}, DeviceID: testDevice, Vector: map[string]uint64{testDevice: sequence}, HLC: causal.Timestamp{WallMS: int64(sequence)}}
 }
 
 func appendStreamRecord(t *testing.T, dst *bytes.Buffer, record interface{}, kind string, validator *Validator) []byte {

@@ -14,6 +14,7 @@ import (
 
 	"github.com/gunesis-game/eventlog/internal/filesystem"
 
+	"github.com/gunesis-game/eventlog/internal/causal"
 	"github.com/gunesis-game/eventlog/internal/fieldschema"
 	"github.com/gunesis-game/eventlog/internal/identity"
 	"github.com/gunesis-game/eventlog/internal/record"
@@ -32,6 +33,9 @@ type Options struct {
 	CompactionThreshold int
 	SyncInterval        time.Duration
 	SyncBytes           int64
+	// Now reads the wall clock for hybrid logical clock timestamps; nil means
+	// time.Now. Tests set it to step the clock.
+	Now func() time.Time
 }
 
 // DefaultOptions returns the production storage policy.
@@ -68,6 +72,8 @@ type Store struct {
 	server    *filesystem.Server
 	validator *record.Validator
 	options   Options
+	// device is this device's identity, recorded with every Event occurrence.
+	device identity.UUID
 
 	mu           sync.Mutex
 	manifest     manifest
@@ -76,9 +82,14 @@ type Store struct {
 	nextSequence uint64
 	unsynced     int64
 	index        *index
-	wake         chan struct{}
-	indexDirty   bool
-	writeFailure error
+	// clock stamps each Event occurrence with a hybrid logical clock reading.
+	clock *causal.Clock
+	// channelCounts holds, per Channel, how many occurrences this device has
+	// written to it: this device's entry in the Channel's version vector.
+	channelCounts map[identity.UUID]uint64
+	wake          chan struct{}
+	indexDirty    bool
+	writeFailure  error
 	// writeRefusal is the permission error of storage that refuses this
 	// device's writes, found at open or by a later write; nil while writes are
 	// permitted.
@@ -170,11 +181,11 @@ func openLockedLog(root *filesystem.Client, options Options, validator *record.V
 	if err := files.MakeDirectory(segmentsDirName); err != nil {
 		return nil, fmt.Errorf("create segments folder: %w", err)
 	}
-	recovered, err := (&recovery{files: files, validator: validator, index: newIndex(), nextSequence: 1}).run()
+	recovered, err := newRecovery(files, validator, device, false).run()
 	if err != nil {
 		return nil, err
 	}
-	return newStore(root, files, options, validator, recovered), nil
+	return newStore(root, files, device, options, validator, recovered), nil
 }
 
 // openReadOnly opens this device's log without writing. Storage where this
@@ -188,31 +199,34 @@ func openReadOnly(root *filesystem.Client, options Options, validator *record.Va
 	case err != nil:
 		return nil, err
 	default:
-		recovered, err = (&recovery{files: root.Sub(deviceLogDir(device)), validator: validator, index: newIndex(), nextSequence: 1, readOnly: true}).run()
+		recovered, err = newRecovery(root.Sub(deviceLogDir(device)), validator, device, true).run()
 		if err != nil {
 			return nil, err
 		}
 	}
-	s := newStore(root, root.Sub(deviceLogDir(device)), options, validator, recovered)
+	s := newStore(root, root.Sub(deviceLogDir(device)), device, options, validator, recovered)
 	s.writeRefusal = refusal
 	return s, nil
 }
 
-func newStore(root, files *filesystem.Client, options Options, validator *record.Validator, recovered *recovery) *Store {
+func newStore(root, files *filesystem.Client, device identity.UUID, options Options, validator *record.Validator, recovered *recovery) *Store {
 	s := &Store{
-		root:         root,
-		files:        files,
-		validator:    validator,
-		options:      options,
-		manifest:     recovered.manifest,
-		finalized:    recovered.finalized,
-		active:       recovered.active,
-		nextSequence: recovered.nextSequence,
-		index:        recovered.index,
-		indexRebuilt: recovered.indexRebuilt,
-		wake:         make(chan struct{}),
-		stop:         make(chan struct{}),
-		stopped:      make(chan struct{}),
+		root:          root,
+		files:         files,
+		device:        device,
+		clock:         causal.NewClock(recovered.lastHLC, options.Now),
+		channelCounts: recovered.channelCounts,
+		validator:     validator,
+		options:       options,
+		manifest:      recovered.manifest,
+		finalized:     recovered.finalized,
+		active:        recovered.active,
+		nextSequence:  recovered.nextSequence,
+		index:         recovered.index,
+		indexRebuilt:  recovered.indexRebuilt,
+		wake:          make(chan struct{}),
+		stop:          make(chan struct{}),
+		stopped:       make(chan struct{}),
 	}
 	go s.runSyncLoop()
 	return s
@@ -258,6 +272,8 @@ func (s *Store) AppendTransaction(channel ChannelWrite, occurrences []Occurrence
 		write    OccurrenceWrite
 	}
 	sequence := s.nextSequence
+	count := s.channelCounts[channel.ID]
+	device := s.device.String()
 	var frames [][]byte
 	var events []framedEvent
 	var transaction []byte
@@ -277,7 +293,9 @@ func (s *Store) AppendTransaction(channel ChannelWrite, occurrences []Occurrence
 			lastChannelFields = string(channelFields)
 			sequence++
 		}
-		eventRecord := record.Event{SchemaVersion: 1, Sequence: sequence, Kind: record.KindEvent, ID: occurrence.EventID.String(), ChannelID: channel.ID.String(), Type: record.Type{PackagePath: occurrence.EventType.PackagePath, Name: occurrence.EventType.Name}, Fields: occurrence.EventFields}
+		count++
+		eventRecord := record.Event{SchemaVersion: 1, Sequence: sequence, Kind: record.KindEvent, ID: occurrence.EventID.String(), ChannelID: channel.ID.String(), Type: record.Type{PackagePath: occurrence.EventType.PackagePath, Name: occurrence.EventType.Name}, Fields: occurrence.EventFields,
+			DeviceID: device, Vector: map[string]uint64{device: count}, HLC: s.clock.Tick()}
 		frame, err := record.Encode(record.KindEvent, eventRecord, s.validator)
 		if err != nil {
 			return err
@@ -321,6 +339,7 @@ func (s *Store) AppendTransaction(channel ChannelWrite, occurrences []Occurrence
 	s.nextSequence = commit.Sequence + 1
 	s.unsynced += int64(len(transaction))
 	s.index.setChannel(channel.ID, channelSnapshot{typ: channel.Type, fields: lastChannelFields})
+	s.channelCounts[channel.ID] = count
 	for _, event := range events {
 		s.index.add(&Occurrence{Sequence: event.sequence, EventID: event.write.EventID, ChannelID: channel.ID, Type: event.write.EventType, segment: s.active, offset: start + event.offset, length: event.length})
 	}

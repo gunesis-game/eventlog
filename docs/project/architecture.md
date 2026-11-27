@@ -532,7 +532,8 @@ memory use and platform parity precede numeric performance targets.
 
 **Status: Approved on 2026-11-27, being implemented in increments (cycle plan item 12).** This section
 designs the response to D-056 to D-059 and applies D-061 to D-072. Built so far: storage that refuses
-writes (D-068, D-072) and the device and log layout on local storage. Reading other devices' logs,
+writes (D-068, D-072), the device and log layout on local storage, and causal metadata in Event records
+(D-064). Reading other devices' logs,
 causal delivery, web storage, and change notifications are not built yet. Research:
 [causal ordering and conflicts](../research/causal-ordering-and-conflicts.md) and
 [cross-device notifications](../research/cross-device-notifications.md).
@@ -622,7 +623,19 @@ browser).
 - Each Event record adds the writing device's identity, the Channel's version vector (for each device that
   has written to the Channel, how many of its Channel occurrences this writer had delivered), and a hybrid
   logical clock timestamp. Vectors are scoped per Channel.
-- The v1 record format is changed in place; no released log exists.
+- The v1 record format is changed in place; no released log exists. Event records carry `device_id`,
+  `vector` (device identity to count, at least 1 each), and `hlc` (`wall_ms`, milliseconds since the Unix
+  epoch, and `logical`, a counter), all required by the Event schema.
+- The clock is a hybrid logical clock (`internal/causal`): a reading is the wall clock when it has moved
+  past the last reading, otherwise the last reading with its counter advanced, so readings strictly
+  increase even when the wall clock steps back. On restart it continues after the last reading in the
+  device's own log.
+- The writing device's own entry counts its occurrences of that Channel, this one included; the store keeps
+  these counts per Channel and recovery rebuilds them from the device's own log. Recovery fails closed
+  when an occurrence of the device's own log names another device, counts other than exactly one more
+  than the previous occurrence of its Channel, or has a clock reading not after the previous one.
+- Entries for other devices are added when occurrences from other devices are delivered (12.5); until then
+  each vector holds only the writer's own entry.
 
 ### Change notifications (D-063)
 

@@ -10,6 +10,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"github.com/gunesis-game/eventlog/internal/causal"
 	"github.com/gunesis-game/eventlog/internal/fieldschema"
 	"github.com/gunesis-game/eventlog/internal/filesystem"
 	"github.com/gunesis-game/eventlog/internal/identity"
@@ -29,7 +30,10 @@ var errCorruptStorage = errors.New("corrupt storage")
 type recovery struct {
 	files     *filesystem.Client
 	validator *record.Validator
-	readOnly  bool
+	// device is the identity of the device whose log this is; every Event
+	// occurrence in it must name it.
+	device   identity.UUID
+	readOnly bool
 	// empty marks fresh storage opened read-only: no manifest or segment
 	// exists, and none may be created.
 	empty        bool
@@ -39,6 +43,14 @@ type recovery struct {
 	finalized    []*segment
 	active       *segment
 	indexRebuilt bool
+	// channelCounts and lastHLC are the device's causal state at the end of
+	// its log: its occurrences per Channel, and its last clock reading.
+	channelCounts map[identity.UUID]uint64
+	lastHLC       causal.Timestamp
+}
+
+func newRecovery(files *filesystem.Client, validator *record.Validator, device identity.UUID, readOnly bool) *recovery {
+	return &recovery{files: files, validator: validator, device: device, readOnly: readOnly, index: newIndex(), nextSequence: 1, channelCounts: make(map[identity.UUID]uint64)}
 }
 
 func (r *recovery) run() (*recovery, error) {
@@ -114,7 +126,7 @@ func freshManifest() manifest {
 // emptyRecovery is the recovered state of a log that does not exist and may
 // not be created.
 func emptyRecovery() *recovery {
-	return &recovery{index: newIndex(), nextSequence: 1, readOnly: true, empty: true, manifest: freshManifest(), active: &segment{id: 1, path: segmentPath(1)}}
+	return &recovery{index: newIndex(), nextSequence: 1, readOnly: true, empty: true, manifest: freshManifest(), active: &segment{id: 1, path: segmentPath(1)}, channelCounts: make(map[identity.UUID]uint64)}
 }
 
 func (r *recovery) listSegmentIDs() ([]uint64, error) {
@@ -284,8 +296,32 @@ func (r *recovery) indexRecord(seg *segment, raw []byte, offset int64) error {
 		if err := validateRecordFields(event.Fields); err != nil {
 			return err
 		}
+		if err := r.checkCausal(event, channelID); err != nil {
+			return fmt.Errorf("event %s: %w", id, err)
+		}
 		r.index.add(&Occurrence{Sequence: event.Sequence, EventID: id, ChannelID: channelID, Type: fieldschema.TypeKey{PackagePath: event.Type.PackagePath, Name: event.Type.Name}, segment: seg, offset: offset, length: int64(len(raw)) + 1})
 	}
+	return nil
+}
+
+// checkCausal verifies an occurrence of this device's own log against the
+// causal state so far, then advances it: the occurrence names this device, its
+// vector counts exactly one more of this device's occurrences of the Channel,
+// and its clock reading follows the previous one (D-064).
+func (r *recovery) checkCausal(event record.Event, channelID identity.UUID) error {
+	device := r.device.String()
+	if event.DeviceID != device {
+		return fmt.Errorf("written by device %s, not %s", event.DeviceID, device)
+	}
+	count := r.channelCounts[channelID] + 1
+	if event.Vector[device] != count {
+		return fmt.Errorf("version vector counts %d of this device's occurrences of channel %s, want %d", event.Vector[device], channelID, count)
+	}
+	if event.HLC.Compare(r.lastHLC) != 1 {
+		return fmt.Errorf("clock reading %+v does not follow %+v", event.HLC, r.lastHLC)
+	}
+	r.channelCounts[channelID] = count
+	r.lastHLC = event.HLC
 	return nil
 }
 
