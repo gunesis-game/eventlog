@@ -30,15 +30,15 @@ from replay into live tailing. It is not tied to an event-sourcing framework or 
 - The designated identity field for both Events and Channels must contain a UUID represented by an
   unnamed [16]byte or a named type with that underlying type. Nullable and other underlying types
   are not permitted.
-  The zero UUID is not a valid identity: a Channel with a zero identity fails preparation, and an Event
-  change observed while its identity is zero is rejected without persistence (D-045).
+  The zero UUID is not a valid identity: an Event or Channel whose constructor leaves a zero identity
+  fails preparation (D-045, D-049).
 - Changes to non-identity Event fields create new immutable occurrences under the same logical Event
   identity. Repeated occurrences remain in history, including their Channel associations. The latest
   occurrence determines current/HEAD state.
 - Channel identity is stable for the same concrete Channel type, exposed schema, and designated UUID
-  identity. Non-identity Channel changes update the current Channel snapshot but do not independently
-  create Event occurrences. New Event occurrences use the latest Channel snapshot; prior occurrences
-  retain their original association.
+  identity. Channel changes are made only together with an Event change, so every occurrence records the
+  Channel state it was made with and Channel data never diverges from Event data (D-050, D-051). Prior
+  occurrences retain their original association.
 - Channels are created implicitly and atomically with the first successful append that uses them. Empty
   Channels are not persisted, and no standalone Channel-creation API is provided.
 
@@ -56,8 +56,7 @@ from replay into live tailing. It is not tied to an event-sourcing framework or 
   operation; configuration is not inferred from Context or environment variables.
 - The generic `TEvent` and `TChannel` arguments to `PrepareLog[TEvent, TChannel]` must be pointer types;
   non-pointer arguments are rejected during preparation. Repeating a compatible preparation for the same
-  concrete Event/Channel type pair and exposed field schemas returns the same live Event and Channel
-  pointer instances. Incompatible reuse of an already prepared type/schema registration fails explicitly
+  logical Event and Channel identities returns the same live Event and Channel pointer instances. Incompatible reuse of an already prepared type/schema registration fails explicitly
   rather than creating competing live instances.
 - Existing event-log storage is loaded and recovered as the system of record before eventlog resolves or
   creates any runtime Channel. A Channel is resolved by its stable Channel identity; event-specific
@@ -106,15 +105,18 @@ from replay into live tailing. It is not tied to an event-sourcing framework or 
   occurrences. Consumers do not directly control internal readers.
 
 ### Change detection and notifications
-- eventlog detects changes to selected Event and Channel fields on a managed cadence. Consumer-owned
-  concurrent mutations still require consumer synchronization.
-- The Channel interface defines `Notifications() <-chan Event`, where `Event` is the common interface implemented by concrete Event types. `TEvent` in `PrepareLog` is instead a concrete Event type constrained by `Event`; the required factory accepts `func(chan Event, chan error) TChannel` so one Channel can receive heterogeneous concrete Event values and asynchronous errors (D-047). Notifications carry concrete Event values as immutable snapshots after successful persistence. There is no `Notify` callback/sink method.
+- Consumers change Events and Channels through transactions sent on the Event's transaction channel
+  (D-049). Transactions on one Channel apply in send order, atomically, and race-free. A transaction can
+  refuse by returning an error. A rejected transaction is rolled back, transactions queued behind it are
+  rejected, and the consumer is told through a typed, distinguishable error before the Channel continues
+  (D-051, D-052).
+- The Channel interface defines `Notifications() <-chan Event`, where `Event` is the common interface implemented by concrete Event types. `TEvent` in `PrepareLog` is instead a concrete Event type constrained by `Event`; the required factories are `func(chan<- func() error) TEvent` and `func(chan Event, chan *ChannelError) TChannel`, so one Channel can receive heterogeneous concrete Event values and typed errors (D-049, D-052). Notifications carry concrete Event values as immutable snapshots after successful persistence. There is no `Notify` callback/sink method.
 - Notifications are channel-scoped, ordered, and lossless across buffer pressure or recovery. Slow
   consumers must not stall persistence. Pending deliveries are recovered and delivered before newer ones.
 - The runtime is process-lifetime scoped. Shared workers are owned by the process and are not cancelled by
   any caller's `PrepareLog` Context. eventlog does not initiate graceful shutdown, drain notifications,
   close notification/error streams, or perform a final sync at process exit. Process termination may
-  interrupt an append or notification delivery. Incomplete trailing transactions are discarded during
+  interrupt an append or notification delivery, and transactions not yet committed are lost. Incomplete trailing transactions are discarded during
   recovery; committed occurrences still present in the authoritative append log, including undelivered
   notifications, are replayed before newer occurrences on the next start. Duplicates may occur around a
   crash because consumers do not acknowledge delivery; exactly-once processing is not guaranteed. The no-gap/no-duplicate progression guarantee applies during normal operation, not across a crash boundary.

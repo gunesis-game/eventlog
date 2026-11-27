@@ -15,7 +15,7 @@ supports concurrent goroutine use but does not coordinate multiple processes or 
 Consumer Event/Channel domain semantics remain outside the library; the consumer explicitly selects
 persisted fields.
 
-The public preparation entry point is `PrepareLog[TEvent, TChannel]`. `TEvent` is a concrete Event type constrained by the common `Event` interface; `TChannel` is a concrete Channel type constrained by `Channel`. The required factory is `func(chan Event, chan error) TChannel` (D-047): eventlog creates both channels, the consumer stores them and returns them from `Notifications()` and `Errors()`, so the single Channel notification stream can carry heterogeneous concrete Event values and eventlog can publish asynchronous errors. The error channel has capacity one. The Channel interface exposes `Notifications() <-chan Event` and `Errors() <-chan error`. These approved contracts must not be expanded or changed without explicit user approval.
+The public preparation entry point is `PrepareLog[TEvent, TChannel]`. `TEvent` is a concrete Event type constrained by the common `Event` interface; `TChannel` is a concrete Channel type constrained by `Channel`. `PrepareLog(ctx, newEvent, newChannel)` takes two constructor factories (D-049): `newEvent func(chan<- func() error) TEvent` and `newChannel func(chan Event, chan *ChannelError) TChannel`. eventlog creates every channel those factories receive; the consumer stores them and returns them from `Event.Transaction()`, `Channel.Notifications()`, and `Channel.Errors()`. The Event interface is `Fields() Fields` plus `Transaction() chan<- func() error`; the Channel interface is `Fields() Fields`, `Notifications() <-chan Event`, and `Errors() <-chan *ChannelError` (D-052). These approved contracts must not be expanded or changed without explicit user approval.
 Consumers receive values, not a Log handle; internal Log owns append/read/next, persistence, recovery,
 change manager, synchronization and lifecycle. No public Log handle or
 Append/Read/Next/Close/Flush/Compact API is approved.
@@ -49,6 +49,13 @@ operation: an existing logical Channel reuses its existing pointer, runtime, and
 otherwise the candidate is adopted and the runtime is created. The factory is a constructor only. It must
 not start goroutines, open external resources, or perform other external side effects, because its
 candidate may be discarded when an existing runtime is reused.
+
+After the Channel runtime is resolved, preparation invokes the Event factory with that Channel's shared
+transaction channel, so the consumer can set the Event's identity and initial fields in its constructor
+(D-049). The candidate's `Transaction()` must return the channel it received. Its canonical Event identity
+selects the live instance: an existing logical Event on that Channel reuses its pointer and the candidate is
+discarded; otherwise the candidate is adopted. A Channel may therefore hold many live Events of one concrete
+type, one per logical Event identity. Preparation persists nothing; only transactions create occurrences.
 
 Concrete Event decoder registration is derived internally from the concrete TEvent generic argument.
 A successful registration remains available for the Log runtime lifetime and is keyed by concrete Event
@@ -94,10 +101,10 @@ is part of the API.
 - **Compactor:** Produces replacement segments/index without modifying reader-pinned files,
   validates/checksums and syncs them, finalizes, atomically switches manifest/index, and deletes old
   generations only after the last reader releases its pin.
-- **Change manager/scheduler:** One managed scheduler per prepared Log/change manager polls selected
-  Event/Channel fields every 100 ms; no per-field goroutines. Cadence is internal/test-only. Consumer
-  synchronizes its own mutations. Detected changes route to internal persistence.
-- **Notification dispatcher/backlog:** The Channel interface exposes `Notifications() <-chan Event` and `Errors() <-chan error`. One Channel owns one heterogeneous notification stream and one shared error stream. No `Notify` callback/sink method, public helper struct, or consumer embedding requirement is permitted. eventlog delivers immutable concrete Event snapshots after commit without blocking persistence/scheduler on slow consumers. The in-memory pending-delivery buffer is finite; a full buffer applies backpressure to the Channel Reader, which waits and resumes from its held position when capacity becomes available. This bounds notification-backlog memory without blocking persistence or discarding committed history. The authoritative committed append log remains the source of pending history; no separate durable queue is introduced. The error stream has capacity one, retains the first fatal error internally, and uses best-effort non-blocking delivery. Recoverable delivery errors may be retried only while the pending occurrence is retained and order/completeness are preserved; a failed occurrence is never silently skipped to advance the Reader. When retry policy declares a failure terminal, the Channel Reader terminates, reports the error through `Errors()`, and closes its streams after fatal-error reporting. Committed pending history remains recoverable from the authoritative log for a future runtime. Retry policy is internal: temporary delivery failures retry the same pending occurrence using bounded backoff and a finite retry limit; retry does not advance the Reader or permit later occurrences to overtake. On retry exhaustion, the Channel Reader terminates and reports through Errors(); committed pending history remains recoverable from the authoritative log. Other Channel Readers continue independently. Numeric buffer capacity, limits, delay values, and classification details are implementation/test policy, not public configuration. Exactly-once consumer processing is not guaranteed without consumer acknowledgment or transactional integration.
+- **Transaction processor:** One worker per logical Channel runtime receives transaction functions from
+  that Channel's shared, bounded transaction channel, applies them in send order, validates the result,
+  rolls back rejected changes, and group-commits accepted changes (see Transactions).
+- **Notification dispatcher/backlog:** The Channel interface exposes `Notifications() <-chan Event` and `Errors() <-chan error`. One Channel owns one heterogeneous notification stream and one shared error stream. No `Notify` callback/sink method, public helper struct, or consumer embedding requirement is permitted. eventlog delivers immutable concrete Event snapshots after commit without blocking persistence/scheduler on slow consumers. The in-memory pending-delivery buffer is finite; a full buffer applies backpressure to the Channel Reader, which waits and resumes from its held position when capacity becomes available. This bounds notification-backlog memory without blocking persistence or discarding committed history. The authoritative committed append log remains the source of pending history; no separate durable queue is introduced. The error stream carries `*ChannelError` values (D-052); its delivery rules are specified under Transactions. Recoverable delivery errors may be retried only while the pending occurrence is retained and order/completeness are preserved; a failed occurrence is never silently skipped to advance the Reader. When retry policy declares a failure terminal, the Channel Reader terminates, reports the error through `Errors()`, and closes its streams after fatal-error reporting. Committed pending history remains recoverable from the authoritative log for a future runtime. Retry policy is internal: temporary delivery failures retry the same pending occurrence using bounded backoff and a finite retry limit; retry does not advance the Reader or permit later occurrences to overtake. On retry exhaustion, the Channel Reader terminates and reports through Errors(); committed pending history remains recoverable from the authoritative log. Other Channel Readers continue independently. Numeric buffer capacity, limits, delay values, and classification details are implementation/test policy, not public configuration. Exactly-once consumer processing is not guaranteed without consumer acknowledgment or transactional integration.
 
 ### Registry key implementation boundary
 
@@ -134,16 +141,10 @@ prepared live Event pointer. Notification snapshots are immutable and independen
 persistence storage, and other notification snapshots. Historical Channel snapshots are likewise
 separate from the live Channel pointer. Concrete primitive types, widths, and nullability are preserved.
 
-The zero UUID is never a valid identity (D-045). PrepareLog fails when the Channel factory candidate has a
-zero identity. A prepared Event instance starts with a zero identity because eventlog allocates it; an
-untouched instance is ignored, while a selected-field change observed while the identity is still zero
-persists nothing and reports a validation error through the Channel error stream. One live Event instance
-exists per logical Channel runtime and concrete Event type. The first persisted non-zero identity binds the
-instance to its canonical logical identity, after which its designated identity field is immutable for that
-instance's lifetime. Change detection rejects an identity-value
-mutation and reports a descriptive asynchronous error through the existing Channel error stream. It does
-not create another logical Event, rewrite identity, or alter existing occurrences or HEAD. A different
-logical Event requires a separate prepared Event instance.
+The zero UUID is never a valid identity. PrepareLog fails when either factory's candidate has a zero
+identity (D-045, as revised by D-049). A prepared Event or Channel identity is immutable: a transaction
+that changes it is rejected as invalid state and rolled back (D-051). It does not create another logical
+Event, rewrite identity, or alter existing occurrences or HEAD.
 
 ## Record model and identity
 
@@ -163,13 +164,15 @@ transaction ID/count/checksum. Versioned JSON is stored as NDJSON; there is no l
   field-name schema, and designated identity field name/value, canonical encoding and UUID v5. The
   consumer-selected identity field must contain a UUID, not an arbitrary primitive or nullable value.
   Non-identity data changes keep logical ID and create new physical occurrences.
-- **Occurrence/HEAD:** each append or detected selected Event-field change creates an immutable physical
+- **Occurrence/HEAD:** each accepted transaction change to an Event's selected fields creates an immutable physical
   occurrence associated with one Channel. Older occurrences remain in history. Highest-sequence
   occurrence determines HEAD/current Channel association and ordering. Logical promotion is not a
   separate record.
-- **Transaction ID:** the global sequence of the first transaction record. Transaction order is Channel
-  record when new, Event occurrence, then Commit; existing-channel transactions contain Event then
-  Commit.
+- **Transaction ID:** the global sequence of the first transaction record. A persisted transaction
+  belongs to one Channel and contains one or more Event occurrences, each optionally preceded by a
+  Channel record carrying the Channel snapshot that occurrence was made with, then one Commit (D-050).
+  A Channel record is written only when the Channel is new or its snapshot differs from the last one
+  written.
 - **Sequence:** global across records and segments; Commit consumes a sequence but is excluded from
   transaction record count and checksum.
 
@@ -263,9 +266,9 @@ The canonical identity framing limits are settled by D-038.
 1.  Resolve selector bindings on direct fields; infer field names and require exactly one field-pointer
    match. Validate all Event and Channel fields, nullability, types, ranges and finite floats before any
    persistence. Validation failure leaves log unchanged.
-2.  Determine whether the Channel record is new or physically reusable.
+2.  For each occurrence in the batch, determine whether its Channel snapshot differs from the last Channel record written.
 3.  Assign consecutive global record sequence numbers to transaction records and Commit.
-4.  Serialize Channel (when new) and Event occurrence as newline-terminated NDJSON.
+4.  Serialize each needed Channel record followed by its Event occurrence as newline-terminated NDJSON.
 5.  Compute SHA-256 over exact serialized transaction-record bytes including terminating newlines;
    exclude Commit bytes and newline.
 6.  Write Commit marker last. It contains transaction ID (first transaction record sequence),
@@ -280,31 +283,46 @@ recovery truncates incomplete transaction from its start. Partial Commit is trea
 transaction. Append returns an internal error; no consumer-facing Append API is approved. Recoverable
 atomicity is distinct from power-loss durability before sync.
 
-## Change observation and persistence scheduling
+## Transactions
 
-Detected selected-field changes are captured as immutable snapshots and submitted to one bounded,
-Log-owned ingress queue. A Log-internal dispatcher schedules snapshots by canonical logical Event
-identity. Persistence for one logical Event is serial and preserves FIFO enqueue order; different logical
-Events may persist concurrently. Global sequence numbers are assigned centrally at commit.
+Consumers change Events and Channels only through transactions (D-049). A transaction is a
+`func() error` sent on an Event's `Transaction()` channel. All Events of one logical Channel share that
+Channel's transaction channel, so every transaction for the Channel is applied strictly in send order;
+different Channels proceed independently. The channel is buffered with a fixed internal capacity; senders
+block only when it is full, which bounds memory (D-050). Reading live fields safely also requires a
+transaction.
 
-Only consecutive unchanged observed states are suppressed. A later transition back to an earlier value
-is a new occurrence. Enqueued snapshots are retained and are not silently dropped or replaced. Periodic
-observation cannot guarantee capture of intermediate states that change and revert between observations.
+The Channel's transaction processor runs each function on its own goroutine, so only eventlog writes the
+live instances while a transaction runs. For each transaction it snapshots the Channel and every live Event
+of that Channel, runs the function, then validates the result. A transaction is rejected when the function
+returns an error (`TransactionRefused`), panics (`TransactionPanicked`), or leaves invalid state
+(`InvalidState`): a changed identity, an invalid field value, or a Channel change without any Event change
+(D-051). Channel fields change only inside a transaction that also changes an Event. A transaction that
+changes nothing is accepted and persists nothing. Each changed Event in an accepted transaction becomes one
+occurrence carrying the Channel snapshot after that transaction.
 
-When queue capacity is exhausted, eventlog pauses or delays internal monitoring/queueing work rather than
-blocking consumer assignments to ordinary Go struct fields. Consumers may continue mutating their
-structs while monitoring is paused; when monitoring resumes, the latest state it observes is captured,
-so intermediate unobserved states may be missed. Queue capacity, dispatch scheduling, and worker count
-are internal implementation details. Notifications become eligible only after the corresponding
-persistence transaction commits.
+Accepted transactions are group-committed (D-050): the processor keeps applying queued transactions and
+commits them as one atomic persisted transaction when the queue is empty or the batch reaches a fixed
+internal size. Notifications follow only after the commit.
 
-## Channel mutation and snapshot consistency
+Failures keep the prefix and reject the rest (D-051). When a transaction is rejected, its changes to the
+selected Channel and Event fields are rolled back; the accepted transactions before it in the batch are
+committed; and the failure is reported. If a commit fails (`CommitFailed`), every transaction in the batch
+is rolled back. Rollback restores only selected fields; unselected consumer fields are not tracked.
 
-Channel change observation uses the same identity-keyed bounded FIFO ingress/dispatch mechanism as Event change persistence, keyed by canonical logical Channel identity. Each logical Channel's snapshots are processed serially in FIFO order; different logical Channels may be processed concurrently. Snapshot capture and validation are Channel-specific, but there is no separate queue/persistence pipeline.
+A rejection pauses the Channel until the consumer receives the error (D-052). The error channel is
+unbuffered, so receipt is the acknowledgement. After receipt, every transaction still queued, which was sent
+before the consumer knew of the failure, is rejected without being run. Processing then resumes with later
+sends. If the Channel's streams have already closed after a fatal Reader error, rejected transactions are
+rolled back without pausing.
 
-Each captured Channel snapshot is immutable and isolated from the live consumer-owned Channel and persisted data. Consecutive unchanged observed snapshots are suppressed; a later transition back to an earlier state is a new change. Queue capacity is bounded; under pressure, monitoring/queueing is delayed rather than blocking consumer mutations, and already-enqueued snapshots are retained.
-
-FIFO guarantees order only after snapshots have been captured. eventlog does not guarantee an atomic snapshot while consumers concurrently mutate multiple ordinary Go fields; consumers remain responsible for synchronizing their own mutations. Channel identity is immutable after preparation: detected identity mutation is rejected and reported through the existing Channel error stream, without creating a new logical Channel or altering prior associations. Channel-only changes create no Event occurrence; the next Event occurrence uses the latest persisted Channel snapshot, while earlier Event occurrences retain their historical Channel association.
+`ChannelError` has `Kind` (an `ErrorKind`: `TransactionRefused`, `TransactionPanicked`, `InvalidState`,
+`CommitFailed`, `ReaderFailed`, `DeliveryFailed`), `Cause` (the consumer's error, the panic value, the
+field problem, or the I/O error, also returned by `Unwrap`), and `Events` (isolated copies of the attempted
+values of each Event the failed transaction changed, or of every Event in the batch for `CommitFailed`). Its
+message names the Channel identity, the kind, the Event types and identities, and the cause. `ReaderFailed`
+and `DeliveryFailed` are fatal for that Channel's Reader: the error is offered to the consumer, then the
+notification and error streams close.
 
 ## Open and recovery flow
 
@@ -425,18 +443,14 @@ existing readers continue on their pinned generation.
 ## Implementation notes
 
 The current implementation realizes this design as one Go package. Internal policy values (notification
-buffer 64, poll interval 100 ms, ingress queue 256, five delivery attempts with doubling backoff from
-10 ms, target segment size 64 MiB, compaction at 8 finalized segments, sync every 1 s or 1 MiB) are
+buffer 64, transaction buffer 64, batch limit 64 transactions, five delivery attempts with doubling backoff
+from 10 ms, target segment size 64 MiB, compaction at 8 finalized segments, sync every 1 s or 1 MiB) are
 implementation/test policy, not public configuration. Single-process ownership uses an OS-held lock file
 (`flock` on Linux, an unshared handle on Windows) that is released when the process exits. The derived
 index is held in memory and persisted to `index.json` at sync points; recovery always revalidates every
 segment and replaces a stored index that does not match. Each segment keeps one shared read handle for
 Readers, closed before the segment is deleted. Every process start replays a Channel's full committed
 history, because delivery has no acknowledgement.
-
-Consumer field mutations are not synchronized with the poller. In Go's memory model, a consumer write that
-overlaps a poll is a data race. The public API currently gives consumers no way to synchronize with polling,
-so race-free mutation cannot be expressed; this is an open design gap, not resolved behavior.
 
 ## Portability and dependencies
 
