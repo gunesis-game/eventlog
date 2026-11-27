@@ -372,11 +372,11 @@ notification and error streams close.
 Storage that refuses this device's writes (D-068) reports `fs.ErrPermission` through the file-system
 boundary (HTTP 403). The store then opens read-only: it writes nothing, takes no ownership lock, ignores an
 incomplete trailing transaction instead of truncating it, and keeps a rebuilt manifest or index in memory.
-While writes are refused, every transaction is refused with `WriteNotPermitted` before it runs, under the
-prefix rule, and its `Events` is empty; replay and notifications continue. A permission error during a
-commit reports `CommitFailed` with that cause and makes later transactions `WriteNotPermitted`, until the
-next start. Because refused transactions never run, a device that may not write cannot read live fields
-inside a transaction; it reads them from notifications.
+While writes are refused, transactions still run (D-072): one that changes nothing is accepted, so live
+fields can be read safely inside a transaction; one that changes an Event is rolled back and refused with
+`WriteNotPermitted`, carrying the attempted Events, under the prefix rule. Replay and notifications
+continue. A permission error during a commit reports `CommitFailed` with that cause, and later changes are
+refused with `WriteNotPermitted` until the next start.
 
 ## Open and recovery flow
 
@@ -552,10 +552,11 @@ D-059 and applies D-061 to D-071. The current implementation is single-device an
   ChannelError kinds `AuthorizationRequired`, `WriteNotPermitted`, and `ChangeEventsUnavailable`. Local
   storage produces `WriteNotPermitted` for a directory it may not write, and never the others.
 - **Storage that refuses writes:** when storage reports `fs.ErrPermission` for this device's writes at
-  start, every transaction is refused with `WriteNotPermitted` before its function runs, under the prefix
-  rule; reading, replay, and change notifications keep working. If writes become refused while running,
-  the failing commit reports `CommitFailed` with the permission error as its cause, and later
-  transactions get `WriteNotPermitted`. On Google Drive, a Viewer is such a device, and a device that
+  start, transactions still run, and one that changes an Event is rolled back and refused with
+  `WriteNotPermitted` under the prefix rule; one that changes nothing is accepted (D-072). Reading,
+  replay, and change notifications keep working. If writes become refused while running, the failing
+  commit reports `CommitFailed` with the permission error as its cause, and later changes get
+  `WriteNotPermitted`. On Google Drive, a Viewer is such a device, and a device that
   cannot write creates no device folder and no board entry.
 - Verified by the core's tests running unchanged against the local backend, and by a test that no core
   package imports a provider package.

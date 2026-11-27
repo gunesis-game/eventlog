@@ -29,9 +29,10 @@ const (
 	// DeliveryFailed means notification delivery retries were exhausted. The
 	// Channel's streams close after this error.
 	DeliveryFailed
-	// WriteNotPermitted means the storage does not permit this device to
-	// write, so the transaction was refused without being run. Reading,
-	// replay, and notifications continue.
+	// WriteNotPermitted means the transaction changed an Event while the
+	// storage does not permit this device to write, so it was rolled back.
+	// Transactions that change nothing still run; replay and notifications
+	// continue.
 	WriteNotPermitted
 )
 

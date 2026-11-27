@@ -139,14 +139,9 @@ func (p *transactionProcessor) run() {
 
 // processBatch applies transactions until the queue is empty or the batch
 // limit is reached, then commits. On a rejection, the accepted prefix is
-// committed and the failure is reported. While the storage refuses this
-// device's writes, the transaction is refused before it runs.
+// committed and the failure is reported.
 func (p *transactionProcessor) processBatch(first func() error) {
 	c := p.channel
-	if refusal := c.rt.store.WriteRefusal(); refusal != nil {
-		p.reject(c.newError(WriteNotPermitted, refusal, nil))
-		return
-	}
 	batch := &transactionBatch{originals: make(map[*liveEvent]fieldschema.Snapshot)}
 	next := first
 	for applied := 1; ; applied++ {
@@ -203,6 +198,13 @@ func (p *transactionProcessor) apply(batch *transactionBatch, fn func() error) *
 	channelChanged := !after.channel.Equal(before.channel)
 	if channelChanged && len(changed) == 0 {
 		return p.rollback(before, InvalidState, errChannelChangeWithoutEvent)
+	}
+	if len(changed) > 0 {
+		// Storage that refuses this device's writes still runs transactions,
+		// so live fields can be read safely; only a change is refused.
+		if refusal := c.rt.store.WriteRefusal(); refusal != nil {
+			return p.rollback(before, WriteNotPermitted, refusal)
+		}
 	}
 	if len(changed) > 0 && batch.channelOriginal == nil {
 		batch.channelOriginal = before.channel

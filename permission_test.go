@@ -68,10 +68,11 @@ func expectNoError(t *testing.T, channel Channel, wait time.Duration) {
 	}
 }
 
-// D-068: on storage that refuses this device's writes, transactions are
-// refused with WriteNotPermitted before they run, together with everything
-// queued behind them, while replay and notifications continue.
-func TestStorageRefusingWritesRefusesTransactions(t *testing.T) {
+// D-068, D-072: on storage that refuses this device's writes, a transaction
+// that changes an Event is rolled back and refused with WriteNotPermitted,
+// together with everything queued behind it; a transaction that changes
+// nothing still runs, so live fields can be read safely; replay continues.
+func TestStorageRefusingWritesRefusesChanges(t *testing.T) {
 	dir := t.TempDir()
 	writer := openTestRuntime(t, dir, fastStoreOptions(), fastPolicy())
 	event, channel := prepareOrder(t, writer, testUUID(1), testUUID(2))
@@ -85,29 +86,39 @@ func TestStorageRefusingWritesRefusesTransactions(t *testing.T) {
 	refusing.refuse()
 	event, channel = prepareOrder(t, rt, testUUID(1), testUUID(2))
 	expectAmount(t, channel, 1)
+	var before int64
+	read(event, func() { before = event.Amount })
 
-	var ran, queuedRan atomic.Bool
-	event.Transaction() <- func() error { ran.Store(true); event.Amount = 5; return nil }
+	var queuedRan atomic.Bool
+	release := gate(event)
+	event.Transaction() <- func() error { event.Amount = 5; return nil }
 	event.Transaction() <- func() error { queuedRan.Store(true); return nil }
+	release()
 
 	failure := receiveError(t, channel)
-	if failure.Kind != WriteNotPermitted || !errors.Is(failure, fs.ErrPermission) || len(failure.Events) != 0 {
+	if failure.Kind != WriteNotPermitted || !errors.Is(failure, fs.ErrPermission) || len(failure.Events) != 1 || failure.Events[0].(*OrderPlaced).Amount != 5 {
 		t.Fatalf("failure = %v (%d events)", failure, len(failure.Events))
 	}
 	if message := failure.Error(); !strings.Contains(message, "write not permitted") || !strings.Contains(message, "queued behind it are rejected") {
 		t.Fatalf("message = %q", message)
 	}
 	expectNoError(t, channel, 30*time.Millisecond)
-	if ran.Load() || queuedRan.Load() {
-		t.Fatal("a refused transaction was run")
+	if queuedRan.Load() {
+		t.Fatal("a transaction queued behind the refused one was run")
 	}
+	read(event, func() {
+		if event.Amount != before {
+			t.Errorf("amount = %d, want the rolled-back %d", event.Amount, before)
+		}
+	})
+	expectNoNotification(t, channel, 30*time.Millisecond)
 	if committedCount(rt) != 1 {
 		t.Fatalf("committed = %d, want 1", committedCount(rt))
 	}
 }
 
-// D-068: a commit refused while running is CommitFailed and rolled back;
-// later transactions are refused with WriteNotPermitted before they run.
+// D-068, D-072: a commit refused while running is CommitFailed and rolled
+// back; later changes are refused with WriteNotPermitted.
 func TestWriteRefusedWhileRunningSwitchesToWriteNotPermitted(t *testing.T) {
 	rt, refusing := openRefusingRuntime(t, t.TempDir())
 	event, channel := prepareOrder(t, rt, testUUID(1), testUUID(2))
@@ -120,14 +131,20 @@ func TestWriteRefusedWhileRunningSwitchesToWriteNotPermitted(t *testing.T) {
 	if failure.Kind != CommitFailed || !errors.Is(failure, fs.ErrPermission) || len(failure.Events) != 1 {
 		t.Fatalf("failure = %v (%d events)", failure, len(failure.Events))
 	}
+	read(event, func() {
+		if event.Amount != 1 {
+			t.Errorf("amount = %d, want the rolled-back 1", event.Amount)
+		}
+	})
 
-	var ran atomic.Bool
-	event.Transaction() <- func() error { ran.Store(true); event.Amount = 3; return nil }
-	if failure := receiveError(t, channel); failure.Kind != WriteNotPermitted || len(failure.Events) != 0 {
+	setAmount(event, 3)
+	if failure := receiveError(t, channel); failure.Kind != WriteNotPermitted || len(failure.Events) != 1 {
 		t.Fatalf("failure = %v (%d events)", failure, len(failure.Events))
 	}
-	if ran.Load() {
-		t.Fatal("a refused transaction was run")
-	}
+	read(event, func() {
+		if event.Amount != 1 {
+			t.Errorf("amount = %d, want the rolled-back 1", event.Amount)
+		}
+	})
 	expectNoNotification(t, channel, 30*time.Millisecond)
 }
