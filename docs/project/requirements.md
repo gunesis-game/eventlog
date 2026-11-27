@@ -30,6 +30,8 @@ from replay into live tailing. It is not tied to an event-sourcing framework or 
 - The designated identity field for both Events and Channels must contain a UUID represented by an
   unnamed [16]byte or a named type with that underlying type. Nullable and other underlying types
   are not permitted.
+  The zero UUID is not a valid identity: a Channel with a zero identity fails preparation, and an Event
+  change observed while its identity is zero is rejected without persistence (D-045).
 - Changes to non-identity Event fields create new immutable occurrences under the same logical Event
   identity. Repeated occurrences remain in history, including their Channel associations. The latest
   occurrence determines current/HEAD state.
@@ -106,7 +108,7 @@ from replay into live tailing. It is not tied to an event-sourcing framework or 
 ### Change detection and notifications
 - eventlog detects changes to selected Event and Channel fields on a managed cadence. Consumer-owned
   concurrent mutations still require consumer synchronization.
-- The Channel interface defines `Notifications() <-chan Event`, where `Event` is the common interface implemented by concrete Event types. `TEvent` in `PrepareLog` is instead a concrete Event type constrained by `Event`; the required factory accepts `func(chan Event) TChannel` so one Channel can receive heterogeneous concrete Event values. Notifications carry concrete Event values as immutable snapshots after successful persistence. There is no `Notify` callback/sink method.
+- The Channel interface defines `Notifications() <-chan Event`, where `Event` is the common interface implemented by concrete Event types. `TEvent` in `PrepareLog` is instead a concrete Event type constrained by `Event`; the required factory accepts `func(chan Event, chan error) TChannel` so one Channel can receive heterogeneous concrete Event values and asynchronous errors (D-047). Notifications carry concrete Event values as immutable snapshots after successful persistence. There is no `Notify` callback/sink method.
 - Notifications are channel-scoped, ordered, and lossless across buffer pressure or recovery. Slow
   consumers must not stall persistence. Pending deliveries are recovered and delivered before newer ones.
 - The runtime is process-lifetime scoped. Shared workers are owned by the process and are not cancelled by
@@ -120,7 +122,7 @@ from replay into live tailing. It is not tied to an event-sourcing framework or 
 ## Quality expectations and constraints
 - Correctness, recovery safety, predictable memory use, and Linux/Windows parity are prioritized ahead
   of numeric performance claims.
-- Go standard library only; local filesystem storage. Linux and Windows are equal-priority supported
+- Go standard library only, except the approved JSON Schema validation dependency (D-046); local filesystem storage. Linux and Windows are equal-priority supported
   platforms. macOS is excluded. Core behavior must not rely on platform-exclusive features.
 - No distributed coordination, multi-process writers, broker/database functionality, custom codecs, or
   domain-specific behavior.

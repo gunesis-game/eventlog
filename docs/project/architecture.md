@@ -15,7 +15,7 @@ supports concurrent goroutine use but does not coordinate multiple processes or 
 Consumer Event/Channel domain semantics remain outside the library; the consumer explicitly selects
 persisted fields.
 
-The public preparation entry point is `PrepareLog[TEvent, TChannel]`. `TEvent` is a concrete Event type constrained by the common `Event` interface; `TChannel` is a concrete Channel type constrained by `Channel`. The required factory is `func(chan Event) TChannel`, so the single Channel notification stream can carry heterogeneous concrete Event values. The Channel interface exposes `Notifications() <-chan Event` and `Errors() <-chan error`. These approved contracts must not be expanded or changed without explicit user approval.
+The public preparation entry point is `PrepareLog[TEvent, TChannel]`. `TEvent` is a concrete Event type constrained by the common `Event` interface; `TChannel` is a concrete Channel type constrained by `Channel`. The required factory is `func(chan Event, chan error) TChannel` (D-047): eventlog creates both channels, the consumer stores them and returns them from `Notifications()` and `Errors()`, so the single Channel notification stream can carry heterogeneous concrete Event values and eventlog can publish asynchronous errors. The error channel has capacity one. The Channel interface exposes `Notifications() <-chan Event` and `Errors() <-chan error`. These approved contracts must not be expanded or changed without explicit user approval.
 Consumers receive values, not a Log handle; internal Log owns append/read/next, persistence, recovery,
 change manager, synchronization and lifecycle. No public Log handle or
 Append/Read/Next/Close/Flush/Compact API is approved.
@@ -121,8 +121,11 @@ representation is permitted as long as these behaviors remain unchanged. This im
 
 ## Field selection, reconstruction, and identity integrity
 
-Consumers select direct fields using typed selectors. FieldOf accepts func(*T) *V for a non-nullable
-field; FieldOfNullable accepts func(*T) **V for a nullable field. Field names are inferred, selectors
+Consumers implement `Fields() Fields` on their Event and Channel pointer types and select direct fields
+using typed selectors. FieldOf accepts func(*T) *V for a non-nullable field; FieldOfNullable accepts
+func(*T) **V for a nullable field; IdentityOf accepts func(*T) *U, where U has underlying type [16]byte,
+and designates the UUID identity field (D-044). Exactly one IdentityOf selector is required per Fields()
+declaration; the identity field is part of the exposed schema. Field names are inferred, selectors
 must resolve to exactly one direct field, and named primitive types are supported. Nil remains distinct
 from a pointer to the zero value.
 
@@ -131,8 +134,13 @@ prepared live Event pointer. Notification snapshots are immutable and independen
 persistence storage, and other notification snapshots. Historical Channel snapshots are likewise
 separate from the live Channel pointer. Concrete primitive types, widths, and nullability are preserved.
 
-After a prepared Event instance is registered under its canonical logical identity, its designated
-identity field is immutable for that instance's lifetime. Change detection rejects an identity-value
+The zero UUID is never a valid identity (D-045). PrepareLog fails when the Channel factory candidate has a
+zero identity. A prepared Event instance starts with a zero identity because eventlog allocates it; an
+untouched instance is ignored, while a selected-field change observed while the identity is still zero
+persists nothing and reports a validation error through the Channel error stream. One live Event instance
+exists per logical Channel runtime and concrete Event type. The first persisted non-zero identity binds the
+instance to its canonical logical identity, after which its designated identity field is immutable for that
+instance's lifetime. Change detection rejects an identity-value
 mutation and reports a descriptive asynchronous error through the existing Channel error stream. It does
 not create another logical Event, rewrite identity, or alter existing occurrences or HEAD. A different
 logical Event requires a separate prepared Event instance.
@@ -400,6 +408,12 @@ The index is derived, generation-bound and rebuildable. It contains Event IDs, C
 HEAD/latest occurrence, global sequence, segment ID and byte offsets. Missing/stale/inconsistent index
 rebuilds from validated authoritative segments and is atomically replaced.
 
+Compaction is triggered internally (D-048): after a segment rotation, when the number of finalized segments
+reaches a fixed internal threshold, eventlog consolidates all finalized segments into one replacement
+segment. Every record, sequence number, and transaction is preserved byte-for-byte; compaction reduces file
+count and never removes history. The threshold is internal test/implementation policy, not public
+configuration.
+
 Compaction protocol: build replacement segments/index without modifying reader-pinned files →
 validate/checksum → sync → finalize/rename → atomically switch manifest/index → retain old generation
 while readers pin it → delete after last pin releases. Temporary files are ignored during recovery and
@@ -408,7 +422,9 @@ existing readers continue on their pinned generation.
 
 ## Portability and dependencies
 
-Use only Go standard library dependencies and local filesystem storage. Linux and Windows are
+Use only Go standard library dependencies and local filesystem storage, with one approved exception
+(D-046): `github.com/santhosh-tekuri/jsonschema/v6` validates records against the embedded canonical JSON
+Schemas. Linux and Windows are
 equal-priority supported platforms; macOS is excluded. If platform behavior differs or is unreliable,
 core functionality must use a strategy that works on both platforms. Correctness, recovery, predictable
 memory use and platform parity precede numeric performance targets.
