@@ -40,7 +40,7 @@ From the repository root:
 go run ./docs/research/drive-access-check -client oauth-client.json -apikey <API_KEY> -appid <PROJECT_NUMBER> -folder <FOLDER_ID>
 ```
 
-Sign in with the **second** account in the browser, approve, pick the shared folder in Picker, and wait for the report. Optionally run it a second time as the owner for comparison.
+The browser returns to `http://127.0.0.1:8765/` after sign-in; add `-port <N>` to use another port. Sign in with the **second** account in the browser, approve, pick the shared folder in Picker, and wait for the report. Optionally run it a second time as the owner for comparison.
 
 The program keeps the tokens in memory only and writes nothing to disk. It does create one small `drive-access-check-<time>.txt` file in the shared folder, which you can delete afterwards.
 

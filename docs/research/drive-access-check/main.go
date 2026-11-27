@@ -66,6 +66,7 @@ func main() {
 	apiKey := flag.String("apikey", "", "API key allowed to use the Google Picker API")
 	appID := flag.String("appid", "", "Google Cloud project number")
 	folderID := flag.String("folder", "", "ID of the folder the owner shared")
+	port := flag.Int("port", 8765, "fixed local port the browser returns to after sign-in")
 	flag.Parse()
 	if *apiKey == "" || *appID == "" || *folderID == "" {
 		log.Fatal("-apikey, -appid, and -folder are required; see README.md")
@@ -78,16 +79,18 @@ func main() {
 	if err := json.Unmarshal(raw, &c.client); err != nil || c.client.Installed.ClientID == "" {
 		log.Fatal("the client file must be a Desktop app OAuth client (it has an \"installed\" section)")
 	}
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	listener, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", *port))
 	if err != nil {
 		log.Fatal(err)
 	}
-	c.redirect = "http://" + listener.Addr().String() + "/callback"
+	// Google accepts any loopback port for Desktop-app clients; return to the
+	// root path, as its loopback examples do.
+	c.redirect = "http://" + listener.Addr().String() + "/"
 	c.verifier = randomString()
 	c.state = randomString()
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("/callback", c.callback)
+	mux.HandleFunc("/{$}", c.callback)
 	mux.HandleFunc("/picker", c.picker)
 	mux.HandleFunc("/picked", c.picked)
 	go func() {
