@@ -511,48 +511,85 @@ memory use and platform parity precede numeric performance targets.
 
 ## Multi-device operation (Proposed, D-060; not implemented)
 
-**Status: Proposed, awaiting approval.** This section designs the response to D-056 to D-059. The current
-implementation is single-device. The research behind it is in
-[docs/research/causal-ordering-and-conflicts.md](../research/causal-ordering-and-conflicts.md).
+**Status: Proposed, awaiting approval.** This section designs the response to D-056 to D-059 and applies
+D-061 to D-064. The current implementation is single-device and local-only. Research:
+[causal ordering and conflicts](../research/causal-ordering-and-conflicts.md) and
+[cross-device notifications](../research/cross-device-notifications.md).
 
-- **One log per device.** Each device writes only its own log inside the shared storage root, under
-  `devices/{deviceID}/` (manifest, index, segments), in the existing single-writer format. No file has two
-  writers, so storage that lacks append or compare-and-swap (such as Google Drive) stays safe. Each device's
-  ownership lock covers only its own folder.
-- **Device identity.** A device generates a random UUID on its first start and keeps it in local state on
-  that device, never in the shared root.
-- **Causal metadata on each occurrence.**
-  - Each Event record adds the writing device's identity.
-  - It adds the Channel's causal context: a version vector mapping each device that has written to that
-    Channel to how many of that device's Channel occurrences this writer had delivered when it wrote.
-  - It adds a hybrid logical clock timestamp.
-  - Vectors are scoped per Channel, so they hold entries only for devices that wrote to that Channel.
-  - This changes the persisted record format.
-- **Causal delivery.** A Channel's Reader reads every device's log for that Channel and delivers a remote
-  occurrence only once every occurrence in its version vector has been delivered (blocking causal delivery).
-  Unrelated occurrences are not delayed, so an offline device holds back only what depends on it.
-- **Conflicts.**
-  - When a delivered occurrence of a logical Event has a version vector concurrent with that Event's current
-    state, eventlog reports a conflict on the Channel's error stream, naming both occurrences.
-  - The current state is the occurrence with the greatest hybrid logical clock timestamp, with device
-    identity as the tie-break, so every device converges on the same state.
-  - A conflict is informational: both occurrences are already committed, so it neither rejects anything nor
-    pauses the Channel.
-- **Remote changes applied to live instances.**
-  - The Reader submits each delivered remote occurrence to the Channel's transaction processor, which sets
-    the local live instance's selected fields to the converged current state without persisting anything
-    (the occurrence is already persisted by its writer).
-  - Local transactions therefore stamp version vectors that include every remote occurrence they observed.
-- **Recovery.** A device fully recovers and may truncate only its own log. It reads other devices' logs
-  read-only, treats an incomplete trailing transaction there as not yet committed, and never modifies it.
-- **Discovering remote commits.** Storage change events (for the Google Drive backend, Drive change
-  notifications) wake the affected Channel Readers through the file-system server's event stream.
+### Configuration and identity
 
-Open points for approval:
-- Where each device keeps its local state, including its identity, given that the Google Drive endpoint has
-  no local directory.
-- Version vectors per Channel versus interval tree clocks for very large or churning device populations.
-- How the record format change is versioned, given that no log has been released.
+- `WithStorageEndpoint(GoogleDrive{Account, DeviceStateDirectory, OAuthClientFile})` selects Google Drive
+  (D-061):
+  - `Account` is the Google account the log belongs to; after sign-in eventlog verifies the signed-in account
+    matches and refuses to start otherwise.
+  - `DeviceStateDirectory` is a directory on this device only, never shared, holding this device's
+    identity, its one-process lock, and its Google refresh token. It must be on persistent storage; losing it
+    makes the machine a new device.
+  - `OAuthClientFile` is the OAuth client created in the user's free Google Cloud project.
+- Sign-in is Google OAuth as the user, approved once per device in a browser, with the browser returning to
+  the local file-system server (D-061). Service accounts are not used: since April 2025 they cannot own
+  files in a personal Drive.
+- A device generates a random device identity on first start and keeps it in its device state directory.
+- `WithStorageDirectory(path)` keeps its state inside that directory and serves one device.
+
+### Storage layout
+
+- Every backend uses a folder with the fixed name `eventlog` (D-062). On Drive it is found or created at the
+  top of the account's Drive and tagged as eventlog's; locally it is `<storage directory>/eventlog`.
+- The folder holds `log.json` with a permanent log identity generated once, so a log keeps its identity
+  across backends (D-062).
+- Each device writes only its own log under `devices/{deviceID}/` (manifest, index, segments), in the
+  single-writer format. No file has two writers, so storage without append or compare-and-swap stays safe.
+- On Drive, an append re-uploads the segment, so Drive segments are small (1 MiB), and every upload is
+  durable when it returns.
+
+### Causal metadata (D-064)
+
+- Each Event record adds the writing device's identity, the Channel's version vector (for each device that
+  has written to the Channel, how many of its Channel occurrences this writer had delivered), and a hybrid
+  logical clock timestamp. Vectors are scoped per Channel.
+- The v1 record format is changed in place; no released log exists.
+
+### Change notifications (D-063)
+
+- Notifications are generic file-change events of the file-system layer. Nothing above `internal/storage`
+  knows of them.
+- The Google Drive backend keeps a "latest position per device" board in Firebase Realtime Database:
+  `/eventlog/{logID}/devices/{deviceID} = {"path": "...", "size": N}`. Each device writes only its own
+  record, after its own successful Drive writes, at most once per file per second.
+- Every device streams `/eventlog/{logID}/devices` with server-sent events, over one outbound connection. The
+  stream starts with the current board, which gives a catch-up on connect, then delivers each change.
+- The file-system server forwards board changes as file-change events on its `/events` SSE stream to
+  `internal/storage`, which wakes the affected Channel Readers. A Reader expecting size N retries its read
+  briefly if Drive does not yet show N.
+- Authentication: the Google ID token from the user's sign-in is exchanged through Firebase Authentication
+  (`accounts:signInWithIdp`, `providerId=google.com`) for a Firebase ID token and refresh token; database
+  requests pass it as `auth=`, so security rules restrict the board to the owner account.
+- The board holds no data of value. If Firebase is unavailable or switched off for exceeding the free plan,
+  devices still commit, and see each other's changes at their next start.
+- The OS backend has no other writers and sends no change events.
+
+### Delivery, conflicts, and remote changes
+
+- **Causal delivery:** a Channel's Reader delivers a remote occurrence only once every occurrence in its
+  version vector has been delivered. Unrelated occurrences are not delayed.
+- **Conflicts:** an occurrence of a logical Event whose vector is concurrent with that Event's current state
+  is reported on the Channel's error stream, naming both occurrences. The current state is the greatest
+  hybrid logical clock timestamp, with device identity as the tie-break. Conflicts are informational: they
+  neither reject nor pause.
+- **Remote changes:** the Reader submits each delivered remote occurrence to the Channel's transaction
+  processor, which sets the live instance's selected fields to the converged current state without
+  persisting anything.
+- **Recovery:** a device fully recovers and may truncate only its own log; other devices' logs are read
+  read-only, and an incomplete trailing transaction there is treated as not yet committed.
+
+### Open points for approval
+
+- The Firebase project details eventlog needs (database URL and Firebase web API key) and where they come
+  from: another descriptor field, or derived from the OAuth client's project.
+- The database security rules restricting the board to the owner account, and who installs them.
+- Free-plan bounds: 100 online devices and 10 GB of downloads per month; heavy sustained writing across many
+  devices can exceed the download allowance.
 
 ## Unresolved architectural details
 

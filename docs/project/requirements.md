@@ -46,7 +46,9 @@ from replay into live tailing. It is not tied to an event-sourcing framework or 
 
 ### Configuration and initialization
 - Configuration is mandatory and separate from generic type selection and Context. The public configuration
-  API is `Config(options ...Option) error` and requires a storage-directory option.
+  API is `Config(options ...Option) error` and requires exactly one storage option: a local storage
+  directory (`WithStorageDirectory`), or a Google Drive endpoint (`WithStorageEndpoint`) whose descriptor
+  names the expected Google account, this device's state directory, and the OAuth client (D-061).
 - Configuration validation rejects nil options, duplicate settings, missing required settings, empty or
   whitespace paths, and invalid values. Failed validation is retryable.
 - Successful configuration is immutable and one-time. Attempts to configure again or after initialization
@@ -139,7 +141,9 @@ from replay into live tailing. It is not tied to an event-sourcing framework or 
 ## Quality expectations and constraints
 - Correctness, recovery safety, predictable memory use, and Linux/Windows parity are prioritized ahead
   of numeric performance claims.
-- Go standard library only, except the approved JSON Schema validation dependency (D-046); local filesystem storage. Linux and Windows are equal-priority supported
+- Go standard library only, except the approved JSON Schema validation dependency (D-046). Storage is the
+  local filesystem or Google Drive (D-061); cross-device change notifications use Firebase Realtime Database
+  (D-063). Deployment must work on free Google tiers with a personal Google account. Linux and Windows are equal-priority supported
   platforms. macOS is excluded. Core behavior must not rely on platform-exclusive features.
 - No central coordinator, broker/database functionality, custom codecs, or
   domain-specific behavior.
