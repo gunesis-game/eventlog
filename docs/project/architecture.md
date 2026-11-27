@@ -627,6 +627,10 @@ browser).
   `<Directory>/eventlog`, beside the device state folder `<Directory>/device`.
 - The folder holds `log.json` with a permanent log identity generated once, so a log keeps its identity
   across backends (D-062).
+- **Duplicate names on Drive (D-077):** Drive has no exclusive create, so two devices starting together
+  may each create `log.json`, `devices`, or another shared name in one folder. The Drive backend uses the
+  oldest by creation time, then file ID, and ignores later duplicates, as for the `eventlog` folder
+  (D-065). A device whose create lost reads the winner instead, so every device uses one log identity.
 - With Google Drive, the Drive backend keeps no local files other than the device state directory. Every
   manifest, index, segment, and temporary file of compaction or recovery is a Drive file in the owner's
   folder.
