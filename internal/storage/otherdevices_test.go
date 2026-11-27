@@ -83,7 +83,7 @@ func (l *sharedLog) restart(t *testing.T) {
 // log.
 func (l *sharedLog) device(t *testing.T, name string, options Options) *Store {
 	t.Helper()
-	s, err := open(l.root.Sub(name), l.root.Sub(localLogDir), options)
+	s, err := OpenFolders(l.root.Sub(name), l.root.Sub(localLogDir), options)
 	if err != nil {
 		t.Fatalf("open device %s: %v", name, err)
 	}

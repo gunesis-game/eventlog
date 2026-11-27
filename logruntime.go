@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/gunesis-game/eventlog/internal/causal"
 	"github.com/gunesis-game/eventlog/internal/fieldschema"
 	"github.com/gunesis-game/eventlog/internal/identity"
 	"github.com/gunesis-game/eventlog/internal/storage"
@@ -55,12 +56,23 @@ type logRuntime struct {
 	workers   sync.WaitGroup
 }
 
-// occurrenceStore is the authoritative append log the runtime persists to and
-// reads from; *storage.Store implements it.
+// occurrenceStore is the authoritative append log the runtime persists to, and
+// the logs of every device it reads from; *storage.Store implements it.
 type occurrenceStore interface {
 	AppendTransaction(channel storage.ChannelWrite, occurrences []storage.OccurrenceWrite) error
-	ChannelOccurrence(channelID identity.UUID, position int) (storage.Occurrence, bool, <-chan struct{})
+	// Device is this device's identity; Devices are the other devices whose
+	// logs are read.
+	Device() identity.UUID
+	Devices() []identity.UUID
+	// Changed is closed on the next commit and the next refresh of other
+	// devices' logs.
+	Changed() <-chan struct{}
 	ReadOccurrences(channelID identity.UUID, position, limit int) ([]storage.Occurrence, [][]byte, error)
+	DeviceOccurrences(device, channelID identity.UUID, position, limit int) ([]storage.Occurrence, [][]byte, error)
+	DeviceHistory(device identity.UUID) (missingFrom uint64, cause error)
+	// Delivered records that another device's occurrence count of a Channel
+	// was delivered, with its clock reading.
+	Delivered(channelID, device identity.UUID, count uint64, at causal.Timestamp)
 	ChannelHistoryTypes(channelID identity.UUID) []fieldschema.TypeKey
 	// WriteRefusal returns the storage's permission error while it refuses
 	// this device's writes, and nil while writes are permitted.

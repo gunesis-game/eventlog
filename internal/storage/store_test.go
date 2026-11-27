@@ -515,6 +515,9 @@ func readOneOccurrence(s *Store, channelID identity.UUID, position int) ([]byte,
 	if err != nil {
 		return nil, err
 	}
+	if len(frames) == 0 {
+		return nil, fmt.Errorf("channel %s has no occurrence %d", channelID, position)
+	}
 	return frames[0], nil
 }
 
@@ -541,8 +544,8 @@ func TestReadOccurrencesBatches(t *testing.T) {
 	if _, frames, _ := s.ReadOccurrences(identity.UUID(testUUID(1)), 8, 64); len(frames) != 2 {
 		t.Fatalf("tail batch = %d frames, want 2", len(frames))
 	}
-	if _, _, err := s.ReadOccurrences(identity.UUID(testUUID(1)), 10, 1); err == nil {
-		t.Fatal("reading past the last occurrence must fail")
+	if batch, frames, err := s.ReadOccurrences(identity.UUID(testUUID(1)), 10, 1); err != nil || len(batch) != 0 || len(frames) != 0 {
+		t.Fatalf("reading past the last occurrence = %d, %v; want nothing", len(batch), err)
 	}
 }
 

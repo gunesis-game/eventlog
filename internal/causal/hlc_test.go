@@ -60,6 +60,22 @@ func TestClockCounterOverflow(t *testing.T) {
 	}
 }
 
+// Observing another device's reading puts every later reading after it, and
+// an earlier reading changes nothing.
+func TestClockObserve(t *testing.T) {
+	wall := &manualTime{at: time.UnixMilli(1000)}
+	c := NewClock(Timestamp{}, wall.now)
+	first := c.Tick()
+	c.Observe(Timestamp{WallMS: 5000, Logical: 3})
+	if got := c.Tick(); got != (Timestamp{WallMS: 5000, Logical: 4}) {
+		t.Fatalf("after observing a later reading: %+v", got)
+	}
+	c.Observe(first)
+	if got := c.Tick(); got != (Timestamp{WallMS: 5000, Logical: 5}) {
+		t.Fatalf("after observing an earlier reading: %+v", got)
+	}
+}
+
 func TestCompare(t *testing.T) {
 	cases := []struct {
 		a, b Timestamp

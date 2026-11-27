@@ -34,6 +34,17 @@ const (
 	// Transactions that change nothing still run; replay and notifications
 	// continue.
 	WriteNotPermitted
+	// ConcurrentChange means two devices changed the same Event, each without
+	// knowing of the other's change. Events holds both occurrences, the one
+	// that holds the Event's current state first; every device settles on the
+	// same one. It is informational: nothing is rejected or paused.
+	ConcurrentChange
+	// HistoryMissing means part of another device's log is missing, such as a
+	// file removed from shared storage, and this Channel may depend on it.
+	// Cause names the device and where its missing history starts.
+	// Occurrences that depend on it are held, never skipped, and delivery
+	// resumes in order if the history returns; everything else keeps flowing.
+	HistoryMissing
 )
 
 func (k ErrorKind) String() string {
@@ -52,6 +63,10 @@ func (k ErrorKind) String() string {
 		return "delivery failed"
 	case WriteNotPermitted:
 		return "write not permitted"
+	case ConcurrentChange:
+		return "concurrent change"
+	case HistoryMissing:
+		return "history missing"
 	default:
 		return fmt.Sprintf("ErrorKind(%d)", int(k))
 	}
@@ -77,8 +92,9 @@ type ChannelError struct {
 	// problem, or the I/O error.
 	Cause error
 	// Events holds isolated copies of the attempted values of each Event the
-	// failed transaction changed, or of every Event in the batch for
-	// CommitFailed.
+	// failed transaction changed, of every Event in the batch for
+	// CommitFailed, or of the two concurrent occurrences for
+	// ConcurrentChange.
 	Events []Event
 
 	channelID identity.UUID

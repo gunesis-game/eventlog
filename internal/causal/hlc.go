@@ -43,6 +43,15 @@ func NewClock(last Timestamp, now func() time.Time) *Clock {
 	return &Clock{last: last, now: now}
 }
 
+// Observe records a reading from another device, so every later reading of
+// this clock comes after it: a reading that causally follows another is
+// always the greater.
+func (c *Clock) Observe(t Timestamp) {
+	if t.Compare(c.last) == 1 {
+		c.last = t
+	}
+}
+
 // Tick returns the next timestamp: the wall clock when it has moved past the
 // last reading, otherwise the last reading with its counter advanced.
 func (c *Clock) Tick() Timestamp {

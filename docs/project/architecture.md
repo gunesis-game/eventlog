@@ -634,8 +634,11 @@ browser).
   these counts per Channel and recovery rebuilds them from the device's own log. Recovery fails closed
   when an occurrence of the device's own log names another device, counts other than exactly one more
   than the previous occurrence of its Channel, or has a clock reading not after the previous one.
-- Entries for other devices are added when occurrences from other devices are delivered (12.5); until then
-  each vector holds only the writer's own entry.
+- Entries for other devices are added as their occurrences are delivered: an occurrence's vector counts,
+  for each other device, how many of its occurrences of the Channel this device had delivered when it was
+  written. The store keeps these counts per Channel and recovery rebuilds them from the device's own log.
+- Delivering another device's occurrence moves the clock past its reading, so an occurrence written
+  knowing of another always has the greater reading.
 
 ### Change notifications (D-063)
 
@@ -660,12 +663,15 @@ browser).
 ### Delivery, conflicts, and remote changes
 
 - **Causal delivery:** a Channel's Reader delivers a remote occurrence only once every occurrence in its
-  version vector has been delivered. Unrelated occurrences are not delayed.
+  version vector has been delivered. Unrelated occurrences are not delayed. The Reader merges this
+  device's log with every other device's; among ready occurrences the earliest clock reading goes first,
+  with device identity breaking ties, so replaying the same history gives the same order on every device.
+  The Reader waits for a commit or a refresh of other devices' logs, never polling.
 - **Conflicts:** an occurrence of a logical Event whose vector is concurrent with that Event's current state
   is reported on the Channel's error stream with the ChannelError kind `ConcurrentChange` (D-074), naming
-  both occurrences. The current state is the greatest
-  hybrid logical clock timestamp, with device identity as the tie-break. Conflicts are informational: they
-  neither reject nor pause.
+  both occurrences, the one holding the current state first. The current state is the greatest hybrid
+  logical clock timestamp, with device identity as the tie-break; an occurrence written knowing of the
+  current state replaces it. Conflicts are informational: they neither reject nor pause.
 - **Remote changes:** the Reader submits each delivered remote occurrence to the Channel's transaction
   processor, which sets the live instance's selected fields to the converged current state without
   persisting anything.
@@ -684,7 +690,7 @@ browser).
   valid history up to the first damaged transaction, missing file, or record failing the checks above is
   kept; everything from there on is treated as missing history (D-070) until a refresh finds it readable
   again. This device's own log still fails closed. Missing history is detected when a log is read and
-  reported on the affected Channels by causal delivery (12.5).
+  reported on the affected Channels by causal delivery.
 - **Compaction on Drive (D-067):** compaction keeps its trigger and protocol, building the merged segment as
   a Drive file and removing replaced segments as it does today. The Drive backend carries out `Remove` by
   moving the file to the Drive trash, so reads already in progress on other devices can finish; Drive
@@ -692,7 +698,9 @@ browser).
   implementation: that a trashed file in the owner's folder stays readable by ID for other accounts.
 - **Missing history (D-070):** when a file another device's manifest names, or that device's manifest
   itself, is reported missing (`fs.ErrNotExist`), each affected Channel reports one ChannelError of a new
-  kind `HistoryMissing`, naming the device and the missing sequence range. Occurrences that depend on the
+  kind `HistoryMissing`, naming the device and the missing sequence range. A Channel is affected when it
+  has delivered occurrences of that device or holds an occurrence waiting on more of them; which Channels
+  the missing records belonged to cannot be known. Occurrences that depend on the
   missing ones stay held, so causal order is never broken; unrelated occurrences keep flowing. If the files
   return, for example restored from the trash, a file-change event wakes the Reader and delivery resumes in
   order. With D-069 this arises only for a file removed before an owner's device accepted it, or removed by

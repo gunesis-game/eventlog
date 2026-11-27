@@ -28,7 +28,8 @@ type otherLog struct {
 }
 
 // Refresh opens the logs of devices that have appeared under the log folder
-// and reads what every other device has appended since the last refresh.
+// and reads what every other device has appended since the last refresh, then
+// wakes the callers waiting on Changed.
 // Damage in another device's log is recorded, never returned (D-073); the
 // error reports only that the devices could not be listed.
 func (s *Store) Refresh() error {
@@ -53,6 +54,9 @@ func (s *Store) Refresh() error {
 		s.mu.Unlock()
 		other.refresh()
 	}
+	s.mu.Lock()
+	s.changedLocked()
+	s.mu.Unlock()
 	return nil
 }
 

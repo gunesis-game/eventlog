@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"maps"
 	"path"
 	"sync"
 	"time"
@@ -88,12 +89,16 @@ type Store struct {
 	index        *index
 	// clock stamps each Event occurrence with a hybrid logical clock reading.
 	clock *causal.Clock
-	// channelCounts holds, per Channel, how many occurrences this device has
-	// written to it: this device's entry in the Channel's version vector.
-	channelCounts map[identity.UUID]uint64
-	wake          chan struct{}
-	indexDirty    bool
-	writeFailure  error
+	// vectors holds, per Channel, the version vector of this device's next
+	// occurrence before its own entry is advanced: how many occurrences of the
+	// Channel this device has written, and how many of each other device's it
+	// has delivered.
+	vectors map[identity.UUID]map[string]uint64
+	// wake is closed and replaced when this device commits or a refresh reads
+	// other devices' logs.
+	wake         chan struct{}
+	indexDirty   bool
+	writeFailure error
 	// writeRefusal is the permission error of storage that refuses this
 	// device's writes, found at open or by a later write; nil while writes are
 	// permitted.
@@ -137,16 +142,18 @@ func Open(directory string, options Options) (*Store, error) {
 // openLocal opens the store of a Local directory served at root, which holds
 // the device state folder and the log folder side by side.
 func openLocal(root *filesystem.Client, options Options) (*Store, error) {
-	return open(root.Sub(localDeviceStateDir), root.Sub(localLogDir), options)
+	return OpenFolders(root.Sub(localDeviceStateDir), root.Sub(localLogDir), options)
 }
 
-// open recovers this device's log in the log folder, creating the log's and
+// OpenFolders opens this device's store on a device state folder and a log
+// folder served by file-system clients, which several devices may share. It
+// recovers this device's log in the log folder, creating the log's and
 // this device's identities on first use, and opens every other device's log
 // read-only. When the storage refuses a write that opening needs
 // (fs.ErrPermission), it opens again read-only: nothing is written, the
 // ownership lock is not taken, recovery repairs nothing, and every append fails
 // with that permission error.
-func open(state, log *filesystem.Client, options Options) (*Store, error) {
+func OpenFolders(state, log *filesystem.Client, options Options) (*Store, error) {
 	validator, err := record.NewValidator()
 	if err != nil {
 		return nil, err
@@ -229,24 +236,24 @@ func openReadOnly(state, log *filesystem.Client, options Options, validator *rec
 
 func newStore(state, log, files *filesystem.Client, device identity.UUID, options Options, validator *record.Validator, recovered *recovery) *Store {
 	s := &Store{
-		state:         state,
-		log:           log,
-		files:         files,
-		others:        make(map[identity.UUID]*otherLog),
-		device:        device,
-		clock:         causal.NewClock(recovered.lastHLC, options.Now),
-		channelCounts: recovered.channelCounts,
-		validator:     validator,
-		options:       options,
-		manifest:      recovered.manifest,
-		finalized:     recovered.finalized,
-		active:        recovered.active,
-		nextSequence:  recovered.nextSequence,
-		index:         recovered.index,
-		indexRebuilt:  recovered.indexRebuilt,
-		wake:          make(chan struct{}),
-		stop:          make(chan struct{}),
-		stopped:       make(chan struct{}),
+		state:        state,
+		log:          log,
+		files:        files,
+		others:       make(map[identity.UUID]*otherLog),
+		device:       device,
+		clock:        causal.NewClock(recovered.lastHLC, options.Now),
+		vectors:      recovered.vectors,
+		validator:    validator,
+		options:      options,
+		manifest:     recovered.manifest,
+		finalized:    recovered.finalized,
+		active:       recovered.active,
+		nextSequence: recovered.nextSequence,
+		index:        recovered.index,
+		indexRebuilt: recovered.indexRebuilt,
+		wake:         make(chan struct{}),
+		stop:         make(chan struct{}),
+		stopped:      make(chan struct{}),
 	}
 	go s.runSyncLoop()
 	return s
@@ -292,7 +299,10 @@ func (s *Store) AppendTransaction(channel ChannelWrite, occurrences []Occurrence
 		write    OccurrenceWrite
 	}
 	sequence := s.nextSequence
-	count := s.channelCounts[channel.ID]
+	vector := maps.Clone(s.vectors[channel.ID])
+	if vector == nil {
+		vector = make(map[string]uint64)
+	}
 	device := s.device.String()
 	var frames [][]byte
 	var events []framedEvent
@@ -313,9 +323,9 @@ func (s *Store) AppendTransaction(channel ChannelWrite, occurrences []Occurrence
 			lastChannelFields = string(channelFields)
 			sequence++
 		}
-		count++
+		vector[device]++
 		eventRecord := record.Event{SchemaVersion: 1, Sequence: sequence, Kind: record.KindEvent, ID: occurrence.EventID.String(), ChannelID: channel.ID.String(), Type: record.Type{PackagePath: occurrence.EventType.PackagePath, Name: occurrence.EventType.Name}, Fields: occurrence.EventFields,
-			DeviceID: device, Vector: map[string]uint64{device: count}, HLC: s.clock.Tick()}
+			DeviceID: device, Vector: maps.Clone(vector), HLC: s.clock.Tick()}
 		frame, err := record.Encode(record.KindEvent, eventRecord, s.validator)
 		if err != nil {
 			return err
@@ -359,7 +369,7 @@ func (s *Store) AppendTransaction(channel ChannelWrite, occurrences []Occurrence
 	s.nextSequence = commit.Sequence + 1
 	s.unsynced += int64(len(transaction))
 	s.index.setChannel(channel.ID, channelSnapshot{typ: channel.Type, fields: lastChannelFields})
-	s.channelCounts[channel.ID] = count
+	s.vectors[channel.ID] = vector
 	for _, event := range events {
 		s.index.add(&Occurrence{Sequence: event.sequence, EventID: event.write.EventID, ChannelID: channel.ID, Type: event.write.EventType, segment: s.active, offset: start + event.offset, length: event.length})
 	}
@@ -367,8 +377,7 @@ func (s *Store) AppendTransaction(channel ChannelWrite, occurrences []Occurrence
 	if s.unsynced >= s.options.SyncBytes {
 		s.syncLocked()
 	}
-	close(s.wake)
-	s.wake = make(chan struct{})
+	s.changedLocked()
 	return nil
 }
 
@@ -476,17 +485,40 @@ func (s *Store) runSyncLoop() {
 	}
 }
 
-// ChannelOccurrence returns the position-th committed occurrence of a Channel.
-// When none exists yet it returns ok=false and a wake channel closed on the
-// next commit; callers must recheck after waking.
-func (s *Store) ChannelOccurrence(channelID identity.UUID, position int) (Occurrence, bool, <-chan struct{}) {
+// Device returns this device's identity.
+func (s *Store) Device() identity.UUID {
+	return s.device
+}
+
+// Changed returns a channel closed on the next commit of this device and the
+// next refresh of other devices' logs; callers take it before reading and
+// read again after it closes.
+func (s *Store) Changed() <-chan struct{} {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	occurrence, ok := s.index.occurrence(channelID, position)
-	if !ok {
-		return Occurrence{}, false, s.wake
+	return s.wake
+}
+
+// changedLocked wakes the callers waiting on Changed.
+func (s *Store) changedLocked() {
+	close(s.wake)
+	s.wake = make(chan struct{})
+}
+
+// Delivered records that this device delivered occurrence count of a Channel
+// from another device's log, with clock reading at: later occurrences this
+// device writes to the Channel count it in their version vectors, and their
+// clock readings come after it (D-064).
+func (s *Store) Delivered(channelID, device identity.UUID, count uint64, at causal.Timestamp) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	vector := s.vectors[channelID]
+	if vector == nil {
+		vector = make(map[string]uint64)
+		s.vectors[channelID] = vector
 	}
-	return *occurrence, true, nil
+	vector[device.String()] = max(vector[device.String()], count)
+	s.clock.Observe(at)
 }
 
 // maxReadSpan bounds the bytes one batched occurrence read fetches.
@@ -496,13 +528,14 @@ const maxReadSpan = 1 << 20
 // Channel starting at position, with their record bytes (without newlines).
 // The batch stays within one segment and maxReadSpan bytes, so it is fetched
 // with a single ranged read. The segment is pinned so compaction cannot
-// delete it mid-read. At least one occurrence must exist at position.
+// delete it mid-read. An empty result means there is no occurrence at
+// position yet.
 func (s *Store) ReadOccurrences(channelID identity.UUID, position, limit int) ([]Occurrence, [][]byte, error) {
 	s.mu.Lock()
 	batch := collectBatch(s.index, channelID, position, limit)
 	if len(batch) == 0 {
 		s.mu.Unlock()
-		return nil, nil, fmt.Errorf("channel %s has no occurrence %d", channelID, position)
+		return nil, nil, nil
 	}
 	seg := batch[0].segment
 	seg.refs++

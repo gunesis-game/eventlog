@@ -45,10 +45,12 @@ type recovery struct {
 	finalized    []*segment
 	active       *segment
 	indexRebuilt bool
-	// channelCounts and lastHLC are the device's causal state at the end of
-	// its log: its occurrences per Channel, and its last clock reading.
-	channelCounts map[identity.UUID]uint64
-	lastHLC       causal.Timestamp
+	// vectors and lastHLC are the device's causal state at the end of its
+	// log: per Channel, the version vector of its last occurrence, which
+	// counts its own occurrences and those of other devices it had delivered;
+	// and its last clock reading.
+	vectors map[identity.UUID]map[string]uint64
+	lastHLC causal.Timestamp
 
 	tolerant bool
 	// limit ends reading at a position, set when a tolerant first pass found
@@ -73,7 +75,7 @@ type logPosition struct {
 }
 
 func newRecovery(files *filesystem.Client, validator *record.Validator, device identity.UUID, readOnly bool) *recovery {
-	return &recovery{files: files, validator: validator, device: device, readOnly: readOnly, index: newIndex(), nextSequence: 1, channelCounts: make(map[identity.UUID]uint64)}
+	return &recovery{files: files, validator: validator, device: device, readOnly: readOnly, index: newIndex(), nextSequence: 1, vectors: make(map[identity.UUID]map[string]uint64)}
 }
 
 // newOtherDeviceRecovery returns a tolerant recovery of another device's log.
@@ -184,7 +186,7 @@ func freshManifest() manifest {
 // emptyRecovery is the recovered state of a log that does not exist and may
 // not be created.
 func emptyRecovery() *recovery {
-	return &recovery{index: newIndex(), nextSequence: 1, readOnly: true, empty: true, manifest: freshManifest(), active: &segment{id: 1, path: segmentPath(1)}, channelCounts: make(map[identity.UUID]uint64)}
+	return &recovery{index: newIndex(), nextSequence: 1, readOnly: true, empty: true, manifest: freshManifest(), active: &segment{id: 1, path: segmentPath(1)}, vectors: make(map[identity.UUID]map[string]uint64)}
 }
 
 func (r *recovery) listSegmentIDs() ([]uint64, error) {
@@ -393,14 +395,21 @@ func (r *recovery) checkCausal(event record.Event, channelID identity.UUID) erro
 	if event.DeviceID != device {
 		return fmt.Errorf("written by device %s, not %s", event.DeviceID, device)
 	}
-	count := r.channelCounts[channelID] + 1
+	vector := r.vectors[channelID]
+	count := vector[device] + 1
 	if event.Vector[device] != count {
 		return fmt.Errorf("version vector counts %d of this device's occurrences of channel %s, want %d", event.Vector[device], channelID, count)
 	}
 	if event.HLC.Compare(r.lastHLC) != 1 {
 		return fmt.Errorf("clock reading %+v does not follow %+v", event.HLC, r.lastHLC)
 	}
-	r.channelCounts[channelID] = count
+	if vector == nil {
+		vector = make(map[string]uint64)
+		r.vectors[channelID] = vector
+	}
+	for d, c := range event.Vector {
+		vector[d] = max(vector[d], c)
+	}
 	r.lastHLC = event.HLC
 	return nil
 }

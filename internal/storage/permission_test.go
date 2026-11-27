@@ -221,7 +221,7 @@ func TestReadOnlyFreshStorageIsEmpty(t *testing.T) {
 	dir := t.TempDir()
 	s, _ := openRefusingStore(t, dir, true)
 	expectPermission(t, s.WriteRefusal())
-	if _, ok, _ := s.ChannelOccurrence(identity.UUID(testUUID(1)), 0); ok {
+	if batch, _, _ := s.ReadOccurrences(identity.UUID(testUUID(1)), 0, 1); len(batch) != 0 {
 		t.Fatal("empty storage has an occurrence")
 	}
 	_ = s.Close()

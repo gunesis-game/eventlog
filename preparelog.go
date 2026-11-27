@@ -123,7 +123,7 @@ func resolveChannel[TChannel Channel](rt *logRuntime, newChannel func(chan Event
 	}
 	runtime := newChannelRuntime(rt, id, raw, schema, candidate, notifications, errs)
 	rt.channels[id] = runtime
-	rt.startWorker((&channelReader{channel: runtime}).run)
+	rt.startWorker(newChannelReader(runtime).run)
 	runtime.processor = newTransactionProcessor(runtime)
 	rt.startWorker(runtime.processor.runIntake)
 	rt.startWorker(runtime.processor.run)
