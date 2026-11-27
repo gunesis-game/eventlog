@@ -35,6 +35,8 @@ Drive access (2026-11-27), recorded locally and not yet published: a feasibility
 
 D-060 open points settled (2026-11-27), recorded locally and not yet published: D-066 (Firebase details as two descriptor fields for the owner's project; fixed rules with board access following Drive sharing through a members list synced by owner devices; `*SignInRequired` from `PrepareLog` and new ChannelError kinds `SignInRequired` and `NotificationsUnavailable`; SSH port forward for headless sign-in; free-plan bounds accepted). D-060 itself remains Proposed until the user approves the whole design.
 
+Review of D-060 (2026-11-27), recorded locally and not yet published: D-067 (positions in other devices' logs by sequence; compaction on Drive with replaced files trashed); D-068 (storage isolation; `WithStorage(Local{Directory})` or `WithStorage(Web{SettingsFile, DeviceStateDirectory})`; generic public error names; storage refusing writes gives `WriteNotPermitted`). `WithStorageDirectory` is renamed in code to `WithStorage(Local{...})`. Remaining review gaps: missing files from other accounts stalling causal delivery, and Drive sharing types other than named people.
+
 User rules recorded for this work: no new public package functions (new behaviour goes on the Event/Channel interfaces); refactors remove everything made redundant, with no future-proofing.
 
 ## Current repository checkpoint

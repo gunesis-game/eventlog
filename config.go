@@ -22,37 +22,59 @@ type Option interface {
 }
 
 type configSettings struct {
-	storageDirectory    string
-	storageDirectorySet bool
+	storageDirectory string
+	storageSet       bool
 }
 
-type storageDirectoryOption struct {
-	path string
+// Storage selects where the log is stored. Local is the only storage
+// implemented.
+type Storage interface {
+	resolve() (string, error)
 }
 
-// WithStorageDirectory sets the required storage directory. A relative path is
+// Local stores the log in a directory on this device. A relative Directory is
 // resolved against the working directory and lexically cleaned when Config
 // runs. Config does not create the directory; PrepareLog does.
-func WithStorageDirectory(path string) Option {
-	return storageDirectoryOption{path: path}
+type Local struct {
+	Directory string
 }
 
-func (o storageDirectoryOption) applyTo(settings *configSettings) error {
-	if settings.storageDirectorySet {
-		return errors.New("eventlog: storage directory set more than once")
+func (l Local) resolve() (string, error) {
+	if strings.TrimSpace(l.Directory) == "" {
+		return "", errors.New("eventlog: storage directory is empty")
 	}
-	if strings.TrimSpace(o.path) == "" {
-		return errors.New("eventlog: storage directory is empty")
+	if strings.ContainsRune(l.Directory, 0) {
+		return "", errors.New("eventlog: storage directory contains a NUL byte")
 	}
-	if strings.ContainsRune(o.path, 0) {
-		return errors.New("eventlog: storage directory contains a NUL byte")
-	}
-	absolute, err := filepath.Abs(o.path)
+	absolute, err := filepath.Abs(l.Directory)
 	if err != nil {
-		return fmt.Errorf("eventlog: resolve storage directory: %w", err)
+		return "", fmt.Errorf("eventlog: resolve storage directory: %w", err)
 	}
-	settings.storageDirectory = filepath.Clean(absolute)
-	settings.storageDirectorySet = true
+	return filepath.Clean(absolute), nil
+}
+
+type storageOption struct {
+	storage Storage
+}
+
+// WithStorage sets the required storage.
+func WithStorage(storage Storage) Option {
+	return storageOption{storage: storage}
+}
+
+func (o storageOption) applyTo(settings *configSettings) error {
+	if settings.storageSet {
+		return errors.New("eventlog: storage set more than once")
+	}
+	if o.storage == nil {
+		return errors.New("eventlog: storage is nil")
+	}
+	directory, err := o.storage.resolve()
+	if err != nil {
+		return err
+	}
+	settings.storageDirectory = directory
+	settings.storageSet = true
 	return nil
 }
 
@@ -87,8 +109,8 @@ func buildConfigSettings(options []Option) (*configSettings, error) {
 			return nil, err
 		}
 	}
-	if !settings.storageDirectorySet {
-		return nil, errors.New("eventlog: WithStorageDirectory is required")
+	if !settings.storageSet {
+		return nil, errors.New("eventlog: WithStorage is required")
 	}
 	return settings, nil
 }

@@ -21,7 +21,7 @@ change manager, synchronization and lifecycle. No public Log handle or
 Append/Read/Next/Close/Flush/Compact API is approved.
 
 Runtime configuration is mandatory and independent of generics/Context: `Config(options ...Option) error`
-with required `WithStorageDirectory(path)`. Config validates before publishing; nil, duplicate, missing
+with required `WithStorage(storage)`, where storage is `Local{Directory}` (D-068). Config validates before publishing; nil, duplicate, missing
 and invalid options fail, and validation failure is retryable. Successful config is immutable and
 one-time; repeated or late calls match `ErrConfigAlreadySet`. PrepareLog before Config matches
 `ErrConfigNotInitialized`. Relative paths become absolute, lexically cleaned at Config time (no symlink
@@ -516,31 +516,55 @@ D-061 to D-064. The current implementation is single-device and local-only. Rese
 [causal ordering and conflicts](../research/causal-ordering-and-conflicts.md) and
 [cross-device notifications](../research/cross-device-notifications.md).
 
-### Configuration and identity
+### Configuration and identity (D-068)
 
-- `WithStorageEndpoint(GoogleDrive{Account, DeviceStateDirectory, OAuthClientFile, FirebaseDatabaseURL,
-  FirebaseAPIKey})` selects Google Drive (D-061, D-065, D-066):
-  - `Account` is the **log owner's** Google account, whose Drive holds the master store. It is the same on
-    every device.
+- The public API names only where the log is stored: `WithStorage(Local{Directory})` or
+  `WithStorage(Web{SettingsFile, DeviceStateDirectory})`. No provider appears in the public API.
+  - `SettingsFile` is the same on every device of the log. Only the web backend reads it; it names the
+    provider and everything that provider needs. For Google Drive: the log owner's Google account, whose
+    Drive holds the master store, the Desktop-app OAuth client created in the owner's free Google Cloud
+    project, and the owner's Firebase database URL and web API key (D-061, D-065, D-066).
   - `DeviceStateDirectory` is a directory on this device only, never shared, holding this device's
-    identity, its one-process lock, its Google refresh token, and the cached folder IDs. It must be on
+    identity, its one-process lock, its provider sign-in token, and the cached folder IDs. It must be on
     persistent storage; losing it makes the machine a new device.
-  - `OAuthClientFile` is the Desktop-app OAuth client created in the owner's free Google Cloud project.
-  - `FirebaseDatabaseURL` and `FirebaseAPIKey` name the owner's Firebase project (D-066).
+- `Local{Directory}` keeps its state inside that directory and serves one device.
+- A device generates a random device identity on first start and keeps it in its device state directory.
+
+### Storage isolation (D-068)
+
+- Everything about the web provider stays inside its backend, behind the file-system boundary in
+  `internal/filesystem`: accounts, sign-in, sharing roles, test users, Firebase, the members list,
+  membership requests, and the Drive trash. Nothing above that boundary knows of them.
+- The core (the root package, `internal/storage`, `internal/record`, and the rest) knows only file
+  operations, the standard errors `fs.ErrNotExist`, `fs.ErrExist`, and `fs.ErrPermission`, the boundary error
+  `ErrAuthorizationRequired` (carrying a URL to open and a channel closed when authorization completes),
+  generic file-change events, and a "change events unavailable" signal.
+- Public errors name generic storage conditions, never a provider: `*AuthorizationRequired`, and the
+  ChannelError kinds `AuthorizationRequired`, `WriteNotPermitted`, and `ChangeEventsUnavailable`. Local
+  storage produces `WriteNotPermitted` for a directory it may not write, and never the others.
+- **Storage that refuses writes:** when storage reports `fs.ErrPermission` for this device's writes at
+  start, every transaction is refused with `WriteNotPermitted` before its function runs, under the prefix
+  rule; reading, replay, and change notifications keep working. If writes become refused while running,
+  the failing commit reports `CommitFailed` with the permission error as its cause, and later
+  transactions get `WriteNotPermitted`. On Google Drive, a Viewer is such a device, and a device that
+  cannot write creates no device folder and no board entry.
+- Verified by the core's tests running unchanged against the local backend, and by a test that no core
+  package imports a provider package.
+
+### Google Drive provider
+
 - Each device signs in with **its own** Google account, through Google OAuth with the restricted `drive`
   scope, approved in a browser, with the browser returning to the local file-system server (D-065). Every
   account must be listed as a test user while the OAuth app stays in Testing status.
-- In Testing status, Google expires each device's authorization seven days after consent. eventlog detects
-  the expired sign-in and asks for re-approval; publishing the app later requires Google's restricted-scope
-  verification with a yearly security assessment.
+- In Testing status, Google expires each device's authorization seven days after consent. The backend
+  detects the expired sign-in and asks for re-approval; publishing the app later requires Google's
+  restricted-scope verification with a yearly security assessment.
 - Access is controlled by Drive sharing (D-065):
   - The owner shares the folder: Editors read and write; Viewers can replay and tail but not write.
   - A device whose account cannot see the owner's folder is rejected at start with a clear "not shared"
     error. Only the owner's devices may create the folder.
 - Files a device writes are owned by that device's account and use its storage; the owner's folder holds
   them. This is accepted (D-065).
-- A device generates a random device identity on first start and keeps it in its device state directory.
-- `WithStorageDirectory(path)` keeps its state inside that directory and serves one device.
 
 ### Storage layout
 
@@ -603,8 +627,9 @@ D-061 to D-064. The current implementation is single-device and local-only. Rese
   event names a file it does not know or a file it expects is gone, then resumes at the same sequence, so
   nothing is skipped or delivered twice.
 - **Compaction on Drive (D-067):** compaction keeps its trigger and protocol, building the merged segment as
-  a Drive file. Replaced segment files are moved to the Drive trash rather than deleted, so reads already in
-  progress on other devices can finish; Drive empties the trash after 30 days. To verify during
+  a Drive file and removing replaced segments as it does today. The Drive backend carries out `Remove` by
+  moving the file to the Drive trash, so reads already in progress on other devices can finish; Drive
+  empties the trash after 30 days. To verify during
   implementation: that a trashed file in the owner's folder stays readable by ID for other accounts.
 - **Recovery:** a device fully recovers and may truncate only its own log; other devices' logs are read
   read-only, and an incomplete trailing transaction there is treated as not yet committed.
@@ -613,8 +638,8 @@ D-061 to D-064. The current implementation is single-device and local-only. Rese
 
 Approved on 2026-11-27; these settle the open points of this design.
 
-1. **Firebase project details.** The `GoogleDrive` descriptor gains two fields, `FirebaseDatabaseURL` and
-   `FirebaseAPIKey`, copied from the Firebase console. Neither can be derived: the database URL depends on
+1. **Firebase project details.** The web settings file names the owner's Firebase database URL and web API
+   key, copied from the Firebase console (D-068). Neither can be derived: the database URL depends on
    the database's region, and the web API key is not in the OAuth client file. The web API key identifies
    the project and is not a secret. The Firebase project is the owner's, in the same Google Cloud project as
    the OAuth client, because Firebase Authentication accepts Google ID tokens from that project's clients.
@@ -634,7 +659,7 @@ Approved on 2026-11-27; these settle the open points of this design.
      writes `/eventlog/{logID}/requests/{emailKey}`, the only place a non-member may write, and only under its
      own key. Owner devices stream the requests and re-sync from Drive on each one, so a newly shared account
      gets live notifications as soon as an owner's device is online, without polling. Until then the device
-     works without live notifications and reports `NotificationsUnavailable`.
+     works without live notifications and reports `ChangeEventsUnavailable` (D-068).
    - **Board:** `/eventlog/{logID}/devices/{uid}/{deviceID}`, where `uid` is the signed-in Firebase user.
      Writers may write only under their own `uid`; writers and readers may read the board; anyone else is
      refused.
@@ -643,12 +668,12 @@ Approved on 2026-11-27; these settle the open points of this design.
    - Sign-in itself is also limited by the project's test-user list while the OAuth app is in Testing, so
      the owner both adds each account as a test user and shares the folder with it.
 3. **Sign-in and re-approval.**
-   - First start: when the device has no valid sign-in, `PrepareLog` returns a `*SignInRequired` error with
+   - First start: when the device has no valid sign-in, `PrepareLog` returns an `*AuthorizationRequired` error (D-068) with
      `URL` (the local file-system server's sign-in address, which redirects to Google) and `Completed`, a
      channel closed when the sign-in finishes. The application shows the URL, waits on `Completed`, and calls
      `PrepareLog` again. No polling, and no new public function.
    - While running: when Google expires the sign-in after seven days, each Channel reports one ChannelError
-     of a new kind `SignInRequired`, whose `Cause` is the `*SignInRequired` error. Transactions sent while
+     of the kind `AuthorizationRequired`, whose `Cause` is the `*AuthorizationRequired` error. Transactions sent while
      signed out are rejected with that kind under the prefix rule; Readers wait and resume by themselves
      once sign-in completes.
    - A device without a local browser: Google's device flow for limited-input devices does not allow the
@@ -661,7 +686,7 @@ Approved on 2026-11-27; these settle the open points of this design.
      month allows about 5 devices writing nonstop, or many more writing in bursts.
    - Over either limit, or when Firebase is switched off for the month, devices keep committing and see each
      other's changes at their next start. Each Channel reports this once with a new ChannelError kind
-     `NotificationsUnavailable`, so the loss of live updates is not silent.
+     `ChangeEventsUnavailable`, so the loss of live updates is not silent.
 
 ## Unresolved architectural details
 

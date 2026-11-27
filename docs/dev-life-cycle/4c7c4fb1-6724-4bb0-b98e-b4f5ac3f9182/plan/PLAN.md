@@ -23,7 +23,7 @@ Implement eventlog according to approved requirements, public API, architecture,
 - `PrepareLog[TEvent, TChannel](ctx, newEvent, newChannel) (TEvent, TChannel, error)` with `newEvent func(chan<- func() error) TEvent` and `newChannel func(chan Event, chan *ChannelError) TChannel` (D-049, D-052).
 - `Event` is `Fields() Fields` plus `Transaction() chan<- func() error`; `Channel` is `Fields() Fields`, `Notifications() <-chan Event`, `Errors() <-chan *ChannelError`.
 - `ChannelError{Kind, Cause, Events}` with `ErrorKind` values `TransactionRefused`, `TransactionPanicked`, `InvalidState`, `CommitFailed`, `ReaderFailed`, `DeliveryFailed`.
-- `Config`, `WithStorageDirectory`, `FieldOf`, `FieldOfNullable`, `IdentityOf`, `ErrConfigAlreadySet`, `ErrConfigNotInitialized`, `ErrSchemaConflict`.
+- `Config`, `WithStorage` with `Local{Directory}` (D-068; `Web{SettingsFile, DeviceStateDirectory}` designed, not implemented), `FieldOf`, `FieldOfNullable`, `IdentityOf`, `ErrConfigAlreadySet`, `ErrConfigNotInitialized`, `ErrSchemaConflict`.
 - No new public package functions (user rule); no public shutdown API; no execution-lock concept.
 
 ## Implementation progress (verified against the local working tree, 2026-11-27)
@@ -40,7 +40,7 @@ Implement eventlog according to approved requirements, public API, architecture,
 
 11. [x] File-system boundary, Phase 1 (D-054): `internal/filesystem` with the `Backend` interface, OS backend, localhost token-authenticated HTTP server, and client; `internal/storage` makes no OS calls; contract tests cover the HTTP contract; public API unchanged.
 13. [x] Transport (D-055): HTTP/2 over cleartext TCP with prior knowledge from the standard library, one client connection, no deprecated mechanism; research in docs/research/os-connection-limits.md. Readers fetch occurrences in batched ranged reads.
-12. [ ] File-system boundary, Phase 2: Google Drive backend, `WithStorageEndpoint` with a `GoogleDrive{FolderID, CredentialsFile}` descriptor, service-account authentication, 1 MiB segments for Drive, best-effort single-process ownership, and the requirement changes this brings. Approved in principle on 2026-11-27; callback handling awaits the user's confirmation; decisions to be recorded before implementation.
+12. [ ] File-system boundary, Phase 2: web storage with Google Drive as the provider, `WithStorage(Web{SettingsFile, DeviceStateDirectory})` (D-061 to D-068), 1 MiB segments for Drive. Planned with item 14.
 
 14. [ ] Multi-device operation (D-056 to D-059 recorded; design D-060 proposed): per-device logs, causal delivery, conflict reporting, remote changes applied to live instances.
 

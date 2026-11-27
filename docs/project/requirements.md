@@ -46,10 +46,13 @@ from replay into live tailing. It is not tied to an event-sourcing framework or 
 
 ### Configuration and initialization
 - Configuration is mandatory and separate from generic type selection and Context. The public configuration
-  API is `Config(options ...Option) error` and requires exactly one storage option: a local storage
-  directory (`WithStorageDirectory`), or a Google Drive endpoint (`WithStorageEndpoint`) whose descriptor
-  names the log owner's Google account, this device's state directory, and the OAuth client (D-061, D-065).
-- With Google Drive, the master store is a folder in the owner's Drive. Each device signs in with its own
+  API is `Config(options ...Option) error` and requires exactly one `WithStorage` option naming where the
+  log is stored: `Local{Directory}`, or `Web{SettingsFile, DeviceStateDirectory}`, whose settings file names
+  the web provider and its details (D-068). The public API names no provider.
+- Provider concerns (accounts, sign-in, sharing, notification services) stay inside the storage backend;
+  eventlog works unchanged on local storage without them, and public errors name only generic storage
+  conditions (D-068).
+- With Google Drive as the web provider, the master store is a folder in the owner's Drive. Each device signs in with its own
   Google account; access is granted by the owner sharing that folder in Drive (Editors read and write,
   Viewers read only), and a device whose account cannot reach the folder is rejected (D-065).
 - Configuration validation rejects nil options, duplicate settings, missing required settings, empty or

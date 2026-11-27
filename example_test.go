@@ -52,7 +52,7 @@ var errOverLimit = errors.New("over credit limit")
 // API-01, API-13: a consumer compiles against only the approved public API.
 // The example is compiled but not run, because Config is one-time per process.
 func Example() {
-	if err := eventlog.Config(eventlog.WithStorageDirectory("./data")); err != nil {
+	if err := eventlog.Config(eventlog.WithStorage(eventlog.Local{Directory: "./data"})); err != nil {
 		panic(err)
 	}
 	invoice, ledger, err := eventlog.PrepareLog[*InvoiceIssued, *Ledger](context.Background(),

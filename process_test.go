@@ -77,7 +77,7 @@ func runScenario(scenario, dir string, args []int64) error {
 }
 
 func helperPrepare(dir string) (*OrderPlaced, *Orders, error) {
-	if err := Config(WithStorageDirectory(dir)); err != nil {
+	if err := Config(WithStorage(Local{Directory: dir})); err != nil {
 		return nil, nil, err
 	}
 	return PrepareLog[*OrderPlaced, *Orders](context.Background(), placedFactory(testUUID(2)), ordersFactory(testUUID(1)))
@@ -106,9 +106,10 @@ func scenarioConfig(dir string) error {
 	invalid := [][]Option{
 		nil,
 		{nil},
-		{WithStorageDirectory("")},
-		{WithStorageDirectory("   ")},
-		{WithStorageDirectory(dir), WithStorageDirectory(dir)},
+		{WithStorage(nil)},
+		{WithStorage(Local{Directory: ""})},
+		{WithStorage(Local{Directory: "   "})},
+		{WithStorage(Local{Directory: dir}), WithStorage(Local{Directory: dir})},
 	}
 	for i, options := range invalid {
 		if err := Config(options...); err == nil {
@@ -118,10 +119,10 @@ func scenarioConfig(dir string) error {
 	if _, err := os.Stat(dir); !errors.Is(err, os.ErrNotExist) {
 		return errors.New("Config must not create the storage directory")
 	}
-	if err := Config(WithStorageDirectory(dir)); err != nil {
+	if err := Config(WithStorage(Local{Directory: dir})); err != nil {
 		return fmt.Errorf("valid config after failures: %v", err)
 	}
-	if err := Config(WithStorageDirectory(dir)); !errors.Is(err, ErrConfigAlreadySet) {
+	if err := Config(WithStorage(Local{Directory: dir})); !errors.Is(err, ErrConfigAlreadySet) {
 		return fmt.Errorf("second Config: %v", err)
 	}
 	if _, _, err := PrepareLog[*OrderPlaced, *Orders](context.Background(), placedFactory(testUUID(2)), ordersFactory(testUUID(1))); err != nil {
