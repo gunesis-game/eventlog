@@ -718,8 +718,9 @@ browser).
   again. This device's own log still fails closed. Missing history is detected when a log is read and
   reported on the affected Channels by causal delivery.
 - **Testing web storage:** every web-storage test and benchmark runs the production code against
-  `internal/googletest`, an in-process emulator of Google's OAuth and Drive v3 services (and Firebase, from
-  12.10) serving Google's own paths, with only the service addresses changed. It models Drive's observed
+  `internal/googletest`, an in-process emulator of Google's OAuth, Drive v3, Firebase Authentication, and
+  Realtime Database services, including its server-sent event streams, serving Google's own paths, with
+  only the service addresses changed. It models Drive's observed
   behaviour (docs/research/drive-access-model.md), keeps its files on a real file system, and counts
   calls and bytes per account. No automated run calls real Google services.
 - **Order and rules testing (D-078):** the emulator's Firebase part is built first; the Drive backend and

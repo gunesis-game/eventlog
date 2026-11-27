@@ -117,6 +117,9 @@ func (e *Emulator) token(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		response := e.issueAccessLocked(code.Account, code.Scope, now)
+		if hasScope(code.Scope, "openid") {
+			response["id_token"] = e.googleIDTokenLocked(code.Account, now)
+		}
 		if code.Offline {
 			refresh := "1//" + newID()
 			e.state.Refresh[refresh] = &refreshToken{Account: code.Account, Scope: code.Scope, Consent: now}
@@ -132,6 +135,9 @@ func (e *Emulator) token(w http.ResponseWriter, r *http.Request) {
 		}
 		c.account = refresh.Account
 		response := e.issueAccessLocked(refresh.Account, refresh.Scope, now)
+		if hasScope(refresh.Scope, "openid") {
+			response["id_token"] = e.googleIDTokenLocked(refresh.Account, now)
+		}
 		e.saveLocked()
 		writeJSON(w, http.StatusOK, response)
 	default:

@@ -19,6 +19,7 @@ import (
 
 const (
 	metadataFileName = "metadata.json"
+	databaseFileName = "rtdb.json"
 	contentDirName   = "content"
 	folderMimeType   = "application/vnd.google-apps.folder"
 	driveScope       = "https://www.googleapis.com/auth/drive"
@@ -27,6 +28,11 @@ const (
 	// seven days from consent.
 	refreshTokenLife = 7 * 24 * time.Hour
 	codeLife         = 10 * time.Minute
+	// idTokenLife is how long Google and Firebase ID tokens last.
+	idTokenLife = time.Hour
+	// Free-plan and stream defaults of the Realtime Database.
+	defaultMaxConnections = 100
+	defaultKeepAlive      = 30 * time.Second
 )
 
 // Options configures an emulator.
@@ -37,6 +43,13 @@ type Options struct {
 	// Latency is added to every call before it is handled, to model network
 	// latency.
 	Latency time.Duration
+	// MaxConnections is how many Realtime Database connections may be open at
+	// once, streams and requests in progress together; 100, the free plan's
+	// limit, when zero.
+	MaxConnections int
+	// KeepAlive is how often an idle stream sends keep-alive, and checks that
+	// its sign-in and read access still hold; 30 seconds when zero.
+	KeepAlive time.Duration
 }
 
 // Emulator is a running emulator of Google's OAuth and Drive services.
@@ -51,7 +64,16 @@ type Emulator struct {
 	// signingIn is the account signing in at the browser for the next
 	// authorization request.
 	signingIn string
-	stats     map[string]map[string]*CallStats
+	// statsMu guards stats apart from mu, since responses, which are
+	// counted as they are written, are often written while mu is held.
+	statsMu sync.Mutex
+	stats   map[string]map[string]*CallStats
+	// database is the Realtime Database's data, kept in its own file.
+	database any
+	// streams are the open Realtime Database streams, and connections the
+	// open connections, streams and requests in progress together.
+	streams     map[*stream]struct{}
+	connections int
 }
 
 // state is everything the emulator keeps in its metadata file.
@@ -62,6 +84,24 @@ type state struct {
 	Codes    map[string]*authCode     `json:"codes"`
 	Refresh  map[string]*refreshToken `json:"refresh_tokens"`
 	Access   map[string]*accessToken  `json:"access_tokens"`
+	// SigningKey signs the ID tokens the emulator issues.
+	SigningKey string          `json:"signing_key"`
+	Firebase   firebaseProject `json:"firebase"`
+}
+
+// firebaseProject is the owner's Firebase project.
+type firebaseProject struct {
+	ProjectID string `json:"project_id"`
+	APIKey    string `json:"api_key"`
+	// Refresh maps each Firebase refresh token to its account.
+	Refresh map[string]string `json:"refresh_tokens"`
+	// RulesOwner is the owner's address filled into the security rules once
+	// they are installed; before that every database request is refused, as
+	// in a new database's locked mode.
+	RulesOwner string `json:"rules_owner"`
+	// Off is set while the database is switched off, as when the free plan's
+	// monthly limits are exceeded.
+	Off bool `json:"off"`
 }
 
 type oauthClient struct {
@@ -76,6 +116,10 @@ type account struct {
 	TestUser     bool   `json:"test_user"`
 	RootID       string `json:"root_id"`
 	PermissionID string `json:"permission_id"`
+	// Subject is the account's Google ID, the sub of its ID tokens, and UID
+	// its Firebase user ID in the owner's project.
+	Subject string `json:"subject"`
+	UID     string `json:"uid"`
 }
 
 // file is one Drive file or folder's metadata.
@@ -115,10 +159,16 @@ func New(dir string, options Options) (*Emulator, error) {
 	if options.Now == nil {
 		options.Now = time.Now
 	}
+	if options.MaxConnections == 0 {
+		options.MaxConnections = defaultMaxConnections
+	}
+	if options.KeepAlive == 0 {
+		options.KeepAlive = defaultKeepAlive
+	}
 	if err := os.MkdirAll(filepath.Join(dir, contentDirName), 0o755); err != nil {
 		return nil, err
 	}
-	e := &Emulator{dir: dir, options: options, stats: make(map[string]map[string]*CallStats)}
+	e := &Emulator{dir: dir, options: options, stats: make(map[string]map[string]*CallStats), streams: make(map[*stream]struct{})}
 	if err := e.load(); err != nil {
 		return nil, err
 	}
@@ -177,7 +227,7 @@ func (e *Emulator) addAccount(email string, testUser bool) {
 	now := e.options.Now()
 	root := &file{ID: newID(), Name: "My Drive", MimeType: folderMimeType, Owner: key, CreatedTime: now, ModifiedTime: now}
 	e.state.Files[root.ID] = root
-	e.state.Accounts[key] = &account{Email: email, TestUser: testUser, RootID: root.ID, PermissionID: newDigits(20)}
+	e.state.Accounts[key] = &account{Email: email, TestUser: testUser, RootID: root.ID, PermissionID: newDigits(20), Subject: newDigits(21), UID: randomString(28, idAlphabet[:62])}
 	e.saveLocked()
 }
 
@@ -212,8 +262,8 @@ func (e *Emulator) Share(fileID, email, role string) error {
 // such as "drive.files.list". Calls made without a known account are counted
 // under the empty account.
 func (e *Emulator) Stats() map[string]map[string]CallStats {
-	e.mu.Lock()
-	defer e.mu.Unlock()
+	e.statsMu.Lock()
+	defer e.statsMu.Unlock()
 	out := make(map[string]map[string]CallStats, len(e.stats))
 	for account, calls := range e.stats {
 		out[account] = make(map[string]CallStats, len(calls))
@@ -226,23 +276,25 @@ func (e *Emulator) Stats() map[string]map[string]CallStats {
 
 // ResetStats clears the call counts.
 func (e *Emulator) ResetStats() {
-	e.mu.Lock()
-	defer e.mu.Unlock()
+	e.statsMu.Lock()
+	defer e.statsMu.Unlock()
 	e.stats = make(map[string]map[string]*CallStats)
 }
 
-// load reads the metadata file, or starts a fresh state with a new OAuth
-// client when there is none.
+// load reads the metadata and database files, or starts a fresh state with
+// a new OAuth client and Firebase project when there are none.
 func (e *Emulator) load() error {
 	raw, err := os.ReadFile(filepath.Join(e.dir, metadataFileName))
 	if errors.Is(err, os.ErrNotExist) {
 		e.state = &state{
-			Client:   oauthClient{ID: newDigits(12) + "-" + newID() + ".apps.googleusercontent.com", Secret: "GOCSPX-" + newID()},
-			Accounts: make(map[string]*account),
-			Files:    make(map[string]*file),
-			Codes:    make(map[string]*authCode),
-			Refresh:  make(map[string]*refreshToken),
-			Access:   make(map[string]*accessToken),
+			Client:     oauthClient{ID: newDigits(12) + "-" + newID() + ".apps.googleusercontent.com", Secret: "GOCSPX-" + newID()},
+			Accounts:   make(map[string]*account),
+			Files:      make(map[string]*file),
+			Codes:      make(map[string]*authCode),
+			Refresh:    make(map[string]*refreshToken),
+			Access:     make(map[string]*accessToken),
+			SigningKey: newID(),
+			Firebase:   firebaseProject{ProjectID: "eventlog-" + strings.ToLower(randomString(6, idAlphabet[26:36])), APIKey: "AIza" + randomString(35, idAlphabet), Refresh: make(map[string]string)},
 		}
 		return e.writeState()
 	}
@@ -254,6 +306,16 @@ func (e *Emulator) load() error {
 		return fmt.Errorf("emulator metadata: %w", err)
 	}
 	e.state = &s
+	raw, err = os.ReadFile(filepath.Join(e.dir, databaseFileName))
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if err := json.Unmarshal(raw, &e.database); err != nil {
+		return fmt.Errorf("emulator database: %w", err)
+	}
 	return nil
 }
 
@@ -320,6 +382,7 @@ func randomString(n int, alphabet string) string {
 type call struct {
 	name    string
 	account string
+	counted bool
 }
 
 type callKey struct{}
@@ -338,6 +401,9 @@ func (e *Emulator) routes() http.Handler {
 	mux.HandleFunc("GET /drive/v3/files/{id}/permissions", e.authorized(e.listPermissions))
 	mux.HandleFunc("POST /drive/v3/files/{id}/permissions", e.authorized(e.createPermission))
 	mux.HandleFunc("PATCH /drive/v3/files/{id}/permissions/{permissionID}", e.authorized(e.updatePermission))
+	mux.HandleFunc("POST /v1/accounts:signInWithIdp", e.signInWithIdp)
+	mux.HandleFunc("POST /v1/token", e.firebaseToken)
+	mux.HandleFunc(databasePrefix+"/", e.databaseRequest)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if e.options.Latency > 0 {
 			time.Sleep(e.options.Latency)
@@ -345,15 +411,25 @@ func (e *Emulator) routes() http.Handler {
 		c := &call{name: "unknown"}
 		body := &countingReader{reader: r.Body}
 		r.Body = body
-		counted := &countingWriter{ResponseWriter: w}
-		mux.ServeHTTP(counted, r.WithContext(context.WithValue(r.Context(), callKey{}, c)))
-		e.count(c, body.n, counted.n)
+		mux.ServeHTTP(&countingWriter{ResponseWriter: w, e: e, c: c}, r.WithContext(context.WithValue(r.Context(), callKey{}, c)))
+		if !c.counted {
+			e.countRequest(c, body.n)
+		}
 	})
 }
 
-func (e *Emulator) count(c *call, requestBytes, responseBytes int64) {
-	e.mu.Lock()
-	defer e.mu.Unlock()
+// countRequest counts one request of a call. A stream counts its request
+// when it opens, so open streams show as connections.
+func (e *Emulator) countRequest(c *call, requestBytes int64) {
+	e.statsMu.Lock()
+	defer e.statsMu.Unlock()
+	c.counted = true
+	s := e.statsLocked(c)
+	s.Requests++
+	s.RequestBytes += requestBytes
+}
+
+func (e *Emulator) statsLocked(c *call) *CallStats {
 	calls := e.stats[c.account]
 	if calls == nil {
 		calls = make(map[string]*CallStats)
@@ -364,9 +440,7 @@ func (e *Emulator) count(c *call, requestBytes, responseBytes int64) {
 		s = &CallStats{}
 		calls[c.name] = s
 	}
-	s.Requests++
-	s.RequestBytes += requestBytes
-	s.ResponseBytes += responseBytes
+	return s
 }
 
 // named records the call's name for counting.
@@ -391,15 +465,26 @@ func (c *countingReader) Close() error {
 	return c.reader.Close()
 }
 
+// countingWriter counts response bytes as they are written, so a stream's
+// bytes are counted while it is open.
 type countingWriter struct {
 	http.ResponseWriter
-	n int64
+	e *Emulator
+	c *call
 }
 
-func (c *countingWriter) Write(p []byte) (int, error) {
-	n, err := c.ResponseWriter.Write(p)
-	c.n += int64(n)
+func (w *countingWriter) Write(p []byte) (int, error) {
+	n, err := w.ResponseWriter.Write(p)
+	w.e.statsMu.Lock()
+	w.e.statsLocked(w.c).ResponseBytes += int64(n)
+	w.e.statsMu.Unlock()
 	return n, err
+}
+
+func (w *countingWriter) Flush() {
+	if f, ok := w.ResponseWriter.(http.Flusher); ok {
+		f.Flush()
+	}
 }
 
 func writeJSON(w http.ResponseWriter, status int, value any) {
