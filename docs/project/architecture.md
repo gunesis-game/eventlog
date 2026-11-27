@@ -677,7 +677,7 @@ browser).
   becomes an Event's current state, from any device, and the Channel's current fields: those of the
   delivered occurrence with the greatest clock reading. The Channel's transaction processor applies them
   to the live instances between batches, and before a batch when they changed before it, writing only the
-  selected fields whose values differ and persisting nothing; an Event first prepared after its current
+  selected fields whose values differ, never an identity field, and persisting nothing; an Event first prepared after its current
   state is known takes it in place of its constructor values. A current state that is an older occurrence
   of this device than the last one the processor committed for that instance is skipped, since the live
   instance already holds the later local change.

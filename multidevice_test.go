@@ -2,12 +2,15 @@ package eventlog
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/gunesis-game/eventlog/internal/fieldschema"
 	"github.com/gunesis-game/eventlog/internal/filesystem"
 	"github.com/gunesis-game/eventlog/internal/identity"
 	"github.com/gunesis-game/eventlog/internal/storage"
@@ -372,5 +375,78 @@ func TestConcurrentChangesConvergeLiveInstances(t *testing.T) {
 	amountB, _ := readLive(eventB, ordersB)
 	if amountA != current || amountB != current {
 		t.Fatalf("live amounts = %d and %d, want both %d", amountA, amountB, current)
+	}
+}
+
+// D-075: applying the converged state never writes an identity field, even
+// from a snapshot holding a different identity, and writes only the other
+// fields whose values differ. A nullable field holds a pointer, so
+// rewriting it with an equal value would replace the pointer; it must stay
+// the same one.
+func TestConvergedStateNeverWritesIdentity(t *testing.T) {
+	schema, err := resolveSchema(&OrderPlaced{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	note := stringPointer("note")
+	live := &OrderPlaced{ID: testUUID(2), Amount: 1, Note: note}
+	other := &OrderPlaced{ID: testUUID(9), Amount: 7, Note: stringPointer("note")}
+	snapshot, _, err := fieldschema.Capture(schema, reflect.ValueOf(other))
+	if err != nil {
+		t.Fatal(err)
+	}
+	restoreChanged(schema, reflect.ValueOf(live), snapshot)
+	if live.ID != OrderID(testUUID(2)) {
+		t.Fatalf("identity was overwritten with %v", live.ID)
+	}
+	if live.Amount != 7 {
+		t.Fatalf("amount = %d, want the converged 7", live.Amount)
+	}
+	if live.Note != note {
+		t.Fatal("an unchanged nullable field was rewritten with a new pointer")
+	}
+}
+
+// D-075: reading identity fields outside a transaction while other devices'
+// changes are applied to the live Event and Channel never races with a
+// write; the race detector, which CI runs on Linux, reports any write.
+func TestConvergedStateNeverRacesWithIdentityReads(t *testing.T) {
+	shared := newSharedStorage(t)
+	a, b := shared.device(t, "a"), shared.device(t, "b")
+	eventA, ordersA := prepareOrder(t, a, testUUID(1), testUUID(2))
+	eventB, ordersB := prepareOrder(t, b, testUUID(1), testUUID(2))
+	stop, done := make(chan struct{}), make(chan struct{})
+	changed := false
+	go func() {
+		defer close(done)
+		for {
+			select {
+			case <-stop:
+				return
+			default:
+			}
+			if eventB.ID != OrderID(testUUID(2)) || ordersB.ID != CustomerID(testUUID(1)) {
+				changed = true
+				return
+			}
+		}
+	}()
+	for i := int64(1); i <= 5; i++ {
+		eventA.Transaction() <- func() error {
+			eventA.Amount = i
+			ordersA.Region = fmt.Sprint("region-", i)
+			return nil
+		}
+		expectAmount(t, ordersA, i)
+		refresh(t, b)
+		expectAmount(t, ordersB, i)
+	}
+	close(stop)
+	<-done
+	if changed {
+		t.Fatal("an identity field changed")
+	}
+	if amount, region := readLive(eventB, ordersB); amount != 5 || region != "region-5" {
+		t.Fatalf("device b live state = %d %q, want 5 \"region-5\"", amount, region)
 	}
 }

@@ -178,12 +178,13 @@ func (p *transactionProcessor) applyConverged() {
 }
 
 // restoreChanged writes the fields of snapshot that differ from instance's
-// current values and leaves the rest untouched, so identity fields, which
-// never change, are never written.
+// current values and leaves the rest untouched. It never writes the identity
+// field: a converged state is always of the same Event or Channel, so its
+// identity is never taken from a snapshot, whatever the snapshot holds.
 func restoreChanged(schema *fieldschema.Schema, instance reflect.Value, snapshot fieldschema.Snapshot) {
 	current, _, err := fieldschema.Capture(schema, instance)
 	for i, binding := range schema.Fields {
-		if err == nil && current[i] == snapshot[i] {
+		if binding.Role == fieldschema.RoleIdentity || err == nil && current[i] == snapshot[i] {
 			continue
 		}
 		_ = fieldschema.Decode(binding, schema.FieldValue(instance, binding), snapshot[i])
