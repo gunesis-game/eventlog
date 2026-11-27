@@ -1,0 +1,2 @@
+# Google OAuth client files hold a client secret; never commit them.
+oauth-client.json
