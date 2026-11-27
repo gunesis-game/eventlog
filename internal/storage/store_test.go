@@ -2,6 +2,7 @@ package storage
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -111,7 +112,7 @@ func TestSegmentStoreValidationFailureWritesNothing(t *testing.T) {
 	if err := s.AppendTransaction(ChannelWrite{ID: identity.UUID(testUUID(1)), Type: testChannelType}, []OccurrenceWrite{good, bad}); err == nil {
 		t.Fatal("expected validation failure")
 	}
-	info, err := os.Stat(activeSegmentPath(s))
+	info, err := os.Stat(diskPath(dir, activeSegmentPath(s)))
 	if err != nil || info.Size() != 0 {
 		t.Fatalf("segment size after failed append = %v, %v", info.Size(), err)
 	}
@@ -132,7 +133,7 @@ func TestRecoveryTruncatesIncompleteTrailingTransaction(t *testing.T) {
 			dir := t.TempDir()
 			s := openTestStore(t, dir, fastStoreOptions())
 			appendTestOccurrence(t, s, 1, 10, "committed")
-			path := activeSegmentPath(s)
+			path := diskPath(dir, activeSegmentPath(s))
 			committed, _ := os.ReadFile(path)
 			appendTestOccurrence(t, s, 2, 11, "interrupted")
 			full, _ := os.ReadFile(path)
@@ -175,7 +176,7 @@ func TestRecoveryFailsClosedOnCorruption(t *testing.T) {
 			dir := t.TempDir()
 			s := openTestStore(t, dir, fastStoreOptions())
 			appendTestOccurrence(t, s, 1, 10, "a")
-			path := activeSegmentPath(s)
+			path := diskPath(dir, activeSegmentPath(s))
 			_ = s.Close()
 			data, _ := os.ReadFile(path)
 			if err := os.WriteFile(path, corrupt(data), 0o600); err != nil {
@@ -240,7 +241,7 @@ func TestRecoveryRebuildsDerivedIndex(t *testing.T) {
 func TestOpenInitializesMissingStorage(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "nested", "log")
 	s := openTestStore(t, dir, fastStoreOptions())
-	for _, path := range []string{filepath.Join(dir, manifestFileName), segmentPath(filepath.Join(dir, segmentsDirName), 1)} {
+	for _, path := range []string{filepath.Join(dir, manifestFileName), diskPath(dir, segmentPath(1))} {
 		if _, err := os.Stat(path); err != nil {
 			t.Fatalf("expected %s: %v", path, err)
 		}
@@ -301,9 +302,8 @@ func TestMissingManifestRecovery(t *testing.T) {
 	_ = reopened.Close()
 
 	// Add an overlapping copy, as an interrupted compaction would leave.
-	segments := filepath.Join(dir, segmentsDirName)
-	first, _ := os.ReadFile(segmentPath(segments, 1))
-	if err := os.WriteFile(segmentPath(segments, 99), first, 0o600); err != nil {
+	first, _ := os.ReadFile(diskPath(dir, segmentPath(1)))
+	if err := os.WriteFile(diskPath(dir, segmentPath(99)), first, 0o600); err != nil {
 		t.Fatal(err)
 	}
 	_ = os.Remove(filepath.Join(dir, manifestFileName))
@@ -341,8 +341,8 @@ func TestCompactionPreservesHistory(t *testing.T) {
 	}
 	before := storeSummary(s)
 	_ = s.Close()
-	ids, _ := (&recovery{segmentsDir: filepath.Join(dir, segmentsDirName)}).listSegmentIDs()
-	m, _ := readManifest(dir)
+	ids, _ := filepath.Glob(filepath.Join(dir, segmentsDirName, "segment-*.ndjson"))
+	m := readManifestFile(t, dir)
 	if len(ids) != len(m.Segments) {
 		t.Fatalf("old generation files were not removed: files=%v manifest=%v", ids, m.Segments)
 	}
@@ -371,11 +371,11 @@ func TestCompactionRespectsReaderPins(t *testing.T) {
 		t.Fatal(err)
 	}
 	s.mu.Unlock()
-	if _, err := os.Stat(pinned.path); err != nil {
+	if _, err := os.Stat(diskPath(dir, pinned.path)); err != nil {
 		t.Fatal("pinned segment must survive compaction")
 	}
 	s.unpin(pinned)
-	if _, err := os.Stat(pinned.path); !errors.Is(err, os.ErrNotExist) {
+	if _, err := os.Stat(diskPath(dir, pinned.path)); !errors.Is(err, os.ErrNotExist) {
 		t.Fatal("retired segment must be deleted after its last pin is released")
 	}
 }
@@ -386,8 +386,7 @@ func TestRecoveryCleansOrphans(t *testing.T) {
 	s := openTestStore(t, dir, fastStoreOptions())
 	appendTestOccurrence(t, s, 1, 10, "a")
 	_ = s.Close()
-	segments := filepath.Join(dir, segmentsDirName)
-	orphans := []string{segmentPath(segments, 50), segmentPath(segments, 51) + temporaryFileSuffix, filepath.Join(dir, manifestFileName+temporaryFileSuffix)}
+	orphans := []string{diskPath(dir, segmentPath(50)), diskPath(dir, segmentPath(51)) + temporaryFileSuffix, filepath.Join(dir, manifestFileName+temporaryFileSuffix)}
 	for _, path := range orphans {
 		_ = os.WriteFile(path, []byte("x"), 0o600)
 	}
@@ -476,4 +475,22 @@ func persistedChannelFields(s *Store, channelID identity.UUID) (string, bool) {
 	defer s.mu.Unlock()
 	channel, ok := s.index.channel(channelID)
 	return channel.fields, ok
+}
+
+// diskPath returns the operating-system path of a storage-relative path.
+func diskPath(dir, relative string) string {
+	return filepath.Join(dir, filepath.FromSlash(relative))
+}
+
+func readManifestFile(t *testing.T, dir string) manifest {
+	t.Helper()
+	raw, err := os.ReadFile(filepath.Join(dir, manifestFileName))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var m manifest
+	if err := json.Unmarshal(raw, &m); err != nil {
+		t.Fatal(err)
+	}
+	return m
 }

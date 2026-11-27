@@ -487,10 +487,12 @@ The current implementation realizes this design as one Go package. Internal poli
 buffer 64, transaction buffer 64, batch limit 64 transactions, five delivery attempts with doubling backoff
 from 10 ms, target segment size 64 MiB, compaction at 8 finalized segments, sync every 1 s or 1 MiB) are
 implementation/test policy, not public configuration. Single-process ownership uses an OS-held lock file
-(`flock` on Linux, an unshared handle on Windows) that is released when the process exits. The derived
+(`flock` on Linux, an unshared handle on Windows), taken through the file-system boundary's lock route and
+released by the operating system when the process exits. The derived
 index is held in memory and persisted to `index.json` at sync points; recovery always revalidates every
-segment and replaces a stored index that does not match. Each segment keeps one shared read handle for
-Readers, closed before the segment is deleted. Every process start replays a Channel's full committed
+segment and replaces a stored index that does not match. The OS backend keeps one open handle per file and
+closes it before the file is renamed or removed, which Windows requires. The file-system client keeps up to
+64 idle loopback connections so concurrent store goroutines reuse connections instead of reopening them. Every process start replays a Channel's full committed
 history, because delivery has no acknowledgement.
 
 ## Portability and dependencies

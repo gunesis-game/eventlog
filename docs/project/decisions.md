@@ -69,7 +69,7 @@ This is the durable register of approved project decisions. It records outcomes 
 
 | D-053 | Organize code as the public root package plus `internal/identity`, `internal/fieldschema`, `internal/record` (with the embedded schemas), and `internal/storage`; the runtime stays in the root; tests live beside their code; the public API is unchanged | Recorded | docs/project/architecture.md | 128ac54d7d38b07b596e48c89d54515a1448a18f |
 
-| D-054 | `internal/storage` performs file operations only through `internal/filesystem`: an HTTP client, a localhost token-authenticated HTTP server started with the store, and one `Backend` interface; the OS backend comes first; the HTTP contract enforces exclusive create, atomic replace and rename, ordered append, truncate, sync, offset reads, and ownership locking for every backend | Recorded | docs/project/architecture.md | PENDING |
+| D-054 | `internal/storage` performs file operations only through `internal/filesystem`: an HTTP client, a localhost token-authenticated HTTP server started with the store, and one `Backend` interface; the OS backend comes first; the HTTP contract enforces exclusive create, atomic replace and rename, ordered append, truncate, sync, offset reads, and ownership locking for every backend | Recorded | docs/project/architecture.md | 3ef0a0b044eb0585c403cd9052a67bbadb744bcd |
 
 ## Decision maintenance
 

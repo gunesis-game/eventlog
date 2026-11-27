@@ -3,8 +3,8 @@ package storage
 import (
 	"encoding/json"
 	"fmt"
-	"os"
-	"path/filepath"
+
+	"github.com/gunesis-game/eventlog/internal/filesystem"
 )
 
 const (
@@ -39,25 +39,25 @@ func (f indexFile) encode() ([]byte, error) {
 	return append(raw, '\n'), nil
 }
 
-// write atomically replaces the index file in directory.
-func (f indexFile) write(directory string) error {
+// write atomically replaces the stored index file.
+func (f indexFile) write(files *filesystem.Client) error {
 	raw, err := f.encode()
 	if err != nil {
 		return err
 	}
-	return replaceFile(filepath.Join(directory, indexFileName), raw)
+	return files.Replace(indexFileName, raw)
 }
 
 // reconcile replaces the stored index file when it differs from f and reports
 // whether it did.
-func (f indexFile) reconcile(directory string) (bool, error) {
+func (f indexFile) reconcile(files *filesystem.Client) (bool, error) {
 	expected, err := f.encode()
 	if err != nil {
 		return false, err
 	}
-	stored, err := os.ReadFile(filepath.Join(directory, indexFileName))
+	stored, err := files.Read(indexFileName, 0, -1)
 	if err == nil && string(stored) == string(expected) {
 		return false, nil
 	}
-	return true, replaceFile(filepath.Join(directory, indexFileName), expected)
+	return true, files.Replace(indexFileName, expected)
 }

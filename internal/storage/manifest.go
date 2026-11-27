@@ -4,16 +4,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
-	"path/filepath"
 	"regexp"
 	"strconv"
+
+	"github.com/gunesis-game/eventlog/internal/filesystem"
 )
 
 const (
 	manifestFileName      = "manifest.json"
 	manifestFormatVersion = 1
-	segmentsDirName       = "segments"
 	temporaryFileSuffix   = ".tmp"
 )
 
@@ -65,13 +64,13 @@ func segmentIDFromName(name string) (uint64, error) {
 }
 
 func segmentFileName(id uint64) string {
-	return filepath.Base(segmentPath("", id))
+	return fmt.Sprintf("segment-%06d.ndjson", id)
 }
 
-// readManifest returns the manifest, os.ErrNotExist when absent, or a
+// readManifest returns the manifest, fs.ErrNotExist when absent, or a
 // validation error when present but unusable.
-func readManifest(directory string) (manifest, error) {
-	raw, err := os.ReadFile(filepath.Join(directory, manifestFileName))
+func readManifest(files *filesystem.Client) (manifest, error) {
+	raw, err := files.Read(manifestFileName, 0, -1)
 	if err != nil {
 		return manifest{}, err
 	}
@@ -86,7 +85,7 @@ func readManifest(directory string) (manifest, error) {
 }
 
 // writeManifest atomically replaces the manifest: write temporary, sync, rename.
-func writeManifest(directory string, m manifest) error {
+func writeManifest(files *filesystem.Client, m manifest) error {
 	if err := m.validate(); err != nil {
 		return err
 	}
@@ -94,5 +93,5 @@ func writeManifest(directory string, m manifest) error {
 	if err != nil {
 		return fmt.Errorf("encode manifest: %w", err)
 	}
-	return replaceFile(filepath.Join(directory, manifestFileName), append(raw, '\n'))
+	return files.Replace(manifestFileName, append(raw, '\n'))
 }

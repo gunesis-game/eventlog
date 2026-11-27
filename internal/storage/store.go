@@ -7,18 +7,27 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
-	"os"
-	"path/filepath"
+	"io/fs"
+	"path"
 	"sync"
 	"time"
+
+	"github.com/gunesis-game/eventlog/internal/filesystem"
 
 	"github.com/gunesis-game/eventlog/internal/fieldschema"
 	"github.com/gunesis-game/eventlog/internal/identity"
 	"github.com/gunesis-game/eventlog/internal/record"
 )
 
-const lockFileName = "lock"
+const (
+	lockFileName    = "lock"
+	segmentsDirName = "segments"
+)
+
+// segmentPath returns the storage-relative path of a segment.
+func segmentPath(id uint64) string {
+	return path.Join(segmentsDirName, segmentFileName(id))
+}
 
 // Options are internal storage policy values, not public configuration.
 type Options struct {
@@ -56,17 +65,15 @@ type OccurrenceWrite struct {
 // Store is the open append log of one storage directory. It is safe for
 // concurrent use.
 type Store struct {
-	directory   string
-	segmentsDir string
-	validator   *record.Validator
-	options     Options
-	lockFile    *os.File
+	files     *filesystem.Client
+	server    *filesystem.Server
+	validator *record.Validator
+	options   Options
 
 	mu           sync.Mutex
 	manifest     manifest
 	finalized    []*segment
 	active       *segment
-	activeFile   *os.File
 	nextSequence uint64
 	unsynced     int64
 	index        *index
@@ -84,35 +91,48 @@ type Store struct {
 }
 
 // Open creates or recovers the storage directory and returns a store ready
-// for appends. Recovery validates every segment and fails closed on anything
-// ambiguous or corrupt.
+// for appends. It starts the store's file-system server over the local
+// operating system. Recovery validates every segment and fails closed on
+// anything ambiguous or corrupt.
 func Open(directory string, options Options) (*Store, error) {
-	if err := createDirectory(directory); err != nil {
+	backend, err := filesystem.NewOSBackend(directory)
+	if err != nil {
 		return nil, err
 	}
-	segmentsDir := filepath.Join(directory, segmentsDirName)
-	if err := createDirectory(segmentsDir); err != nil {
+	server, err := filesystem.Serve(backend)
+	if err != nil {
+		_ = backend.Close()
 		return nil, err
+	}
+	s, err := open(filesystem.NewClient(server.URL(), server.Token()), options)
+	if err != nil {
+		_ = server.Close()
+		return nil, err
+	}
+	s.server = server
+	return s, nil
+}
+
+func open(files *filesystem.Client, options Options) (*Store, error) {
+	if err := files.MakeDirectory(segmentsDirName); err != nil {
+		return nil, fmt.Errorf("create segments folder: %w", err)
 	}
 	validator, err := record.NewValidator()
 	if err != nil {
 		return nil, err
 	}
-	lockFile, err := acquireLock(filepath.Join(directory, lockFileName))
-	if err != nil {
-		return nil, err
+	if err := files.Lock(lockFileName); err != nil {
+		return nil, fmt.Errorf("storage is owned by another process: %w", err)
 	}
-	recovered, err := (&recovery{directory: directory, segmentsDir: segmentsDir, validator: validator, index: newIndex(), nextSequence: 1}).run()
+	recovered, err := (&recovery{files: files, validator: validator, index: newIndex(), nextSequence: 1}).run()
 	if err != nil {
-		_ = lockFile.Close()
+		_ = files.Unlock(lockFileName)
 		return nil, err
 	}
 	s := &Store{
-		directory:    directory,
-		segmentsDir:  segmentsDir,
+		files:        files,
 		validator:    validator,
 		options:      options,
-		lockFile:     lockFile,
 		manifest:     recovered.manifest,
 		finalized:    recovered.finalized,
 		active:       recovered.active,
@@ -122,10 +142,6 @@ func Open(directory string, options Options) (*Store, error) {
 		wake:         make(chan struct{}),
 		stop:         make(chan struct{}),
 		stopped:      make(chan struct{}),
-	}
-	if s.activeFile, err = openSegmentAppend(s.active.path); err != nil {
-		_ = lockFile.Close()
-		return nil, err
 	}
 	go s.runSyncLoop()
 	return s, nil
@@ -202,7 +218,11 @@ func (s *Store) AppendTransaction(channel ChannelWrite, occurrences []Occurrence
 		}
 	}
 	start := s.active.size
-	if err := writeAll(s.activeFile, transaction); err != nil {
+	size, err := s.files.Append(s.active.path, transaction)
+	if err == nil && size != start+int64(len(transaction)) {
+		err = fmt.Errorf("append to %s ended at %d, want %d", s.active.path, size, start+int64(len(transaction)))
+	}
+	if err != nil {
 		s.rollbackLocked(start, err)
 		return err
 	}
@@ -226,43 +246,33 @@ func (s *Store) AppendTransaction(channel ChannelWrite, occurrences []Occurrence
 // never follow garbage. If truncation also fails the store stops accepting
 // writes; recovery on the next start discards the incomplete transaction.
 func (s *Store) rollbackLocked(start int64, cause error) {
-	if err := truncateFile(s.activeFile, start); err != nil {
+	if err := s.files.Truncate(s.active.path, start); err != nil {
 		s.writeFailure = fmt.Errorf("%v; rollback failed: %w", cause, err)
-		return
-	}
-	if _, err := s.activeFile.Seek(start, io.SeekStart); err != nil {
-		s.writeFailure = fmt.Errorf("%v; rollback seek failed: %w", cause, err)
 	}
 }
 
 // rotateLocked finalizes the active segment at a transaction boundary, creates
 // the next segment, and publishes it in the manifest. It may then compact.
 func (s *Store) rotateLocked() error {
-	if err := syncFile(s.activeFile); err != nil {
+	if err := s.files.Sync(s.active.path); err != nil {
 		return err
 	}
 	s.unsynced = 0
 	id := s.manifest.NextSegmentID
-	path := segmentPath(s.segmentsDir, id)
-	next, err := createSegment(path)
-	if err != nil {
+	next := segmentPath(id)
+	if err := s.files.CreateExclusive(next); err != nil {
 		return err
 	}
 	updated := s.manifest
 	updated.Segments = append(append([]string(nil), s.manifest.Segments...), segmentFileName(id))
 	updated.NextSegmentID = id + 1
-	if err := writeManifest(s.directory, updated); err != nil {
-		_ = next.Close()
-		_ = os.Remove(path)
+	if err := writeManifest(s.files, updated); err != nil {
+		_ = s.files.Remove(next)
 		return err
-	}
-	if err := s.activeFile.Close(); err != nil {
-		s.writeFailure = fmt.Errorf("close finalized segment: %w", err)
 	}
 	s.manifest = updated
 	s.finalized = append(s.finalized, s.active)
-	s.active = &segment{id: id, path: path}
-	s.activeFile = next
+	s.active = &segment{id: id, path: next}
 	if len(s.finalized) >= s.options.CompactionThreshold {
 		if err := s.compactLocked(); err != nil {
 			return fmt.Errorf("compact segments: %w", err)
@@ -278,11 +288,10 @@ func (s *Store) compactLocked() error {
 	if len(s.finalized) < 2 {
 		return nil
 	}
-	result, err := (&compaction{directory: s.directory, segmentsDir: s.segmentsDir, validator: s.validator}).run(s.manifest, s.finalized, s.active)
+	result, err := (&compaction{files: s.files, validator: s.validator}).run(s.manifest, s.finalized, s.active)
 	if err != nil {
 		return err
 	}
-	_ = s.activeFile.Close()
 	s.removeRetiredLocked(s.active)
 	s.index.relocate(result.bases, result.replacement)
 	for _, source := range s.finalized {
@@ -294,7 +303,6 @@ func (s *Store) compactLocked() error {
 	s.manifest = result.manifest
 	s.finalized = []*segment{result.replacement}
 	s.active = result.active
-	s.activeFile = result.activeFile
 	s.indexDirty = true
 	return s.writeIndexLocked()
 }
@@ -303,7 +311,7 @@ func (s *Store) syncLocked() {
 	if s.unsynced == 0 {
 		return
 	}
-	if err := syncFile(s.activeFile); err != nil {
+	if err := s.files.Sync(s.active.path); err != nil {
 		s.writeFailure = err
 		return
 	}
@@ -311,7 +319,7 @@ func (s *Store) syncLocked() {
 }
 
 func (s *Store) writeIndexLocked() error {
-	return s.index.persisted(s.manifest.Generation, s.nextSequence-1).write(s.directory)
+	return s.index.persisted(s.manifest.Generation, s.nextSequence-1).write(s.files)
 }
 
 // runSyncLoop applies the periodic durability policy, persists the derived
@@ -362,17 +370,12 @@ func (s *Store) ReadOccurrenceFrame(channelID identity.UUID, position int) ([]by
 		return nil, fmt.Errorf("channel %s has no occurrence %d", channelID, position)
 	}
 	located := *occurrence
-	reader, err := located.segment.readHandle()
-	if err != nil {
-		s.mu.Unlock()
-		return nil, err
-	}
 	located.segment.refs++
 	s.mu.Unlock()
 	defer s.unpin(located.segment)
 
-	frame := make([]byte, located.length)
-	if _, err := reader.ReadAt(frame, located.offset); err != nil {
+	frame, err := s.files.Read(located.segment.path, located.offset, located.length)
+	if err != nil {
 		return nil, fmt.Errorf("read occurrence %d of %s: %w", located.Sequence, located.segment.path, err)
 	}
 	if len(frame) == 0 || frame[len(frame)-1] != '\n' {
@@ -394,21 +397,20 @@ func (s *Store) unpin(seg *segment) {
 // removal fails. A leftover file is never authoritative: it is outside the
 // manifest, and recovery removes such orphans after validation.
 func (s *Store) removeRetiredLocked(seg *segment) {
-	seg.closeReader()
 	s.removeFileLocked(seg.path)
 }
 
-func (s *Store) removeFileLocked(path string) {
-	if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
-		s.pendingDeletes = append(s.pendingDeletes, path)
+func (s *Store) removeFileLocked(p string) {
+	if err := s.files.Remove(p); err != nil && !errors.Is(err, fs.ErrNotExist) {
+		s.pendingDeletes = append(s.pendingDeletes, p)
 	}
 }
 
 func (s *Store) retryPendingDeletesLocked() {
 	pending := s.pendingDeletes
 	s.pendingDeletes = nil
-	for _, path := range pending {
-		s.removeFileLocked(path)
+	for _, p := range pending {
+		s.removeFileLocked(p)
 	}
 }
 
@@ -434,10 +436,11 @@ func (s *Store) Close() error {
 			_ = s.writeIndexLocked()
 		}
 		s.retryPendingDeletesLocked()
-		for _, seg := range append(append([]*segment(nil), s.finalized...), s.active) {
-			seg.closeReader()
+		err = s.files.Unlock(lockFileName)
+		s.files.Close()
+		if s.server != nil {
+			err = errors.Join(err, s.server.Close())
 		}
-		err = errors.Join(s.activeFile.Close(), s.lockFile.Close())
 	})
 	return err
 }

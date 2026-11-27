@@ -1,10 +1,10 @@
 package storage
 
 import (
+	"bytes"
 	"fmt"
-	"io"
-	"os"
 
+	"github.com/gunesis-game/eventlog/internal/filesystem"
 	"github.com/gunesis-game/eventlog/internal/record"
 )
 
@@ -23,9 +23,8 @@ import (
 // The empty active segment is reissued with the next ID so manifest segment
 // IDs stay ascending in sequence order.
 type compaction struct {
-	directory   string
-	segmentsDir string
-	validator   *record.Validator
+	files     *filesystem.Client
+	validator *record.Validator
 }
 
 type compactionResult struct {
@@ -33,7 +32,6 @@ type compactionResult struct {
 	replacement *segment
 	bases       map[*segment]int64
 	active      *segment
-	activeFile  *os.File
 }
 
 func (c *compaction) run(current manifest, sources []*segment, active *segment) (compactionResult, error) {
@@ -41,30 +39,25 @@ func (c *compaction) run(current manifest, sources []*segment, active *segment) 
 		return compactionResult{}, fmt.Errorf("compaction requires an empty active segment")
 	}
 	id := current.NextSegmentID
-	finalPath := segmentPath(c.segmentsDir, id)
+	finalPath := segmentPath(id)
 	temporaryPath := finalPath + temporaryFileSuffix
-	bases, total, err := consolidate(temporaryPath, sources)
+	bases, total, err := c.consolidate(temporaryPath, sources)
 	if err != nil {
-		_ = os.Remove(temporaryPath)
+		_ = c.files.Remove(temporaryPath)
 		return compactionResult{}, err
 	}
-	if err := c.validate(temporaryPath, firstSequenceOf(sources[0], c.validator)); err != nil {
-		_ = os.Remove(temporaryPath)
+	if err := c.validate(temporaryPath, c.firstSequenceOf(sources[0])); err != nil {
+		_ = c.files.Remove(temporaryPath)
 		return compactionResult{}, err
 	}
-	if err := renameFile(temporaryPath, finalPath); err != nil {
-		_ = os.Remove(temporaryPath)
+	if err := c.files.Rename(temporaryPath, finalPath); err != nil {
+		_ = c.files.Remove(temporaryPath)
 		return compactionResult{}, fmt.Errorf("finalize compacted segment: %w", err)
 	}
 	activeID := id + 1
-	activePath := segmentPath(c.segmentsDir, activeID)
-	activeFile, err := createSegment(activePath)
-	if err != nil {
-		_ = os.Remove(finalPath)
-		return compactionResult{}, err
-	}
-	if err := syncDirectory(c.segmentsDir); err != nil {
-		_ = activeFile.Close()
+	activePath := segmentPath(activeID)
+	if err := c.files.CreateExclusive(activePath); err != nil {
+		_ = c.files.Remove(finalPath)
 		return compactionResult{}, err
 	}
 	updated := manifest{
@@ -73,10 +66,9 @@ func (c *compaction) run(current manifest, sources []*segment, active *segment) 
 		Segments:      []string{segmentFileName(id), segmentFileName(activeID)},
 		NextSegmentID: activeID + 1,
 	}
-	if err := writeManifest(c.directory, updated); err != nil {
-		_ = activeFile.Close()
-		_ = os.Remove(activePath)
-		_ = os.Remove(finalPath)
+	if err := writeManifest(c.files, updated); err != nil {
+		_ = c.files.Remove(activePath)
+		_ = c.files.Remove(finalPath)
 		return compactionResult{}, err
 	}
 	return compactionResult{
@@ -84,43 +76,35 @@ func (c *compaction) run(current manifest, sources []*segment, active *segment) 
 		replacement: &segment{id: id, path: finalPath, size: total},
 		bases:       bases,
 		active:      &segment{id: activeID, path: activePath},
-		activeFile:  activeFile,
 	}, nil
 }
 
 // consolidate concatenates the source segments into path and returns each
 // source's byte offset within the result and the total size.
-func consolidate(path string, sources []*segment) (map[*segment]int64, int64, error) {
-	out, err := createSegment(path)
-	if err != nil {
+func (c *compaction) consolidate(path string, sources []*segment) (map[*segment]int64, int64, error) {
+	if err := c.files.CreateExclusive(path); err != nil {
 		return nil, 0, err
 	}
 	bases := make(map[*segment]int64, len(sources))
 	var offset int64
 	for _, source := range sources {
 		bases[source] = offset
-		in, err := openSegmentRead(source.path)
+		data, err := c.files.Read(source.path, 0, -1)
 		if err != nil {
-			_ = out.Close()
 			return nil, 0, err
 		}
-		copied, err := io.Copy(out, in)
-		_ = in.Close()
-		if err != nil || copied != source.size {
-			_ = out.Close()
-			return nil, 0, fmt.Errorf("copy segment %s: copied %d of %d bytes: %v", source.path, copied, source.size, err)
+		if int64(len(data)) != source.size {
+			return nil, 0, fmt.Errorf("segment %s holds %d bytes, want %d", source.path, len(data), source.size)
 		}
-		offset += copied
+		if offset, err = c.files.Append(path, data); err != nil {
+			return nil, 0, err
+		}
 	}
-	if err := syncFile(out); err != nil {
-		_ = out.Close()
-		return nil, 0, err
-	}
-	return bases, offset, out.Close()
+	return bases, offset, c.files.Sync(path)
 }
 
 func (c *compaction) validate(path string, firstSequence uint64) error {
-	data, err := os.ReadFile(path)
+	data, err := c.files.Read(path, 0, -1)
 	if err != nil {
 		return err
 	}
@@ -135,18 +119,17 @@ func (c *compaction) validate(path string, firstSequence uint64) error {
 }
 
 // firstSequenceOf returns the first global sequence stored in a segment by
-// reading its first record.
-func firstSequenceOf(seg *segment, validator *record.Validator) uint64 {
-	f, err := openSegmentRead(seg.path)
+// decoding its first record.
+func (c *compaction) firstSequenceOf(seg *segment) uint64 {
+	data, err := c.files.Read(seg.path, 0, -1)
 	if err != nil {
 		return 0
 	}
-	defer f.Close()
-	frame, err := record.NewFramer(f).Next()
+	frame, err := record.NewFramer(bytes.NewReader(data)).Next()
 	if err != nil {
 		return 0
 	}
-	decoded, err := record.Decode(frame, validator)
+	decoded, err := record.Decode(frame, c.validator)
 	if err != nil {
 		return 0
 	}

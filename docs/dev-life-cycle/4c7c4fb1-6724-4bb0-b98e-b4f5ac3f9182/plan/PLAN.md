@@ -38,13 +38,16 @@ Implement eventlog according to approved requirements, public API, architecture,
 10. [x] Package layout (D-053): `internal/identity`, `internal/fieldschema`, `internal/record` (with schemas), `internal/storage` split into store, segment, index, index file, recovery, and compaction types; Reader split from the Channel runtime; runtime depends on a storage interface; tests beside their code; public API verified unchanged with `go doc`.
 9. [~] Benchmarks: smoke set (B-F01, B-L01, B-L05, B-T03/B-M06, replay). The full catalogue, profile protocol, and baselines remain.
 
+11. [x] File-system boundary, Phase 1 (D-054): `internal/filesystem` with the `Backend` interface, OS backend, localhost token-authenticated HTTP server, and client; `internal/storage` makes no OS calls; contract tests cover the HTTP contract; public API unchanged.
+12. [ ] File-system boundary, Phase 2: Google Drive backend, `WithStorageEndpoint` with a `GoogleDrive{FolderID, CredentialsFile}` descriptor, service-account authentication, 1 MiB segments for Drive, best-effort single-process ownership, and the requirement changes this brings. Approved in principle on 2026-11-27; callback handling awaits the user's confirmation; decisions to be recorded before implementation.
+
 ## Known gaps and follow-ups
 - The in-memory index and `index.json` grow with total history, and every process start replays full Channel history.
 - The full benchmark catalogue (benchmarks.md) is not yet implemented.
 - Coding-standard review of the final implementation is not yet done.
 
 ## Next action
-Implement the full benchmark catalogue and capture baselines, complete the coding-standard review, re-run CI on the final SHA, and assess the Implement exit gate.
+Publish Phase 1 of the file-system boundary and check exact-SHA CI. Then settle the open Phase 2 questions (callbacks), record the Phase 2 decisions, and implement the Google Drive backend. The full benchmark catalogue, the coding-standard review, and the Implement exit gate follow.
 
 ## Phase exit
 Implement exit requires the mandatory full verification suite, applicable performance checks, coding-standard review, and evidence tied to the exact final implementation SHA. Do not transition phases until the documented gate is satisfied and user authorization is obtained where required.

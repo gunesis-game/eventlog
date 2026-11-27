@@ -5,13 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
-	"os"
-	"path/filepath"
+	"path"
 	"sort"
 	"strings"
 	"unicode/utf8"
 
 	"github.com/gunesis-game/eventlog/internal/fieldschema"
+	"github.com/gunesis-game/eventlog/internal/filesystem"
 	"github.com/gunesis-game/eventlog/internal/identity"
 	"github.com/gunesis-game/eventlog/internal/record"
 )
@@ -25,8 +25,7 @@ var errCorruptStorage = errors.New("corrupt storage")
 // an incomplete trailing transaction; rebuilds the derived index; and only then
 // cleans orphaned artifacts.
 type recovery struct {
-	directory    string
-	segmentsDir  string
+	files        *filesystem.Client
 	validator    *record.Validator
 	index        *index
 	nextSequence uint64
@@ -47,7 +46,7 @@ func (r *recovery) run() (*recovery, error) {
 			return nil, err
 		}
 	}
-	if r.indexRebuilt, err = r.index.persisted(r.manifest.Generation, r.nextSequence-1).reconcile(r.directory); err != nil {
+	if r.indexRebuilt, err = r.index.persisted(r.manifest.Generation, r.nextSequence-1).reconcile(r.files); err != nil {
 		return nil, err
 	}
 	r.cleanOrphans()
@@ -58,7 +57,7 @@ func (r *recovery) run() (*recovery, error) {
 // new generation. A missing or unreadable manifest is reconstructed only when
 // the segment files form exactly one unambiguous contiguous history.
 func (r *recovery) resolveManifest() (manifest, error) {
-	m, err := readManifest(r.directory)
+	m, err := readManifest(r.files)
 	if err == nil {
 		return m, nil
 	}
@@ -72,14 +71,10 @@ func (r *recovery) resolveManifest() (manifest, error) {
 			return manifest{}, fmt.Errorf("%w: manifest is unusable and no segments exist: %v", errCorruptStorage, err)
 		}
 		fresh := manifest{FormatVersion: manifestFormatVersion, Generation: 1, Segments: []string{segmentFileName(1)}, NextSegmentID: 2}
-		f, createErr := createSegment(segmentPath(r.segmentsDir, 1))
-		if createErr != nil {
-			return manifest{}, createErr
+		if err := r.files.CreateExclusive(segmentPath(1)); err != nil {
+			return manifest{}, err
 		}
-		if closeErr := f.Close(); closeErr != nil {
-			return manifest{}, closeErr
-		}
-		return fresh, writeManifest(r.directory, fresh)
+		return fresh, writeManifest(r.files, fresh)
 	}
 	rebuilt := manifest{FormatVersion: manifestFormatVersion, Generation: 1, NextSegmentID: ids[len(ids)-1] + 1}
 	for _, id := range ids {
@@ -88,20 +83,20 @@ func (r *recovery) resolveManifest() (manifest, error) {
 	if chainErr := r.checkUnambiguousChain(ids); chainErr != nil {
 		return manifest{}, fmt.Errorf("%w: manifest unusable (%v) and segments are ambiguous: %v", errCorruptStorage, err, chainErr)
 	}
-	return rebuilt, writeManifest(r.directory, rebuilt)
+	return rebuilt, writeManifest(r.files, rebuilt)
 }
 
 func (r *recovery) listSegmentIDs() ([]uint64, error) {
-	entries, err := os.ReadDir(r.segmentsDir)
+	entries, err := r.files.List(segmentsDirName)
 	if err != nil {
 		return nil, fmt.Errorf("list segments: %w", err)
 	}
 	var ids []uint64
 	for _, entry := range entries {
-		if entry.IsDir() || strings.HasSuffix(entry.Name(), temporaryFileSuffix) {
+		if entry.Dir || strings.HasSuffix(entry.Name, temporaryFileSuffix) {
 			continue
 		}
-		id, err := segmentIDFromName(entry.Name())
+		id, err := segmentIDFromName(entry.Name)
 		if err != nil {
 			continue
 		}
@@ -119,7 +114,7 @@ func (r *recovery) listSegmentIDs() ([]uint64, error) {
 func (r *recovery) checkUnambiguousChain(ids []uint64) error {
 	expected := uint64(1)
 	for i, id := range ids {
-		data, err := os.ReadFile(segmentPath(r.segmentsDir, id))
+		data, err := r.files.Read(segmentPath(id), 0, -1)
 		if err != nil {
 			return err
 		}
@@ -143,8 +138,8 @@ func (r *recovery) recoverSegment(name string, last bool) error {
 	if err != nil {
 		return err
 	}
-	path := segmentPath(r.segmentsDir, id)
-	data, err := os.ReadFile(path)
+	path := segmentPath(id)
+	data, err := r.files.Read(path, 0, -1)
 	if err != nil {
 		return fmt.Errorf("%w: manifest segment %s: %v", errCorruptStorage, name, err)
 	}
@@ -157,7 +152,7 @@ func (r *recovery) recoverSegment(name string, last bool) error {
 		if !last {
 			return fmt.Errorf("%w: finalized segment %s ends with an incomplete transaction", errCorruptStorage, name)
 		}
-		if err := truncateSegment(path, *result.IncompleteStart); err != nil {
+		if err := r.truncate(path, *result.IncompleteStart); err != nil {
 			return err
 		}
 		data = data[:*result.IncompleteStart]
@@ -175,20 +170,11 @@ func (r *recovery) recoverSegment(name string, last bool) error {
 	return nil
 }
 
-func truncateSegment(path string, size int64) error {
-	f, err := os.OpenFile(path, os.O_RDWR, 0)
-	if err != nil {
-		return fmt.Errorf("open segment for truncation: %w", err)
-	}
-	if err := truncateFile(f, size); err != nil {
-		_ = f.Close()
+func (r *recovery) truncate(path string, size int64) error {
+	if err := r.files.Truncate(path, size); err != nil {
 		return err
 	}
-	if err := syncFile(f); err != nil {
-		_ = f.Close()
-		return err
-	}
-	return f.Close()
+	return r.files.Sync(path)
 }
 
 // indexSegment applies the semantic checks the stream validator does not:
@@ -301,19 +287,18 @@ func (r *recovery) cleanOrphans() {
 	for _, name := range r.manifest.Segments {
 		listed[name] = true
 	}
-	for _, dir := range []string{r.directory, r.segmentsDir} {
-		entries, err := os.ReadDir(dir)
+	for _, dir := range []string{"", segmentsDirName} {
+		entries, err := r.files.List(dir)
 		if err != nil {
 			continue
 		}
 		for _, entry := range entries {
-			name := entry.Name()
-			if entry.IsDir() {
+			if entry.Dir {
 				continue
 			}
-			orphanSegment := dir == r.segmentsDir && segmentFileNamePattern.MatchString(name) && !listed[name]
-			if strings.HasSuffix(name, temporaryFileSuffix) || orphanSegment {
-				_ = os.Remove(filepath.Join(dir, name))
+			orphanSegment := dir == segmentsDirName && segmentFileNamePattern.MatchString(entry.Name) && !listed[entry.Name]
+			if strings.HasSuffix(entry.Name, temporaryFileSuffix) || orphanSegment {
+				_ = r.files.Remove(path.Join(dir, entry.Name))
 			}
 		}
 	}
