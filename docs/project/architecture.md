@@ -676,6 +676,12 @@ Approved on 2026-11-27; these settle the open points of this design.
    - **Board:** `/eventlog/{logID}/devices/{uid}/{deviceID}`, where `uid` is the signed-in Firebase user.
      Writers may write only under their own `uid`; writers and readers may read the board; anyone else is
      refused.
+   - **Named people only (D-071):** the folder must be shared with each person by email address. Sharing
+     through a Google Group, a domain, or "anyone with the link" cannot be mapped to the members list
+     (resolving group membership needs paid Workspace administration). Such accounts can still read, and
+     write if they are Editors, but their devices get no live notifications: they report
+     `ChangeEventsUnavailable`, whose cause, provided by the Drive backend, says the folder must be shared
+     with the account by email address.
    - **Revocation:** when the owner stops sharing the folder, Drive refuses the data at once; the members
      list drops the account at an owner's device's next sync. Until then the account can only see positions.
    - Sign-in itself is also limited by the project's test-user list while the OAuth app is in Testing, so
