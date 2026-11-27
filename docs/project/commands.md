@@ -26,6 +26,6 @@ On 2026-11-27, on windows/amd64 with Go 1.27.4 (local machine), against the work
 - `GOOS=linux go vet ./...` and Linux test-binary builds of every package passed (cross-compiled; not executed on Linux locally).
 - `go doc -all .` output is identical to the previous commit, so the public API is unchanged.
 
-The previous implementation commit `69dbed5aa068f58f4199eaf95cb61e240030a954` passed Go verification run 45985063315 on Linux and Windows. The restructure commit has no CI result yet. The commands run in [Go verification](../../.github/workflows/go.yml) on pushes to `main` and on manual dispatch, as Linux and Windows matrix jobs. Do not claim CI results until the run for the exact commit SHA has been inspected.
+CI evidence: the restructure commit `ffee9c0f0c27b3f8b5cd9ad62c20afb14a856d87` passed Go verification run 45990909613 on `ubuntu-latest` (gofmt, test, race, build, vet) and `windows-latest` (test, build, vet; gofmt and race skipped by design), and Steering state validation run 45990909648. The commands run in [Go verification](../../.github/workflows/go.yml) on pushes to `main` and on manual dispatch, as Linux and Windows matrix jobs. Do not claim CI results until the run for the exact commit SHA has been inspected.
 
 Update this document when commands, prerequisites, suite locations, or CI triggers change. Do not claim tests or checks that were not actually run.

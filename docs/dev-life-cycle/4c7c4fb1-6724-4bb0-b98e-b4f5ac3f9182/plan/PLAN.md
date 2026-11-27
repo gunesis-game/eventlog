@@ -44,7 +44,7 @@ Implement eventlog according to approved requirements, public API, architecture,
 - Coding-standard review of the final implementation is not yet done.
 
 ## Next action
-Publish the restructure and check exact-SHA CI. Then implement the full benchmark catalogue and capture baselines, complete the coding-standard review, re-run CI on the final SHA, and assess the Implement exit gate.
+Implement the full benchmark catalogue and capture baselines, complete the coding-standard review, re-run CI on the final SHA, and assess the Implement exit gate.
 
 ## Phase exit
 Implement exit requires the mandatory full verification suite, applicable performance checks, coding-standard review, and evidence tied to the exact final implementation SHA. Do not transition phases until the documented gate is satisfied and user authorization is obtained where required.
