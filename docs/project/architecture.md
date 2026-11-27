@@ -518,14 +518,15 @@ D-061 to D-064. The current implementation is single-device and local-only. Rese
 
 ### Configuration and identity
 
-- `WithStorageEndpoint(GoogleDrive{Account, DeviceStateDirectory, OAuthClientFile})` selects Google Drive
-  (D-061, D-065):
+- `WithStorageEndpoint(GoogleDrive{Account, DeviceStateDirectory, OAuthClientFile, FirebaseDatabaseURL,
+  FirebaseAPIKey})` selects Google Drive (D-061, D-065, D-066):
   - `Account` is the **log owner's** Google account, whose Drive holds the master store. It is the same on
     every device.
   - `DeviceStateDirectory` is a directory on this device only, never shared, holding this device's
     identity, its one-process lock, its Google refresh token, and the cached folder IDs. It must be on
     persistent storage; losing it makes the machine a new device.
   - `OAuthClientFile` is the Desktop-app OAuth client created in the owner's free Google Cloud project.
+  - `FirebaseDatabaseURL` and `FirebaseAPIKey` name the owner's Firebase project (D-066).
 - Each device signs in with **its own** Google account, through Google OAuth with the restricted `drive`
   scope, approved in a browser, with the browser returning to the local file-system server (D-065). Every
   account must be listed as a test user while the OAuth app stays in Testing status.
@@ -550,6 +551,9 @@ D-061 to D-064. The current implementation is single-device and local-only. Rese
   `<storage directory>/eventlog`.
 - The folder holds `log.json` with a permanent log identity generated once, so a log keeps its identity
   across backends (D-062).
+- With Google Drive, the Drive backend keeps no local files other than the device state directory. Every
+  manifest, index, segment, and temporary file of compaction or recovery is a Drive file in the owner's
+  folder.
 - Each device writes only its own log under `devices/{deviceID}/` (manifest, index, segments), in the
   single-writer format. No file has two writers, so storage without append or compare-and-swap stays safe.
 - On Drive, an append re-uploads the segment, so Drive segments are small (1 MiB), and every upload is
@@ -567,7 +571,7 @@ D-061 to D-064. The current implementation is single-device and local-only. Rese
 - Notifications are generic file-change events of the file-system layer. Nothing above `internal/storage`
   knows of them.
 - The Google Drive backend keeps a "latest position per device" board in Firebase Realtime Database:
-  `/eventlog/{logID}/devices/{deviceID} = {"path": "...", "size": N}`. Each device writes only its own
+  `/eventlog/{logID}/devices/{uid}/{deviceID} = {"path": "...", "size": N}` (D-066). Each device writes only its own
   record, after its own successful Drive writes, at most once per file per second.
 - Every device streams `/eventlog/{logID}/devices` with server-sent events, over one outbound connection. The
   stream starts with the current board, which gives a catch-up on connect, then delivers each change.
@@ -593,6 +597,15 @@ D-061 to D-064. The current implementation is single-device and local-only. Rese
 - **Remote changes:** the Reader submits each delivered remote occurrence to the Channel's transaction
   processor, which sets the live instance's selected fields to the converged current state without
   persisting anything.
+- **Positions in other devices' logs (D-067):** a device tracks its place in another device's log by that
+  device's sequence number, never by file and offset; compaction preserves sequences byte-for-byte. The
+  Reader finds a sequence through that device's manifest file, and re-reads the manifest when a file-change
+  event names a file it does not know or a file it expects is gone, then resumes at the same sequence, so
+  nothing is skipped or delivered twice.
+- **Compaction on Drive (D-067):** compaction keeps its trigger and protocol, building the merged segment as
+  a Drive file. Replaced segment files are moved to the Drive trash rather than deleted, so reads already in
+  progress on other devices can finish; Drive empties the trash after 30 days. To verify during
+  implementation: that a trashed file in the owner's folder stays readable by ID for other accounts.
 - **Recovery:** a device fully recovers and may truncate only its own log; other devices' logs are read
   read-only, and an incomplete trailing transaction there is treated as not yet committed.
 
