@@ -293,10 +293,11 @@ func (s *Store) AppendTransaction(channel ChannelWrite, occurrences []Occurrence
 	}
 
 	type framedEvent struct {
-		sequence uint64
-		offset   int64
-		length   int64
-		write    OccurrenceWrite
+		sequence      uint64
+		offset        int64
+		length        int64
+		write         OccurrenceWrite
+		channelFields string
 	}
 	sequence := s.nextSequence
 	vector := maps.Clone(s.vectors[channel.ID])
@@ -330,7 +331,7 @@ func (s *Store) AppendTransaction(channel ChannelWrite, occurrences []Occurrence
 		if err != nil {
 			return err
 		}
-		events = append(events, framedEvent{sequence: sequence, offset: int64(len(transaction)), length: int64(len(frame)), write: occurrence})
+		events = append(events, framedEvent{sequence: sequence, offset: int64(len(transaction)), length: int64(len(frame)), write: occurrence, channelFields: lastChannelFields})
 		frames = append(frames, frame)
 		transaction = append(transaction, frame...)
 		sequence++
@@ -371,7 +372,7 @@ func (s *Store) AppendTransaction(channel ChannelWrite, occurrences []Occurrence
 	s.index.setChannel(channel.ID, channelSnapshot{typ: channel.Type, fields: lastChannelFields})
 	s.vectors[channel.ID] = vector
 	for _, event := range events {
-		s.index.add(&Occurrence{Sequence: event.sequence, EventID: event.write.EventID, ChannelID: channel.ID, Type: event.write.EventType, segment: s.active, offset: start + event.offset, length: event.length})
+		s.index.add(&Occurrence{Sequence: event.sequence, EventID: event.write.EventID, ChannelID: channel.ID, Type: event.write.EventType, ChannelFields: event.channelFields, segment: s.active, offset: start + event.offset, length: event.length})
 	}
 	s.indexDirty = true
 	if s.unsynced >= s.options.SyncBytes {
@@ -483,6 +484,14 @@ func (s *Store) runSyncLoop() {
 			s.mu.Unlock()
 		}
 	}
+}
+
+// Committed returns how many occurrences of a Channel this device has
+// committed: its own entry in the Channel's version vector.
+func (s *Store) Committed(channelID identity.UUID) uint64 {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.vectors[channelID][s.device.String()]
 }
 
 // Device returns this device's identity.

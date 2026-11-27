@@ -28,19 +28,23 @@ type channelReader struct {
 	// pending holds, per device, occurrences read but not yet delivered, in
 	// that device's order, starting just after its delivered count.
 	pending map[identity.UUID][]*occurrence
-	// current is, per logical Event, the occurrence holding its current state.
-	current map[identity.UUID]*occurrence
 	// missing is, per device, where the missing history already reported on
 	// this Channel starts (D-070).
 	missing map[identity.UUID]uint64
+	// channelFields and channelSnapshot are the last Channel fields decoded,
+	// which most consecutive occurrences share.
+	channelFields   string
+	channelSnapshot fieldschema.Snapshot
 }
 
 // occurrence is one reconstructed committed occurrence with its causal
-// metadata.
+// metadata, and the Event's and the Channel's fields when it was written.
 type occurrence struct {
 	event    Event
 	schema   *fieldschema.Schema
 	instance reflect.Value
+	snapshot fieldschema.Snapshot
+	channel  fieldschema.Snapshot
 	id       identity.UUID
 	device   identity.UUID
 	vector   map[string]uint64
@@ -53,7 +57,6 @@ func newChannelReader(channel *channelRuntime) *channelReader {
 		self:      channel.rt.store.Device(),
 		delivered: make(map[string]uint64),
 		pending:   make(map[identity.UUID][]*occurrence),
-		current:   make(map[identity.UUID]*occurrence),
 		missing:   make(map[identity.UUID]uint64),
 	}
 }
@@ -181,8 +184,9 @@ func (o *occurrence) before(p *occurrence) bool {
 }
 
 // deliverNext advances the delivered vector past o, so transactions that
-// follow its notification count it, delivers o, and then reports a conflict
-// when o is concurrent with its Event's current state.
+// follow its notification count it, updates the converged current state the
+// live instances take, delivers o, and then reports a conflict when o is
+// concurrent with its Event's current state.
 func (r *channelReader) deliverNext(o *occurrence) error {
 	r.pending[o.device] = r.pending[o.device][1:]
 	writer := o.device.String()
@@ -190,7 +194,7 @@ func (r *channelReader) deliverNext(o *occurrence) error {
 	if o.device != r.self {
 		r.channel.rt.store.Delivered(r.channel.id, o.device, r.delivered[writer], o.at)
 	}
-	previous := r.current[o.id]
+	previous := r.channel.currentOf(o.id)
 	concurrent := previous != nil && !descends(o.vector, previous.vector)
 	// Of concurrent occurrences the greater clock reading holds the current
 	// state, so every device converges on the same one whatever the delivery
@@ -199,7 +203,7 @@ func (r *channelReader) deliverNext(o *occurrence) error {
 	if concurrent && o.before(previous) {
 		winner, other = previous, o
 	}
-	r.current[o.id] = winner
+	r.channel.converge(o, winner == o)
 	if err := r.deliver(o.event); err != nil {
 		return err
 	}
@@ -301,24 +305,11 @@ func (r *channelReader) reconstruct(frame []byte, entry storage.Occurrence, devi
 	if err != nil {
 		return nil, err
 	}
-	if len(persisted.Fields) != len(schema.Fields) {
-		return nil, fmt.Errorf("occurrence %d of %s has %d fields, registered schema has %d", entry.Sequence, entry.Type, len(persisted.Fields), len(schema.Fields))
+	instance, err := decodeFields(schema, persisted.Fields)
+	if err != nil {
+		return nil, fmt.Errorf("occurrence %d of %s: %w", entry.Sequence, entry.Type, err)
 	}
-	instance := reflect.New(schema.Type)
-	for _, binding := range schema.Fields {
-		raw, ok := persisted.Fields[binding.Name]
-		if !ok {
-			return nil, fmt.Errorf("occurrence %d of %s lacks field %q", entry.Sequence, entry.Type, binding.Name)
-		}
-		value, err := fieldschema.ValueFromRecord(raw)
-		if err != nil {
-			return nil, err
-		}
-		if err := fieldschema.Decode(binding, schema.FieldValue(instance, binding), value); err != nil {
-			return nil, fmt.Errorf("occurrence %d of %s: %w", entry.Sequence, entry.Type, err)
-		}
-	}
-	_, raw, err := fieldschema.Capture(schema, instance)
+	snapshot, raw, err := fieldschema.Capture(schema, instance)
 	if err != nil {
 		return nil, err
 	}
@@ -333,7 +324,62 @@ func (r *channelReader) reconstruct(frame []byte, entry storage.Occurrence, devi
 	if !ok {
 		return nil, fmt.Errorf("%s does not implement Event", schema.Type)
 	}
-	return &occurrence{event: event, schema: schema, instance: instance, id: id, device: device, vector: persisted.Vector, at: persisted.HLC}, nil
+	channel, err := r.channelState(entry.ChannelFields)
+	if err != nil {
+		return nil, fmt.Errorf("occurrence %d of device %s: channel: %w", entry.Sequence, device, err)
+	}
+	return &occurrence{event: event, schema: schema, instance: instance, snapshot: snapshot, channel: channel, id: id, device: device, vector: persisted.Vector, at: persisted.HLC}, nil
+}
+
+// channelState decodes the Channel fields an occurrence was written with.
+func (r *channelReader) channelState(fields string) (fieldschema.Snapshot, error) {
+	if r.channelSnapshot != nil && fields == r.channelFields {
+		return r.channelSnapshot, nil
+	}
+	var persisted map[string]interface{}
+	if err := json.Unmarshal([]byte(fields), &persisted); err != nil {
+		return nil, err
+	}
+	instance, err := decodeFields(r.channel.schema, persisted)
+	if err != nil {
+		return nil, err
+	}
+	snapshot, _, err := fieldschema.Capture(r.channel.schema, instance)
+	if err != nil {
+		return nil, err
+	}
+	r.channelFields, r.channelSnapshot = fields, snapshot
+	return snapshot, nil
+}
+
+// decodeFields decodes persisted record fields into a fresh instance of
+// schema's type.
+func decodeFields(schema *fieldschema.Schema, fields map[string]interface{}) (reflect.Value, error) {
+	if len(fields) != len(schema.Fields) {
+		return reflect.Value{}, fmt.Errorf("%d fields, registered schema has %d", len(fields), len(schema.Fields))
+	}
+	instance := reflect.New(schema.Type)
+	for _, binding := range schema.Fields {
+		raw, ok := fields[binding.Name]
+		if !ok {
+			return reflect.Value{}, fmt.Errorf("lacks field %q", binding.Name)
+		}
+		value, err := fieldschema.ValueFromRecord(raw)
+		if err != nil {
+			return reflect.Value{}, err
+		}
+		if err := fieldschema.Decode(binding, schema.FieldValue(instance, binding), value); err != nil {
+			return reflect.Value{}, err
+		}
+	}
+	return instance, nil
+}
+
+// supersededBy reports whether o is one of this device's own occurrences
+// older than committed, the count of the last occurrence this process
+// committed, so the live instance already holds a later local change.
+func (o *occurrence) supersededBy(self identity.UUID, committed uint64) bool {
+	return o.device == self && o.vector[self.String()] < committed
 }
 
 // copy returns an isolated copy of the occurrence's Event, apart from the one

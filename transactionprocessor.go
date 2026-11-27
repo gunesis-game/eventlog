@@ -3,6 +3,7 @@ package eventlog
 import (
 	"errors"
 	"fmt"
+	"reflect"
 
 	"github.com/gunesis-game/eventlog/internal/fieldschema"
 	"github.com/gunesis-game/eventlog/internal/identity"
@@ -24,6 +25,9 @@ type transactionProcessor struct {
 	pending  chan func() error
 	failures chan *ChannelError
 	resumed  chan struct{}
+	// committed is this device's count of the Channel's occurrences after
+	// the last batch this processor committed.
+	committed uint64
 }
 
 func newTransactionProcessor(channel *channelRuntime) *transactionProcessor {
@@ -125,15 +129,64 @@ type transactionBatch struct {
 	order           []*liveEvent
 }
 
+// run applies batches of transactions and, between them, the converged
+// current state, so every transaction starts from it.
 func (p *transactionProcessor) run() {
 	c := p.channel
 	for {
 		select {
 		case first := <-p.pending:
+			// A current state that changed before this transaction arrived
+			// is applied first.
+			select {
+			case <-c.converged:
+				p.applyConverged()
+			default:
+			}
 			p.processBatch(first)
+		case <-c.converged:
+			p.applyConverged()
 		case <-c.rt.closed:
 			return
 		}
+	}
+}
+
+// applyConverged sets the live instances whose current state changed to it,
+// persisting nothing (D-059, D-075). A current state that is an older
+// occurrence of this device than the last one committed for that instance is
+// skipped: the live instance already holds the later local change, whose
+// delivery will update the current state again.
+func (p *transactionProcessor) applyConverged() {
+	c := p.channel
+	self := c.rt.store.Device()
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	for id := range c.staleEvents {
+		delete(c.staleEvents, id)
+		live, current := c.byID[id], c.current[id]
+		if live != nil && !current.supersededBy(self, live.committed) {
+			restoreChanged(live.schema, live.instance, current.snapshot)
+		}
+	}
+	if c.staleChannel {
+		c.staleChannel = false
+		if !c.currentChannel.supersededBy(self, p.committed) {
+			restoreChanged(c.schema, c.instance, c.currentChannel.channel)
+		}
+	}
+}
+
+// restoreChanged writes the fields of snapshot that differ from instance's
+// current values and leaves the rest untouched, so identity fields, which
+// never change, are never written.
+func restoreChanged(schema *fieldschema.Schema, instance reflect.Value, snapshot fieldschema.Snapshot) {
+	current, _, err := fieldschema.Capture(schema, instance)
+	for i, binding := range schema.Fields {
+		if err == nil && current[i] == snapshot[i] {
+			continue
+		}
+		_ = fieldschema.Decode(binding, schema.FieldValue(instance, binding), snapshot[i])
 	}
 }
 
@@ -296,6 +349,11 @@ func (p *transactionProcessor) commit(batch *transactionBatch) *ChannelError {
 	}
 	err := c.rt.store.AppendTransaction(storage.ChannelWrite{ID: c.id, Type: c.schema.Key()}, writes)
 	if err == nil {
+		p.committed = c.rt.store.Committed(c.id)
+		first := p.committed - uint64(len(batch.occurrences)) + 1
+		for i, occurrence := range batch.occurrences {
+			occurrence.event.committed = first + uint64(i)
+		}
 		return nil
 	}
 	attempted := make([]Event, 0, len(batch.order))

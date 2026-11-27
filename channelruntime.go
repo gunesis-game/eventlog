@@ -15,6 +15,10 @@ type liveEvent struct {
 	schema   *fieldschema.Schema
 	instance reflect.Value
 	event    Event
+	// committed is this device's count of the Channel's occurrences at the
+	// last occurrence of this Event the transaction processor committed; only
+	// the processor uses it.
+	committed uint64
 }
 
 // channelRuntime is the single runtime of one logical Channel: its adopted live
@@ -35,6 +39,17 @@ type channelRuntime struct {
 	mu     sync.Mutex
 	events []*liveEvent
 	byID   map[identity.UUID]*liveEvent
+	// current is, per logical Event, the delivered occurrence holding its
+	// converged current state, and currentChannel the one whose Channel
+	// fields are the Channel's: of every occurrence delivered, the one with
+	// the greatest clock reading. The Reader sets them; the transaction
+	// processor applies the stale ones to the live instances (D-075).
+	current        map[identity.UUID]*occurrence
+	currentChannel *occurrence
+	staleEvents    map[identity.UUID]struct{}
+	staleChannel   bool
+	// converged is signalled after the current state changes.
+	converged chan struct{}
 
 	// streamMu guards closing the streams against in-flight error sends.
 	streamMu      sync.RWMutex
@@ -53,20 +68,54 @@ func newChannelRuntime(rt *logRuntime, id, raw identity.UUID, schema *fieldschem
 		errs:          errs,
 		transactions:  make(chan func() error),
 		byID:          make(map[identity.UUID]*liveEvent),
+		current:       make(map[identity.UUID]*occurrence),
+		staleEvents:   make(map[identity.UUID]struct{}),
+		converged:     make(chan struct{}, 1),
 	}
 }
 
 // adoptEvent returns the live Event for a logical identity, adopting the
-// candidate when the identity is new.
+// candidate when the identity is new; a candidate whose Event has a current
+// state takes it in place of its constructor values (D-075).
 func (c *channelRuntime) adoptEvent(candidate *liveEvent) *liveEvent {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if existing, ok := c.byID[candidate.id]; ok {
 		return existing
 	}
+	if current := c.current[candidate.id]; current != nil {
+		restoreChanged(candidate.schema, candidate.instance, current.snapshot)
+	}
 	c.byID[candidate.id] = candidate
 	c.events = append(c.events, candidate)
 	return candidate
+}
+
+// currentOf returns the occurrence holding an Event's current state, or nil.
+func (c *channelRuntime) currentOf(id identity.UUID) *occurrence {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.current[id]
+}
+
+// converge records a delivered occurrence: when current, it holds its Event's
+// current state, and when its clock reading is the greatest yet delivered its
+// Channel fields are the Channel's. It then signals the transaction processor.
+func (c *channelRuntime) converge(o *occurrence, current bool) {
+	c.mu.Lock()
+	if current {
+		c.current[o.id] = o
+		c.staleEvents[o.id] = struct{}{}
+	}
+	if c.currentChannel == nil || c.currentChannel.before(o) {
+		c.currentChannel = o
+		c.staleChannel = true
+	}
+	c.mu.Unlock()
+	select {
+	case c.converged <- struct{}{}:
+	default:
+	}
 }
 
 // liveEvents returns the adopted live Events in adoption order.

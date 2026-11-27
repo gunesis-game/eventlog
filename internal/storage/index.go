@@ -11,9 +11,12 @@ type Occurrence struct {
 	EventID   identity.UUID
 	ChannelID identity.UUID
 	Type      fieldschema.TypeKey
-	segment   *segment
-	offset    int64
-	length    int64
+	// ChannelFields is the canonical JSON of the Channel's fields when the
+	// occurrence was written, as in its last Channel record.
+	ChannelFields string
+	segment       *segment
+	offset        int64
+	length        int64
 }
 
 // channelSnapshot is the latest persisted state of a logical Channel; fields is

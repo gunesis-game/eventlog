@@ -372,7 +372,8 @@ func (r *recovery) indexKind(kind string, seg *segment, raw []byte, offset int64
 		if err != nil {
 			return err
 		}
-		if _, ok := r.index.channel(channelID); !ok {
+		channel, ok := r.index.channel(channelID)
+		if !ok {
 			return fmt.Errorf("event %s references unknown channel %s", id, channelID)
 		}
 		if err := validateRecordFields(event.Fields); err != nil {
@@ -381,7 +382,7 @@ func (r *recovery) indexKind(kind string, seg *segment, raw []byte, offset int64
 		if err := r.checkCausal(event, channelID); err != nil {
 			return fmt.Errorf("event %s: %w", id, err)
 		}
-		r.index.add(&Occurrence{Sequence: event.Sequence, EventID: id, ChannelID: channelID, Type: fieldschema.TypeKey{PackagePath: event.Type.PackagePath, Name: event.Type.Name}, segment: seg, offset: offset, length: int64(len(raw)) + 1})
+		r.index.add(&Occurrence{Sequence: event.Sequence, EventID: id, ChannelID: channelID, Type: fieldschema.TypeKey{PackagePath: event.Type.PackagePath, Name: event.Type.Name}, ChannelFields: channel.fields, segment: seg, offset: offset, length: int64(len(raw)) + 1})
 	}
 	return nil
 }

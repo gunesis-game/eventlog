@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/gunesis-game/eventlog/internal/filesystem"
+	"github.com/gunesis-game/eventlog/internal/identity"
 	"github.com/gunesis-game/eventlog/internal/storage"
 )
 
@@ -236,4 +237,140 @@ func TestDependentsWaitForMissingHistory(t *testing.T) {
 	expectAmount(t, ordersC, 1)
 	expectAmount(t, ordersC, 2)
 	expectNoError(t, ordersC, 100*time.Millisecond)
+}
+
+// readLive reads a live Event's amount and its Channel's region inside a
+// transaction, the race-free way to read live fields.
+func readLive(event *OrderPlaced, channel *Orders) (amount int64, region string) {
+	read(event, func() {
+		amount, region = event.Amount, channel.Region
+	})
+	return amount, region
+}
+
+func increment(event *OrderPlaced) {
+	event.Transaction() <- func() error {
+		event.Amount++
+		return nil
+	}
+}
+
+// D-059, D-075: another device's commit sets the live Event and Channel to
+// the converged state, and local transactions interleaved with remote ones
+// start from it.
+func TestLiveInstancesTakeOtherDevicesChanges(t *testing.T) {
+	shared := newSharedStorage(t)
+	a, b := shared.device(t, "a"), shared.device(t, "b")
+	eventA, ordersA := prepareOrder(t, a, testUUID(1), testUUID(2))
+	eventB, ordersB := prepareOrder(t, b, testUUID(1), testUUID(2))
+
+	eventA.Transaction() <- func() error {
+		eventA.Amount = 5
+		ordersA.Region = "us"
+		return nil
+	}
+	expectAmount(t, ordersA, 5)
+	refresh(t, b)
+	expectAmount(t, ordersB, 5)
+	if amount, region := readLive(eventB, ordersB); amount != 5 || region != "us" {
+		t.Fatalf("device b live state = %d %q, want 5 \"us\"", amount, region)
+	}
+
+	increment(eventB)
+	expectAmount(t, ordersB, 6)
+	refresh(t, a)
+	expectAmount(t, ordersA, 6)
+	increment(eventA)
+	expectAmount(t, ordersA, 7)
+	refresh(t, b)
+	expectAmount(t, ordersB, 7)
+	if amount, region := readLive(eventB, ordersB); amount != 7 || region != "us" {
+		t.Fatalf("device b live state = %d %q, want 7 \"us\"", amount, region)
+	}
+	expectNoError(t, ordersA, 50*time.Millisecond)
+	expectNoError(t, ordersB, 50*time.Millisecond)
+}
+
+// D-075: a device's own delivered occurrences never take its live Event back
+// to an older state while later local transactions are being committed. The
+// Reader is slowed so it lags behind the transaction processor.
+func TestOwnDeliveriesKeepLaterLocalChanges(t *testing.T) {
+	policy := fastPolicy()
+	policy.deliveryFault = func(identity.UUID, Event) error {
+		time.Sleep(2 * time.Millisecond)
+		return nil
+	}
+	rt := openTestRuntime(t, t.TempDir(), fastStoreOptions(), policy)
+	event, channel := prepareOrder(t, rt, testUUID(1), testUUID(2))
+	const n = 30
+	for i := 0; i < n; i++ {
+		increment(event)
+		time.Sleep(time.Millisecond)
+	}
+	for i := int64(1); i <= n; i++ {
+		expectAmount(t, channel, i)
+	}
+	if amount, _ := readLive(event, channel); amount != n {
+		t.Fatalf("live amount = %d, want %d", amount, n)
+	}
+}
+
+// D-075: after a restart, live instances hold the persisted current state
+// instead of their constructor values, whether prepared before or after
+// replay reaches them.
+func TestLiveInstancesTakePersistedStateAfterRestart(t *testing.T) {
+	dir := t.TempDir()
+	rt := openTestRuntime(t, dir, fastStoreOptions(), fastPolicy())
+	event, channel := prepareOrder(t, rt, testUUID(1), testUUID(2))
+	event.Transaction() <- func() error {
+		event.Amount = 9
+		channel.Region = "us"
+		return nil
+	}
+	expectAmount(t, channel, 9)
+	_ = rt.close()
+
+	restarted := openTestRuntime(t, dir, fastStoreOptions(), fastPolicy())
+	event, channel = prepareOrder(t, restarted, testUUID(1), testUUID(2))
+	expectAmount(t, channel, 9)
+	if amount, region := readLive(event, channel); amount != 9 || region != "us" {
+		t.Fatalf("live state after replay = %d %q, want 9 \"us\"", amount, region)
+	}
+	later, _ := prepareOrder(t, restarted, testUUID(1), testUUID(2))
+	if later != event {
+		t.Fatal("preparing again did not reuse the live Event")
+	}
+	another, _, err := prepareInRuntime[*OrderShipped, *Orders](t.Context(), restarted, shippedFactory(testUUID(4)), ordersFactory(testUUID(1)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	read(another, func() {
+		if another.Carrier != "" {
+			t.Errorf("an Event without history changed: %q", another.Carrier)
+		}
+	})
+}
+
+// D-058, D-075: after concurrent changes, both devices' live Events hold the
+// same current state.
+func TestConcurrentChangesConvergeLiveInstances(t *testing.T) {
+	shared := newSharedStorage(t)
+	a, b := shared.device(t, "a"), shared.device(t, "b")
+	eventA, ordersA := prepareOrder(t, a, testUUID(1), testUUID(2))
+	eventB, ordersB := prepareOrder(t, b, testUUID(1), testUUID(2))
+	setAmount(eventA, 1)
+	expectAmount(t, ordersA, 1)
+	setAmount(eventB, 2)
+	expectAmount(t, ordersB, 2)
+	refresh(t, a)
+	expectAmount(t, ordersA, 2)
+	current := expectKind(t, ordersA, ConcurrentChange).Events[0].(*OrderPlaced).Amount
+	refresh(t, b)
+	expectAmount(t, ordersB, 1)
+	expectKind(t, ordersB, ConcurrentChange)
+	amountA, _ := readLive(eventA, ordersA)
+	amountB, _ := readLive(eventB, ordersB)
+	if amountA != current || amountB != current {
+		t.Fatalf("live amounts = %d and %d, want both %d", amountA, amountB, current)
+	}
 }

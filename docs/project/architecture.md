@@ -673,9 +673,14 @@ browser).
   both occurrences, the one holding the current state first. The current state is the greatest hybrid
   logical clock timestamp, with device identity as the tie-break; an occurrence written knowing of the
   current state replaces it. Conflicts are informational: they neither reject nor pause.
-- **Remote changes:** the Reader submits each delivered remote occurrence to the Channel's transaction
-  processor, which sets the live instance's selected fields to the converged current state without
-  persisting anything.
+- **Remote changes and live state (D-059, D-075):** the Reader records each delivered occurrence that
+  becomes an Event's current state, from any device, and the Channel's current fields: those of the
+  delivered occurrence with the greatest clock reading. The Channel's transaction processor applies them
+  to the live instances between batches, and before a batch when they changed before it, writing only the
+  selected fields whose values differ and persisting nothing; an Event first prepared after its current
+  state is known takes it in place of its constructor values. A current state that is an older occurrence
+  of this device than the last one the processor committed for that instance is skipped, since the live
+  instance already holds the later local change.
 - **Reading other devices' logs (D-073):** at open, and when refreshed, a device opens every other
   device's folder under `devices/` read-only, including on a device that may not write. Each is recovered
   like the device's own log but repairs nothing: an incomplete trailing transaction is not yet committed,

@@ -73,6 +73,9 @@ type occurrenceStore interface {
 	// Delivered records that another device's occurrence count of a Channel
 	// was delivered, with its clock reading.
 	Delivered(channelID, device identity.UUID, count uint64, at causal.Timestamp)
+	// Committed is how many occurrences of a Channel this device has
+	// committed.
+	Committed(channelID identity.UUID) uint64
 	ChannelHistoryTypes(channelID identity.UUID) []fieldschema.TypeKey
 	// WriteRefusal returns the storage's permission error while it refuses
 	// this device's writes, and nil while writes are permitted.
