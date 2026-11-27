@@ -662,7 +662,8 @@ browser).
 - **Causal delivery:** a Channel's Reader delivers a remote occurrence only once every occurrence in its
   version vector has been delivered. Unrelated occurrences are not delayed.
 - **Conflicts:** an occurrence of a logical Event whose vector is concurrent with that Event's current state
-  is reported on the Channel's error stream, naming both occurrences. The current state is the greatest
+  is reported on the Channel's error stream with the ChannelError kind `ConcurrentChange` (D-074), naming
+  both occurrences. The current state is the greatest
   hybrid logical clock timestamp, with device identity as the tie-break. Conflicts are informational: they
   neither reject nor pause.
 - **Remote changes:** the Reader submits each delivered remote occurrence to the Channel's transaction
