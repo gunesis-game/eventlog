@@ -35,7 +35,7 @@ Drive access (2026-11-27), recorded locally and not yet published: a feasibility
 
 D-060 open points settled (2026-11-27), recorded locally and not yet published: D-066 (Firebase details as two descriptor fields for the owner's project; fixed rules with board access following Drive sharing through a members list synced by owner devices; `*SignInRequired` from `PrepareLog` and new ChannelError kinds `SignInRequired` and `NotificationsUnavailable`; SSH port forward for headless sign-in; free-plan bounds accepted). D-060 itself remains Proposed until the user approves the whole design.
 
-Review of D-060 (2026-11-27), recorded locally and not yet published: D-067 (positions in other devices' logs by sequence; compaction on Drive with replaced files trashed); D-068 (storage isolation; `WithStorage(Local{Directory})` or `WithStorage(Web{SettingsFile, DeviceStateDirectory})`; generic public error names; storage refusing writes gives `WriteNotPermitted`). `WithStorageDirectory` is renamed in code to `WithStorage(Local{...})`. Ownership transfer check (2026-11-27), recorded locally and not yet published: D-069, the Drive backend hands every file to the owner (offer by the writer, API acceptance by owner devices); verified end to end and the check program removed. D-070: missing history in another device's log is reported as `HistoryMissing` and its dependents held. D-071: the folder is shared with named people only; group, domain, or link access gets no live notifications (`ChangeEventsUnavailable`). All review gaps are settled; D-060 awaits the user's approval as a whole.
+Review of D-060 (2026-11-27), recorded locally and not yet published: D-067 (positions in other devices' logs by sequence; compaction on Drive with replaced files trashed); D-068 (storage isolation; `WithStorage(Local{Directory})` or `WithStorage(Web{SettingsFile, DeviceStateDirectory})`; generic public error names; storage refusing writes gives `WriteNotPermitted`). `WithStorageDirectory` is renamed in code to `WithStorage(Local{...})`. Ownership transfer check (2026-11-27), recorded locally and not yet published: D-069, the Drive backend hands every file to the owner (offer by the writer, API acceptance by owner devices); verified end to end and the check program removed. D-070: missing history in another device's log is reported as `HistoryMissing` and its dependents held. D-071: the folder is shared with named people only; group, domain, or link access gets no live notifications (`ChangeEventsUnavailable`). All review gaps are settled, and the user approved D-060 as a whole on 2026-11-27.
 
 User rules recorded for this work: no new public package functions (new behaviour goes on the Event/Channel interfaces); refactors remove everything made redundant, with no future-proofing.
 
@@ -55,7 +55,7 @@ User rules recorded for this work: no new public package functions (new behaviou
 - The full benchmark catalogue is not implemented.
 
 ## Immediate next action
-1. Get approval for D-060 and settle its open points; then plan and implement the multi-device design and the Google Drive backend in reviewable increments.
+1. Plan and implement the multi-device design and the Google Drive backend in reviewable increments.
 2. Implement the full benchmark catalogue and capture baselines; complete the coding-standard review.
 3. Re-run CI on the final SHA and assess the Implement exit gate.
 

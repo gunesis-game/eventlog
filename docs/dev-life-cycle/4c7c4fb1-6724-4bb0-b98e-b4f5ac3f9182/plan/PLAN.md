@@ -42,7 +42,7 @@ Implement eventlog according to approved requirements, public API, architecture,
 13. [x] Transport (D-055): HTTP/2 over cleartext TCP with prior knowledge from the standard library, one client connection, no deprecated mechanism; research in docs/research/os-connection-limits.md. Readers fetch occurrences in batched ranged reads.
 12. [ ] File-system boundary, Phase 2: web storage with Google Drive as the provider, `WithStorage(Web{SettingsFile, DeviceStateDirectory})` (D-061 to D-068), 1 MiB segments for Drive. Planned with item 14.
 
-14. [ ] Multi-device operation (D-056 to D-059 recorded; design D-060 proposed): per-device logs, causal delivery, conflict reporting, remote changes applied to live instances.
+14. [ ] Multi-device operation (D-056 to D-071 recorded; design D-060 approved): per-device logs, causal delivery, conflict reporting, remote changes applied to live instances.
 
 ## Known gaps and follow-ups
 - The in-memory index and `index.json` grow with total history, and every process start replays full Channel history.

@@ -1,6 +1,6 @@
 # Research: cross-device change notifications on a free Google account
 
-**Status:** Research note, 2026-11-27. It informs D-061 to D-064 and the proposed multi-device design D-060; the current specification is owned by [requirements.md](../project/requirements.md) and [architecture.md](../project/architecture.md). Some claims come from secondary sources (third-party guides, forums, directories) and are marked as such.
+**Status:** Research note, 2026-11-27. It informs D-061 to D-064 and the multi-device design D-060; the current specification is owned by [requirements.md](../project/requirements.md) and [architecture.md](../project/architecture.md). Some claims come from secondary sources (third-party guides, forums, directories) and are marked as such.
 
 ## Question
 

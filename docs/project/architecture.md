@@ -509,10 +509,10 @@ equal-priority supported platforms; macOS is excluded. If platform behavior diff
 core functionality must use a strategy that works on both platforms. Correctness, recovery, predictable
 memory use and platform parity precede numeric performance targets.
 
-## Multi-device operation (Proposed, D-060; not implemented)
+## Multi-device operation (D-060; approved, not implemented)
 
-**Status: Proposed, awaiting approval.** This section designs the response to D-056 to D-059 and applies
-D-061 to D-064. The current implementation is single-device and local-only. Research:
+**Status: Approved on 2026-11-27, not yet implemented.** This section designs the response to D-056 to
+D-059 and applies D-061 to D-071. The current implementation is single-device and local-only. Research:
 [causal ordering and conflicts](../research/causal-ordering-and-conflicts.md) and
 [cross-device notifications](../research/cross-device-notifications.md).
 

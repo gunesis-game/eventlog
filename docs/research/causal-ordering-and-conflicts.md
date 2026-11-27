@@ -1,6 +1,6 @@
 # Research: causal ordering and conflict detection across many devices
 
-**Status:** Research note, 2026-11-27. It informs the multi-device decisions D-056 to D-059 and the proposed multi-device design; the current specification is owned by [requirements.md](../project/requirements.md) and [architecture.md](../project/architecture.md). Several claims below come from secondary sources (summaries, course notes, implementation libraries); they are marked where the primary text was not read directly.
+**Status:** Research note, 2026-11-27. It informs the multi-device decisions D-056 to D-059 and the multi-device design D-060; the current specification is owned by [requirements.md](../project/requirements.md) and [architecture.md](../project/architecture.md). Several claims below come from secondary sources (summaries, course notes, implementation libraries); they are marked where the primary text was not read directly.
 
 ## Question
 

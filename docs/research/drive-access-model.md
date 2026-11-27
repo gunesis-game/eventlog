@@ -1,6 +1,6 @@
 # Research: Drive access for several Google accounts sharing one owner's folder
 
-**Status:** Research note, 2026-11-27. It informs D-065, D-069, and the proposed multi-device design D-060; the current specification is owned by [requirements.md](../project/requirements.md) and [architecture.md](../project/architecture.md).
+**Status:** Research note, 2026-11-27. It informs D-065, D-069, and the multi-device design D-060; the current specification is owned by [requirements.md](../project/requirements.md) and [architecture.md](../project/architecture.md).
 
 ## Question
 
