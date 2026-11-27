@@ -70,6 +70,22 @@ not block subsequent Event-type preparations. Unknown or undecodable persisted E
 No additional consumer-facing registration, activation, acknowledgement, start, stop, or close operation
 is part of the API.
 
+## Package layout
+
+The module is one public package plus internal packages that consumers cannot import (D-053). The public
+API is defined only in the root package `eventlog`; internal packages never define public types.
+
+| Package | Responsibility |
+|---|---|
+| `eventlog` (root) | Public API (`Config`, `PrepareLog`, field selectors, `Event`, `Channel`, `ChannelError`) and the process runtime: Channel runtimes, Readers, transaction processors, and decoder registry |
+| `internal/identity` | UUID representation and canonical v1 identity encoding with UUID v5 derivation |
+| `internal/fieldschema` | Resolving field selections into schemas; typed value capture, encoding, decoding, rollback, and copies |
+| `internal/record` | Record types, framing, encoding, embedded canonical JSON Schemas (`internal/record/schemas/`), checksums, and transaction and stream validation |
+| `internal/storage` | Files and ownership lock, segment store, manifest, derived index, recovery, and compaction |
+
+Dependencies point one way: `identity` ← `fieldschema` ← `record` ← `storage` ← root. Tests live beside
+the code they test.
+
 ## Internal components
 
 
@@ -191,8 +207,8 @@ decimal strings to avoid parser precision loss; float32/float64 are lowercase ra
 persisted as a `uuid`-tagged value holding the lowercase canonical hyphenated text, so reconstruction
 restores it and recovery can re-derive and verify the record's logical identity (D-044). JSON Schema uses strict variants,
 required keys, fixed type tags, and no extra properties to validate representation; Go validates exact
-integer bounds and non-finite float rejection. Schemas are versioned canonical standalone files under the
-schema directory and embedded from those same files using go:embed. Named primitive types use underlying
+integer bounds and non-finite float rejection. Schemas are versioned canonical standalone files under
+`internal/record/schemas/` and embedded from those same files using go:embed. Named primitive types use underlying
 kinds.
 
 Permanent v1 identity type tags: Null `0x00` (no payload), String `0x01` (UTF-8), Bool `0x02` (one byte
