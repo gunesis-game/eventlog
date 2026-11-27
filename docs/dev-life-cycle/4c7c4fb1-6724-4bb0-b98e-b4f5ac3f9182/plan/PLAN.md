@@ -34,7 +34,7 @@ Implement eventlog according to approved requirements, public API, architecture,
 5. [x] Field selectors and schema resolution, typed-field encoding/reconstruction, canonical UUID v5 identity with v1 framing limits, decoder registration and schema conflict, Channel identity/snapshots, zero-identity rules (D-045), and identity-mutation rejection.
 6. [x] Segment store with rotation, manifest, derived index rebuild, recovery and fail-closed corruption handling, size-triggered compaction (D-048) with reader pins; unified Channel Reader with decoder waits, bounded backpressure, delivery retry/exhaustion, and terminal per-Channel errors.
 7. [x] Process runtime, shared initialization, `Config`/`PrepareLog`, change manager with bounded FIFO ingress, and acceptance tests including subprocess process-termination recovery.
-8. [ ] Full verification on the exact SHA on Linux and Windows. Local Windows full suite (including the race detector) passes; Linux execution and exact-SHA CI are not yet observed, because the commits are not yet pushed.
+8. [x] Verification on exact SHA `9f3d6df` passed on Linux and Windows CI (run 45964555490). Re-run for the final implementation SHA at the exit gate.
 9. [~] Benchmarks: representative smoke set (B-F01, B-L01, B-T03/B-M06, replay delivery) exists. The full approved catalogue and profile protocol, and baseline capture, remain.
 
 ## Known gaps and follow-ups
@@ -43,7 +43,7 @@ Implement eventlog according to approved requirements, public API, architecture,
 - The full benchmark catalogue (benchmarks.md) is not yet implemented.
 
 ## Next action
-Publish (push) the local commits to `main`, then inspect the Go verification run for the exact SHA on Linux and Windows. If green, run the coding-standard review and remaining benchmark work, and assess the Implement exit gate. Do not transition phases until that gate is satisfied.
+Resolve the consumer-synchronization design gap, implement the full benchmark catalogue, and complete the coding-standard review; then assess the Implement exit gate on the final SHA. Do not transition phases until that gate is satisfied.
 
 ## Phase exit
 Implement exit requires the mandatory full verification suite, applicable performance checks, coding-standard review, and evidence tied to the exact final implementation SHA. Do not transition phases until the documented gate is satisfied and user authorization is obtained where required.
