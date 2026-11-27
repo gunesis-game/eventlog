@@ -42,6 +42,8 @@ Implement eventlog according to approved requirements, public API, architecture,
 13. [x] Transport (D-055): HTTP/2 over cleartext TCP with prior knowledge from the standard library, one client connection, no deprecated mechanism; research in docs/research/os-connection-limits.md. Readers fetch occurrences in batched ranged reads.
 12. [ ] File-system boundary, Phase 2: Google Drive backend, `WithStorageEndpoint` with a `GoogleDrive{FolderID, CredentialsFile}` descriptor, service-account authentication, 1 MiB segments for Drive, best-effort single-process ownership, and the requirement changes this brings. Approved in principle on 2026-11-27; callback handling awaits the user's confirmation; decisions to be recorded before implementation.
 
+14. [ ] Multi-device operation (D-056 to D-059 recorded; design D-060 proposed): per-device logs, causal delivery, conflict reporting, remote changes applied to live instances.
+
 ## Known gaps and follow-ups
 - The in-memory index and `index.json` grow with total history, and every process start replays full Channel history.
 - The full benchmark catalogue (benchmarks.md) is not yet implemented.

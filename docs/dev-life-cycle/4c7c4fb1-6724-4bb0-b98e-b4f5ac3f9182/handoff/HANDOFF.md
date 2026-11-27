@@ -27,6 +27,8 @@ D-053 (package layout) was approved on 2026-11-27 and integrated into architectu
 
 D-054 (file-system boundary, Phase 1) was approved on 2026-11-27 and integrated into architecture.md; it is published and fetched back at revision `3ef0a0b`. Phase 2 (Google Drive backend) is approved in principle: `WithStorageEndpoint(GoogleDrive{FolderID, CredentialsFile})`, service-account authentication (browser sign-in possibly later), small 1 MiB segments, and best-effort single-process ownership. The user questioned deferring Drive callbacks; the explanation that callbacks do not affect switching between local disk and Drive awaits their confirmation. Phase 2 decisions are not yet recorded. The user suggested server-sent events to avoid opening and closing connections; research on operating-system limits (docs/research/os-connection-limits.md) led to D-055: HTTP/2 with prior knowledge over one connection, with SSE proposed as the Phase 2 channel for server-to-storage events. D-055 is published and fetched back at revision `7a9eb85`.
 
+Multi-device scope (2026-11-27): the user clarified that single-process ownership is per device and large distribution was always the plan. Approved and recorded locally (not yet published): D-056 (many devices, concurrent writers, same Channels, no central coordinator), D-057 (causal order), D-058 (conflicts reported, deterministic convergence), D-059 (remote changes applied to live instances through the transaction queue). D-060, the per-device-log design in architecture.md, is **Proposed** and awaits approval, with three open points: where per-device local state lives, version vectors versus interval tree clocks, and record-format versioning. Research: docs/research/causal-ordering-and-conflicts.md. Google Drive change notifications need either a public HTTPS endpoint (webhooks) or the Workspace Events API with Pub/Sub StreamingPull (gRPC); polling is ruled out by the user; Drive has no WebRTC support.
+
 User rules recorded for this work: no new public package functions (new behaviour goes on the Event/Channel interfaces); refactors remove everything made redundant, with no future-proofing.
 
 ## Current repository checkpoint
@@ -45,7 +47,7 @@ User rules recorded for this work: no new public package functions (new behaviou
 - The full benchmark catalogue is not implemented.
 
 ## Immediate next action
-1. Confirm callback handling with the user, record the Phase 2 decisions, and implement the Google Drive backend.
+1. Get approval for D-060 and its open points, and choose the Drive notification route; then record the Phase 2 decisions and plan the multi-device and Google Drive implementation.
 2. Implement the full benchmark catalogue and capture baselines; complete the coding-standard review.
 3. Re-run CI on the final SHA and assess the Implement exit gate.
 
