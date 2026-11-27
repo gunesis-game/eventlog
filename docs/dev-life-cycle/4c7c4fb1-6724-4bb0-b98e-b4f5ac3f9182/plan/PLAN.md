@@ -34,7 +34,7 @@ Implement eventlog according to approved requirements, public API, architecture,
 5. [x] Field selectors, typed encoding/reconstruction, canonical UUID v5 identity with v1 limits, decoder registration and schema conflict.
 6. [x] Segment store, rotation, manifest, derived index, fail-closed recovery, size-triggered compaction with reader pins; unified Channel Reader with decoder waits, backpressure, delivery retry, and fatal `ReaderFailed`/`DeliveryFailed`.
 7. [x] Transaction model replacing polling (D-049–D-052): Event factories, shared ordered transaction channel per Channel with exact-boundary intake, group commit, prefix-rule rejection with rollback, pause-until-received `ChannelError` delivery. Polling, the change manager, and their tests and docs are removed.
-8. [ ] Exact-SHA CI for the refactor commit on Linux and Windows (previous commit `9f3d6df` passed run 45964555490).
+8. [x] Exact-SHA CI for `69dbed5` passed on Linux and Windows (run 45985063315). Re-run for the final implementation SHA at the exit gate.
 9. [~] Benchmarks: smoke set (B-F01, B-L01, B-L05, B-T03/B-M06, replay). The full catalogue, profile protocol, and baselines remain.
 
 ## Known gaps and follow-ups
@@ -43,7 +43,7 @@ Implement eventlog according to approved requirements, public API, architecture,
 - Coding-standard review of the final implementation is not yet done.
 
 ## Next action
-Publish the refactor and decisions D-049–D-052 to `main`, fetch them back, and inspect exact-SHA CI. Then complete the benchmark work and the coding-standard review, and assess the Implement exit gate.
+Implement the full benchmark catalogue and capture baselines, complete the coding-standard review, then re-run CI on the final SHA and assess the Implement exit gate.
 
 ## Phase exit
 Implement exit requires the mandatory full verification suite, applicable performance checks, coding-standard review, and evidence tied to the exact final implementation SHA. Do not transition phases until the documented gate is satisfied and user authorization is obtained where required.
