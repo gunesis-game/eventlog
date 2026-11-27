@@ -41,7 +41,7 @@ func (s *segmentStore) compactLocked() error {
 		_ = os.Remove(temporaryPath)
 		return err
 	}
-	if err := os.Rename(temporaryPath, finalPath); err != nil {
+	if err := storageRename(temporaryPath, finalPath); err != nil {
 		_ = os.Remove(temporaryPath)
 		return fmt.Errorf("finalize compacted segment: %w", err)
 	}
@@ -132,7 +132,7 @@ func (s *segmentStore) validateConsolidated(path string, firstSequence uint64) e
 	if err != nil {
 		return err
 	}
-	result, err := validateRecordStreamFrom(data, s.validator, firstSequence)
+	result, err := validateRecordStream(data, s.validator, firstSequence)
 	if err != nil {
 		return fmt.Errorf("validate compacted segment: %w", err)
 	}

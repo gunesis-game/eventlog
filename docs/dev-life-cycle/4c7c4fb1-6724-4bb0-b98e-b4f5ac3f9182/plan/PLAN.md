@@ -20,30 +20,30 @@ Implement eventlog according to approved requirements, public API, architecture,
 - [Git workflow](../../../project/git-workflow.md)
 
 ## Approved public API constraints
-- `PrepareLog[TEvent, TChannel](ctx, newChannel) (TEvent, TChannel, error)` with factory `func(chan Event, chan error) TChannel` (D-047).
-- `Config(options ...Option) error`, `WithStorageDirectory(path)`, `ErrConfigAlreadySet`, `ErrConfigNotInitialized`.
-- Consumer types implement `Fields() Fields` using `FieldOf`, `FieldOfNullable`, and exactly one `IdentityOf` (D-044); Channel also implements `Notifications() <-chan Event` and `Errors() <-chan error`.
-- `ErrSchemaConflict` is the typed schema-conflict error (D-016).
-- No public shutdown API and no execution-lock concept.
+- `PrepareLog[TEvent, TChannel](ctx, newEvent, newChannel) (TEvent, TChannel, error)` with `newEvent func(chan<- func() error) TEvent` and `newChannel func(chan Event, chan *ChannelError) TChannel` (D-049, D-052).
+- `Event` is `Fields() Fields` plus `Transaction() chan<- func() error`; `Channel` is `Fields() Fields`, `Notifications() <-chan Event`, `Errors() <-chan *ChannelError`.
+- `ChannelError{Kind, Cause, Events}` with `ErrorKind` values `TransactionRefused`, `TransactionPanicked`, `InvalidState`, `CommitFailed`, `ReaderFailed`, `DeliveryFailed`.
+- `Config`, `WithStorageDirectory`, `FieldOf`, `FieldOfNullable`, `IdentityOf`, `ErrConfigAlreadySet`, `ErrConfigNotInitialized`, `ErrSchemaConflict`.
+- No new public package functions (user rule); no public shutdown API; no execution-lock concept.
 
 ## Implementation progress (verified against the local working tree, 2026-11-27)
-1. [x] Module/toolchain and Linux/Windows Go CI scaffold; CI now also runs gofmt and `go test -race` on Linux.
-2. [x] Canonical v1 schemas (plus the `uuid` field-value variant for identity fields), embedded schema validation, serialization, record framing.
-3. [x] Storage primitives, atomic file replacement, directory sync, and single-process ownership lock (Linux `flock`, Windows unshared handle).
-4. [x] Transaction/stream validation, global sequence continuation, and zero-start-sequence rejection.
-5. [x] Field selectors and schema resolution, typed-field encoding/reconstruction, canonical UUID v5 identity with v1 framing limits, decoder registration and schema conflict, Channel identity/snapshots, zero-identity rules (D-045), and identity-mutation rejection.
-6. [x] Segment store with rotation, manifest, derived index rebuild, recovery and fail-closed corruption handling, size-triggered compaction (D-048) with reader pins; unified Channel Reader with decoder waits, bounded backpressure, delivery retry/exhaustion, and terminal per-Channel errors.
-7. [x] Process runtime, shared initialization, `Config`/`PrepareLog`, change manager with bounded FIFO ingress, and acceptance tests including subprocess process-termination recovery.
-8. [x] Verification on exact SHA `9f3d6df` passed on Linux and Windows CI (run 45964555490). Re-run for the final implementation SHA at the exit gate.
-9. [~] Benchmarks: representative smoke set (B-F01, B-L01, B-T03/B-M06, replay delivery) exists. The full approved catalogue and profile protocol, and baseline capture, remain.
+1. [x] Module/toolchain and Linux/Windows Go CI, with gofmt and `go test -race` on Linux.
+2. [x] Canonical v1 schemas (with the `uuid` field-value variant), embedded schema validation, serialization, record framing.
+3. [x] Storage primitives, atomic replace (with a bounded Windows rename retry), directory sync, single-process ownership lock.
+4. [x] Transaction/stream validation for multi-occurrence transactions (D-050) and global sequence continuation.
+5. [x] Field selectors, typed encoding/reconstruction, canonical UUID v5 identity with v1 limits, decoder registration and schema conflict.
+6. [x] Segment store, rotation, manifest, derived index, fail-closed recovery, size-triggered compaction with reader pins; unified Channel Reader with decoder waits, backpressure, delivery retry, and fatal `ReaderFailed`/`DeliveryFailed`.
+7. [x] Transaction model replacing polling (D-049–D-052): Event factories, shared ordered transaction channel per Channel with exact-boundary intake, group commit, prefix-rule rejection with rollback, pause-until-received `ChannelError` delivery. Polling, the change manager, and their tests and docs are removed.
+8. [ ] Exact-SHA CI for the refactor commit on Linux and Windows (previous commit `9f3d6df` passed run 45964555490).
+9. [~] Benchmarks: smoke set (B-F01, B-L01, B-L05, B-T03/B-M06, replay). The full catalogue, profile protocol, and baselines remain.
 
 ## Known gaps and follow-ups
-- Consumers cannot synchronize their field mutations with polling through the public API, so concurrent consumer writes are data races under Go's memory model (see the architecture implementation notes). Needs a design decision.
-- The in-memory index and `index.json` grow with total history, and every process start replays full Channel history; memory and startup cost scale with history size.
+- The in-memory index and `index.json` grow with total history, and every process start replays full Channel history.
 - The full benchmark catalogue (benchmarks.md) is not yet implemented.
+- Coding-standard review of the final implementation is not yet done.
 
 ## Next action
-Resolve the consumer-synchronization design gap, implement the full benchmark catalogue, and complete the coding-standard review; then assess the Implement exit gate on the final SHA. Do not transition phases until that gate is satisfied.
+Publish the refactor and decisions D-049–D-052 to `main`, fetch them back, and inspect exact-SHA CI. Then complete the benchmark work and the coding-standard review, and assess the Implement exit gate.
 
 ## Phase exit
 Implement exit requires the mandatory full verification suite, applicable performance checks, coding-standard review, and evidence tied to the exact final implementation SHA. Do not transition phases until the documented gate is satisfied and user authorization is obtained where required.

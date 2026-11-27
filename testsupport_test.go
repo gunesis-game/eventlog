@@ -19,6 +19,7 @@ type OrderPlaced struct {
 	Status OrderStatus
 	Note   *string
 	ignore string
+	tx     chan<- func() error
 }
 
 func (o *OrderPlaced) Fields() Fields {
@@ -30,9 +31,12 @@ func (o *OrderPlaced) Fields() Fields {
 	}
 }
 
+func (o *OrderPlaced) Transaction() chan<- func() error { return o.tx }
+
 type OrderShipped struct {
 	ID      OrderID
 	Carrier string
+	tx      chan<- func() error
 }
 
 func (o *OrderShipped) Fields() Fields {
@@ -42,11 +46,13 @@ func (o *OrderShipped) Fields() Fields {
 	}
 }
 
+func (o *OrderShipped) Transaction() chan<- func() error { return o.tx }
+
 type Orders struct {
 	ID            CustomerID
 	Region        string
 	notifications chan Event
-	errs          chan error
+	errs          chan *ChannelError
 }
 
 func (c *Orders) Fields() Fields {
@@ -56,12 +62,24 @@ func (c *Orders) Fields() Fields {
 	}
 }
 
-func (c *Orders) Notifications() <-chan Event { return c.notifications }
-func (c *Orders) Errors() <-chan error        { return c.errs }
+func (c *Orders) Notifications() <-chan Event  { return c.notifications }
+func (c *Orders) Errors() <-chan *ChannelError { return c.errs }
 
-func ordersFactory(id CustomerID, region string) func(chan Event, chan error) *Orders {
-	return func(notifications chan Event, errs chan error) *Orders {
-		return &Orders{ID: id, Region: region, notifications: notifications, errs: errs}
+func ordersFactory(id CustomerID) func(chan Event, chan *ChannelError) *Orders {
+	return func(notifications chan Event, errs chan *ChannelError) *Orders {
+		return &Orders{ID: id, Region: "eu", notifications: notifications, errs: errs}
+	}
+}
+
+func placedFactory(id OrderID) func(chan<- func() error) *OrderPlaced {
+	return func(tx chan<- func() error) *OrderPlaced {
+		return &OrderPlaced{ID: id, tx: tx}
+	}
+}
+
+func shippedFactory(id OrderID) func(chan<- func() error) *OrderShipped {
+	return func(tx chan<- func() error) *OrderShipped {
+		return &OrderShipped{ID: id, tx: tx}
 	}
 }
 
@@ -83,9 +101,7 @@ func fastStoreOptions() segmentStoreOptions {
 
 func fastPolicy() runtimePolicy {
 	policy := defaultRuntimePolicy()
-	policy.pollInterval = 5 * time.Millisecond
 	policy.deliveryBackoff = time.Millisecond
-	policy.persistBackoff = time.Millisecond
 	return policy
 }
 
@@ -102,19 +118,33 @@ func openTestRuntime(t *testing.T, dir string, options segmentStoreOptions, poli
 	return rt
 }
 
-func prepareOrders(t *testing.T, rt *logRuntime, channelID CustomerID) (*OrderPlaced, *Orders) {
+func prepareOrder(t *testing.T, rt *logRuntime, channelID CustomerID, orderID OrderID) (*OrderPlaced, *Orders) {
 	t.Helper()
-	event, channel, err := prepareInRuntime[*OrderPlaced, *Orders](context.Background(), rt, ordersFactory(channelID, "eu"))
+	event, channel, err := prepareInRuntime[*OrderPlaced, *Orders](context.Background(), rt, placedFactory(orderID), ordersFactory(channelID))
 	if err != nil {
 		t.Fatalf("prepare: %v", err)
 	}
 	return event, channel
 }
 
-// mutate changes consumer-owned fields while no poll pass runs, which is the
-// synchronization a real consumer must provide around concurrent mutation.
-func mutate(rt *logRuntime, fn func()) {
-	rt.changes.withPollingPaused(fn)
+// gate blocks the Channel's transaction processor until released, so a test
+// can queue transactions that are then applied together in one batch.
+func gate(event Event) (release func()) {
+	opened := make(chan struct{})
+	event.Transaction() <- func() error {
+		<-opened
+		return nil
+	}
+	return func() {
+		close(opened)
+	}
+}
+
+func setAmount(event *OrderPlaced, amount int64) {
+	event.Transaction() <- func() error {
+		event.Amount = amount
+		return nil
+	}
 }
 
 // waitCommitted waits until the store holds n committed Event occurrences.
@@ -122,21 +152,30 @@ func waitCommitted(t *testing.T, rt *logRuntime, n int) {
 	t.Helper()
 	deadline := time.Now().Add(testWait)
 	for time.Now().Before(deadline) {
-		rt.store.mu.Lock()
-		count := len(rt.store.entries)
-		rt.store.mu.Unlock()
-		if count >= n {
+		if committedCount(rt) >= n {
 			return
 		}
 		time.Sleep(2 * time.Millisecond)
 	}
-	t.Fatalf("timed out waiting for %d committed occurrences", n)
+	t.Fatalf("timed out waiting for %d committed occurrences (have %d)", n, committedCount(rt))
 }
 
 func committedCount(rt *logRuntime) int {
 	rt.store.mu.Lock()
 	defer rt.store.mu.Unlock()
 	return len(rt.store.entries)
+}
+
+// read runs fn inside a transaction, the race-free way to read live fields,
+// and waits for it to finish.
+func read(event Event, fn func()) {
+	done := make(chan struct{})
+	event.Transaction() <- func() error {
+		fn()
+		close(done)
+		return nil
+	}
+	<-done
 }
 
 func receiveEvent(t *testing.T, channel Channel) Event {
@@ -153,7 +192,7 @@ func receiveEvent(t *testing.T, channel Channel) Event {
 	}
 }
 
-func receiveError(t *testing.T, channel Channel) error {
+func receiveError(t *testing.T, channel Channel) *ChannelError {
 	t.Helper()
 	select {
 	case err := <-channel.Errors():
@@ -173,6 +212,32 @@ func expectNoNotification(t *testing.T, channel Channel, wait time.Duration) {
 	}
 }
 
+func expectAmount(t *testing.T, channel Channel, amount int64) *OrderPlaced {
+	t.Helper()
+	got, ok := receiveEvent(t, channel).(*OrderPlaced)
+	if !ok {
+		t.Fatal("expected *OrderPlaced")
+	}
+	if got.Amount != amount {
+		t.Fatalf("amount = %d, want %d", got.Amount, amount)
+	}
+	return got
+}
+
 func stringPointer(s string) *string {
 	return &s
+}
+
+func (c *Orders) id() uuid {
+	schema, _ := resolveTypeSchema(&Orders{})
+	id, _ := deriveIdentity(channelIdentityDomain, schema, uuid(c.ID))
+	return id
+}
+
+// persistedChannelFields returns the latest persisted Channel fields JSON.
+func persistedChannelFields(s *segmentStore, channelID uuid) (string, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	channel, ok := s.channels[channelID]
+	return channel.fields, ok
 }

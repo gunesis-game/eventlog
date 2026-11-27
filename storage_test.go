@@ -101,7 +101,7 @@ type failingWriter struct{}
 func (failingWriter) Write([]byte) (int, error) { return 0, io.ErrClosedPipe }
 
 func TestStorageWriteAllErrors(t *testing.T) {
-	if err := storageWriteAll(zeroWriter{}, []byte("x")); !errors.Is(err, ErrShortStorageWrite) {
+	if err := storageWriteAll(zeroWriter{}, []byte("x")); !errors.Is(err, errShortStorageWrite) {
 		t.Fatalf("zero-write error = %v", err)
 	}
 	if err := storageWriteAll(failingWriter{}, []byte("x")); !errors.Is(err, io.ErrClosedPipe) {

@@ -55,7 +55,7 @@ The system boundary and component responsibilities are defined in [architecture.
 | Public API and integration (API-*) | `example_test.go` (external consumer compile check), `process_test.go`, `runtime_test.go` |
 | Benchmarks (smoke set) | `benchmark_test.go` |
 
-Test-only controls (closing an in-process runtime, pausing polling to synchronize test mutations, delivery fault injection, lowered storage thresholds) are unexported and are not part of the public API. Subprocess children run with `GORACE=exitcode=0` because they mutate fields the way a consumer would, without synchronizing with polling (see the architecture implementation notes); in-process tests keep full race-detector coverage.
+Test-only controls (closing an in-process runtime, delivery fault injection, lowered storage and batch thresholds, injecting a storage write failure) are unexported and are not part of the public API. All tests, including subprocess children, change live instances only through transactions and run clean under the race detector.
 
 ## CI and evidence
 

@@ -9,7 +9,7 @@ import (
 	"io"
 )
 
-var ErrIncompleteRecord = errors.New("incomplete record")
+var errIncompleteRecord = errors.New("incomplete record")
 
 type recordType struct {
 	PackagePath string `json:"package_path"`
@@ -53,7 +53,7 @@ func newRecordFramer(r io.Reader) *recordFramer {
 }
 
 // next returns one newline-delimited record without its newline. A partial final
-// line is reported as ErrIncompleteRecord and is not treated as a complete record.
+// line is reported as errIncompleteRecord and is not treated as a complete record.
 func (f *recordFramer) next() ([]byte, error) {
 	line, err := f.reader.ReadBytes('\n')
 	if err != nil {
@@ -61,7 +61,7 @@ func (f *recordFramer) next() ([]byte, error) {
 			if len(line) == 0 {
 				return nil, io.EOF
 			}
-			return line, fmt.Errorf("%w: trailing %d bytes", ErrIncompleteRecord, len(line))
+			return line, fmt.Errorf("%w: trailing %d bytes", errIncompleteRecord, len(line))
 		}
 		return nil, fmt.Errorf("read record frame: %w", err)
 	}

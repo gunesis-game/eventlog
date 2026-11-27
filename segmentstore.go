@@ -62,17 +62,18 @@ type persistedChannel struct {
 	fields string
 }
 
-// channelWrite and eventWrite describe one append transaction's payloads.
+// channelWrite describes the Channel a transaction belongs to; occurrenceWrite
+// is one Event occurrence with the Channel fields it was made with.
 type channelWrite struct {
-	id     uuid
-	typ    typeKey
-	fields map[string]interface{}
+	id  uuid
+	typ typeKey
 }
 
-type eventWrite struct {
-	id     uuid
-	typ    typeKey
-	fields map[string]interface{}
+type occurrenceWrite struct {
+	channelFields map[string]interface{}
+	eventID       uuid
+	eventType     typeKey
+	eventFields   map[string]interface{}
 }
 
 // segmentStore owns the authoritative append log: segments, manifest, the
@@ -107,81 +108,97 @@ type segmentStore struct {
 	stopOnce sync.Once
 }
 
-// appendOccurrence atomically appends one Event occurrence, preceded by a new
-// Channel record when the Channel is new or its snapshot changed. Validation
-// failures write nothing. It returns the Event record's global sequence.
-func (s *segmentStore) appendOccurrence(channel channelWrite, event eventWrite) (uint64, error) {
-	channelFields, err := json.Marshal(channel.fields)
-	if err != nil {
-		return 0, fmt.Errorf("encode channel fields: %w", err)
+// appendTransaction atomically appends one transaction of a Channel's Event
+// occurrences. Each occurrence is preceded by a Channel record when the Channel
+// is new or its fields differ from the last Channel record written. Validation
+// failures write nothing.
+func (s *segmentStore) appendTransaction(channel channelWrite, occurrences []occurrenceWrite) error {
+	if len(occurrences) == 0 {
+		return errors.New("transaction has no occurrences")
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.writeFailure != nil {
-		return 0, fmt.Errorf("storage is unwritable after an unrecoverable write failure: %w", s.writeFailure)
+		return fmt.Errorf("storage is unwritable after an unrecoverable write failure: %w", s.writeFailure)
 	}
 	existing, known := s.channels[channel.id]
 	if known && existing.typ != channel.typ {
-		return 0, fmt.Errorf("channel %s is persisted as %s, not %s", channel.id, existing.typ, channel.typ)
+		return fmt.Errorf("channel %s is persisted as %s, not %s", channel.id, existing.typ, channel.typ)
 	}
-	writeChannel := !known || existing.fields != string(channelFields)
+	lastChannelFields := existing.fields
+	if !known {
+		lastChannelFields = ""
+	}
 
+	type framedEvent struct {
+		sequence uint64
+		offset   int64
+		length   int64
+		write    occurrenceWrite
+	}
 	sequence := s.nextSequence
 	var frames [][]byte
-	if writeChannel {
-		record := channelRecord{SchemaVersion: 1, Sequence: sequence, Kind: recordKindChannel, ID: channel.id.String(), Type: recordType{PackagePath: channel.typ.pkgPath, Name: channel.typ.name}, Fields: channel.fields}
-		frame, err := encodeRecord(recordKindChannel, record, s.validator)
+	var events []framedEvent
+	var transaction []byte
+	for _, occurrence := range occurrences {
+		channelFields, err := json.Marshal(occurrence.channelFields)
 		if err != nil {
-			return 0, err
+			return fmt.Errorf("encode channel fields: %w", err)
 		}
+		if string(channelFields) != lastChannelFields {
+			record := channelRecord{SchemaVersion: 1, Sequence: sequence, Kind: recordKindChannel, ID: channel.id.String(), Type: recordType{PackagePath: channel.typ.pkgPath, Name: channel.typ.name}, Fields: occurrence.channelFields}
+			frame, err := encodeRecord(recordKindChannel, record, s.validator)
+			if err != nil {
+				return err
+			}
+			frames = append(frames, frame)
+			transaction = append(transaction, frame...)
+			lastChannelFields = string(channelFields)
+			sequence++
+		}
+		record := eventRecord{SchemaVersion: 1, Sequence: sequence, Kind: recordKindEvent, ID: occurrence.eventID.String(), ChannelID: channel.id.String(), Type: recordType{PackagePath: occurrence.eventType.pkgPath, Name: occurrence.eventType.name}, Fields: occurrence.eventFields}
+		frame, err := encodeRecord(recordKindEvent, record, s.validator)
+		if err != nil {
+			return err
+		}
+		events = append(events, framedEvent{sequence: sequence, offset: int64(len(transaction)), length: int64(len(frame)), write: occurrence})
 		frames = append(frames, frame)
+		transaction = append(transaction, frame...)
 		sequence++
 	}
-	eventSequence := sequence
-	eventRec := eventRecord{SchemaVersion: 1, Sequence: eventSequence, Kind: recordKindEvent, ID: event.id.String(), ChannelID: channel.id.String(), Type: recordType{PackagePath: event.typ.pkgPath, Name: event.typ.name}, Fields: event.fields}
-	eventFrame, err := encodeRecord(recordKindEvent, eventRec, s.validator)
-	if err != nil {
-		return 0, err
-	}
-	frames = append(frames, eventFrame)
-	commit := commitRecord{SchemaVersion: 1, Sequence: eventSequence + 1, Kind: recordKindCommit, TransactionID: s.nextSequence, RecordCount: uint64(len(frames)), Checksum: transactionChecksum(frames)}
+	commit := commitRecord{SchemaVersion: 1, Sequence: sequence, Kind: recordKindCommit, TransactionID: s.nextSequence, RecordCount: uint64(len(frames)), Checksum: transactionChecksum(frames)}
 	commitFrame, err := encodeRecord(recordKindCommit, commit, s.validator)
 	if err != nil {
-		return 0, err
+		return err
 	}
-	transaction := make([]byte, 0, len(commitFrame)+len(eventFrame)*2)
-	for _, frame := range frames {
-		transaction = append(transaction, frame...)
-	}
-	eventOffsetInTransaction := int64(len(transaction) - len(eventFrame))
 	transaction = append(transaction, commitFrame...)
 
 	if s.active.size > 0 && s.active.size+int64(len(transaction)) > s.options.targetSegmentSize {
 		if err := s.rotateLocked(); err != nil {
-			return 0, err
+			return err
 		}
 	}
 	start := s.active.size
 	if err := storageWriteAll(s.activeFile, transaction); err != nil {
 		s.rollbackLocked(start, err)
-		return 0, err
+		return err
 	}
 	s.active.size += int64(len(transaction))
 	s.nextSequence = commit.Sequence + 1
 	s.unsynced += int64(len(transaction))
-	if writeChannel {
-		s.channels[channel.id] = persistedChannel{typ: channel.typ, fields: string(channelFields)}
+	s.channels[channel.id] = persistedChannel{typ: channel.typ, fields: lastChannelFields}
+	for _, event := range events {
+		entry := &indexEntry{sequence: event.sequence, eventID: event.write.eventID, channelID: channel.id, typ: event.write.eventType, segment: s.active, offset: start + event.offset, length: event.length}
+		s.entries = append(s.entries, entry)
+		s.byChannel[channel.id] = append(s.byChannel[channel.id], entry)
 	}
-	entry := &indexEntry{sequence: eventSequence, eventID: event.id, channelID: channel.id, typ: event.typ, segment: s.active, offset: start + eventOffsetInTransaction, length: int64(len(eventFrame))}
-	s.entries = append(s.entries, entry)
-	s.byChannel[channel.id] = append(s.byChannel[channel.id], entry)
 	s.indexDirty = true
 	if s.unsynced >= s.options.syncBytes {
 		s.syncLocked()
 	}
 	close(s.wake)
 	s.wake = make(chan struct{})
-	return eventSequence, nil
+	return nil
 }
 
 // rollbackLocked removes a partially written transaction so later appends
@@ -363,14 +380,6 @@ func (s *segmentStore) channelHistoryTypes(channelID uuid) []typeKey {
 		}
 	}
 	return types
-}
-
-// persistedChannelFields returns the latest persisted Channel fields JSON.
-func (s *segmentStore) persistedChannelFields(channelID uuid) (string, bool) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	channel, ok := s.channels[channelID]
-	return channel.fields, ok
 }
 
 // close stops background work and releases files. It is test-only: the

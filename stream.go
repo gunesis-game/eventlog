@@ -14,18 +14,11 @@ type streamValidation struct {
 	IncompleteStart   *int64
 }
 
-// validateRecordStream validates complete newline-delimited records in order. It
-// accepts only complete transactions and returns the start of a trailing
-// uncommitted transaction (or partial final frame) for recovery.
-func validateRecordStream(data []byte, validator *recordSchemaValidator) (streamValidation, error) {
-	return validateRecordStreamFrom(data, validator, 1)
-}
-
-// validateRecordStreamFrom validates a segment whose first global sequence is
+// validateRecordStream validates a segment whose first global sequence is
 // expectedSequence. Segment sequences are global and therefore do not restart at 1.
-func validateRecordStreamFrom(data []byte, validator *recordSchemaValidator, expectedSequence uint64) (streamValidation, error) {
+func validateRecordStream(data []byte, validator *recordSchemaValidator, expectedSequence uint64) (streamValidation, error) {
 	if expectedSequence == 0 {
-		return streamValidation{}, fmt.Errorf("%w: stream starting sequence must be positive", ErrInvalidTransaction)
+		return streamValidation{}, fmt.Errorf("%w: stream starting sequence must be positive", errInvalidTransaction)
 	}
 	result := streamValidation{CommittedSequence: expectedSequence - 1}
 	var pendingRecords []interface{}
@@ -69,9 +62,6 @@ func validateRecordStreamFrom(data []byte, validator *recordSchemaValidator, exp
 			}
 			pendingRecords = append(pendingRecords, record)
 			pendingFrames = append(pendingFrames, frame)
-			if len(pendingRecords) > 2 {
-				return result, fmt.Errorf("%w: transaction has too many records starting at byte offset %d", ErrInvalidTransaction, pendingStart)
-			}
 			continue
 		}
 
@@ -80,7 +70,7 @@ func validateRecordStreamFrom(data []byte, validator *recordSchemaValidator, exp
 			return result, fmt.Errorf("unexpected Commit record type %T", record)
 		}
 		if len(pendingRecords) == 0 {
-			return result, fmt.Errorf("%w: Commit without transaction records at byte offset %d", ErrInvalidTransaction, frameStart)
+			return result, fmt.Errorf("%w: Commit without transaction records at byte offset %d", errInvalidTransaction, frameStart)
 		}
 		if err := validateTransaction(pendingRecords, pendingFrames, commit); err != nil {
 			return result, fmt.Errorf("validate transaction starting at byte offset %d: %w", pendingStart, err)

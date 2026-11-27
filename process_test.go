@@ -22,11 +22,7 @@ const helperScenarioEnv = "EVENTLOG_HELPER_SCENARIO"
 func runHelper(t *testing.T, scenario, dir string, args ...string) []string {
 	t.Helper()
 	cmd := exec.Command(os.Args[0], "-test.run=^TestHelperProcess$", "-test.v")
-	// The child consumer mutates fields without synchronizing with the poller,
-	// which the public API cannot express; that race is a documented consumer
-	// responsibility, so a race-enabled child must not fail its exit status on
-	// it. In-process tests mutate under the poll lock and keep race coverage.
-	cmd.Env = append(os.Environ(), "GORACE=exitcode=0", helperScenarioEnv+"="+scenario, "EVENTLOG_HELPER_DIR="+dir, "EVENTLOG_HELPER_ARGS="+strings.Join(args, ","))
+	cmd.Env = append(os.Environ(), helperScenarioEnv+"="+scenario, "EVENTLOG_HELPER_DIR="+dir, "EVENTLOG_HELPER_ARGS="+strings.Join(args, ","))
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &stdout, &stderr
 	err := cmd.Run()
@@ -83,7 +79,7 @@ func helperPrepare(dir string) (*OrderPlaced, *Orders, error) {
 	if err := Config(WithStorageDirectory(dir)); err != nil {
 		return nil, nil, err
 	}
-	return PrepareLog[*OrderPlaced, *Orders](context.Background(), ordersFactory(testUUID(1), "eu"))
+	return PrepareLog[*OrderPlaced, *Orders](context.Background(), placedFactory(testUUID(2)), ordersFactory(testUUID(1)))
 }
 
 func helperReceive(channel *Orders) (*OrderPlaced, error) {
@@ -94,7 +90,7 @@ func helperReceive(channel *Orders) (*OrderPlaced, error) {
 		}
 		return event.(*OrderPlaced), nil
 	case err := <-channel.Errors():
-		return nil, fmt.Errorf("channel error: %w", err)
+		return nil, err
 	case <-time.After(testWait):
 		return nil, errors.New("timed out waiting for notification")
 	}
@@ -103,7 +99,7 @@ func helperReceive(channel *Orders) (*OrderPlaced, error) {
 // scenarioConfig checks the one-time configuration contract (RT-02, RT-03,
 // API-02) in a fresh process.
 func scenarioConfig(dir string) error {
-	if _, _, err := PrepareLog[*OrderPlaced, *Orders](context.Background(), ordersFactory(testUUID(1), "eu")); !errors.Is(err, ErrConfigNotInitialized) {
+	if _, _, err := PrepareLog[*OrderPlaced, *Orders](context.Background(), placedFactory(testUUID(2)), ordersFactory(testUUID(1))); !errors.Is(err, ErrConfigNotInitialized) {
 		return fmt.Errorf("PrepareLog before Config: %v", err)
 	}
 	invalid := [][]Option{
@@ -127,7 +123,7 @@ func scenarioConfig(dir string) error {
 	if err := Config(WithStorageDirectory(dir)); !errors.Is(err, ErrConfigAlreadySet) {
 		return fmt.Errorf("second Config: %v", err)
 	}
-	if _, _, err := PrepareLog[*OrderPlaced, *Orders](context.Background(), ordersFactory(testUUID(1), "eu")); err != nil {
+	if _, _, err := PrepareLog[*OrderPlaced, *Orders](context.Background(), placedFactory(testUUID(2)), ordersFactory(testUUID(1))); err != nil {
 		return fmt.Errorf("PrepareLog: %v", err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, manifestFileName)); err != nil {
@@ -137,7 +133,7 @@ func scenarioConfig(dir string) error {
 	return nil
 }
 
-// scenarioAppend records each amount as one committed occurrence. With a
+// scenarioAppend commits each amount as one occurrence. With a
 // negative final argument it terminates abruptly right after the last commit,
 // before any notification is consumed (RT-09, N-11, N-13).
 func scenarioAppend(dir string, amounts []int64) error {
@@ -150,9 +146,8 @@ func scenarioAppend(dir string, amounts []int64) error {
 		amounts = amounts[:len(amounts)-1]
 	}
 	base := committedOccurrences()
-	event.ID = testUUID(2)
 	for i, amount := range amounts {
-		event.Amount = amount
+		setAmount(event, amount)
 		deadline := time.Now().Add(testWait)
 		for committedOccurrences() < base+i+1 {
 			if time.Now().After(deadline) {
@@ -191,8 +186,7 @@ func scenarioReplay(dir string, args []int64) error {
 		}
 		fmt.Println("RESULT", got.Amount)
 	}
-	event.ID = testUUID(2)
-	event.Amount = args[1]
+	setAmount(event, args[1])
 	got, err := helperReceive(channel)
 	if err != nil {
 		return err

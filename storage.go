@@ -7,9 +7,10 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"time"
 )
 
-var ErrShortStorageWrite = errors.New("short storage write")
+var errShortStorageWrite = errors.New("short storage write")
 
 // storageCreateDirectory creates the storage directory hierarchy if it is absent.
 func storageCreateDirectory(path string) error {
@@ -62,7 +63,7 @@ func storageWriteAll(w io.Writer, data []byte) error {
 		}
 
 		if n == 0 {
-			return ErrShortStorageWrite
+			return errShortStorageWrite
 		}
 
 		data = data[n:]
@@ -114,11 +115,23 @@ func storageReplaceFile(path string, data []byte) error {
 		_ = os.Remove(temporary)
 		return fmt.Errorf("close temporary file %q: %w", temporary, err)
 	}
-	if err := os.Rename(temporary, path); err != nil {
+	if err := storageRename(temporary, path); err != nil {
 		_ = os.Remove(temporary)
 		return fmt.Errorf("replace %q: %w", path, err)
 	}
 	return storageSyncDirectory(filepath.Dir(path))
+}
+
+// storageRename renames old to new. On Windows a rename over a file that
+// another process (an indexer or virus scanner) briefly holds open fails with
+// access denied, so it is retried for a short bounded time there.
+func storageRename(old, new string) error {
+	err := os.Rename(old, new)
+	for attempt := 0; err != nil && runtime.GOOS == "windows" && attempt < 20; attempt++ {
+		time.Sleep(10 * time.Millisecond)
+		err = os.Rename(old, new)
+	}
+	return err
 }
 
 // storageSyncDirectory makes directory entry changes durable where the platform

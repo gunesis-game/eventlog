@@ -162,7 +162,7 @@ Tests verify that consumers can use the library through its approved public API 
 | API-02 | Configuration | Consumer can configure storage using the approved `Config(options ...Option) error` API. |
 | API-03 | PrepareLog | Consumer can prepare concrete Event and Channel types using the approved generic API. |
 | API-04 | Channel interface | Consumer can receive notifications through `Notifications() <-chan Event`. |
-| API-05 | Error interface | Consumer can receive reported errors through `Errors() <-chan error`. |
+| API-05 | Error interface | Consumer can receive typed, distinguishable errors through `Errors() <-chan *ChannelError`. |
 | API-06 | Concrete Event types | Consumer receives concrete Event values through the common Event interface. |
 | API-07 | Multiple Channels | Consumer can use multiple independent Channels in one runtime. |
 | API-08 | Append and replay | Consumer appends Events, restarts the runtime, and receives the committed history. |

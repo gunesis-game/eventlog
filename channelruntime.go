@@ -9,9 +9,18 @@ import (
 	"time"
 )
 
+// liveEvent is one adopted live Event of a Channel, keyed by logical identity.
+type liveEvent struct {
+	id       uuid
+	identity uuid
+	schema   *typeSchema
+	instance reflect.Value
+	event    Event
+}
+
 // channelRuntime is the single runtime of one logical Channel: its adopted live
-// pointer, notification and error streams, live Event instances, and its one
-// unified Reader progression.
+// pointer and live Events, its notification and error streams, its shared
+// transaction channel, and its one unified Reader progression.
 type channelRuntime struct {
 	rt            *logRuntime
 	id            uuid
@@ -20,64 +29,89 @@ type channelRuntime struct {
 	live          Channel
 	instance      reflect.Value
 	notifications chan Event
-	errs          chan error
+	errs          chan *ChannelError
+	transactions  chan func() error
 
-	mu         sync.Mutex
-	events     map[typeKey]*eventTracker
-	latest     fieldSnapshot
-	terminated bool
-	fatal      error
+	mu     sync.Mutex
+	events []*liveEvent
+	byID   map[uuid]*liveEvent
 
-	// observed and observeErr are owned by the change manager's poll pass.
-	observed   fieldSnapshot
-	observeErr string
+	// streamMu guards closing the streams against in-flight error sends.
+	streamMu      sync.RWMutex
+	streamsClosed bool
 }
 
-func (c *channelRuntime) latestSnapshot() fieldSnapshot {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	return c.latest
-}
-
-func (c *channelRuntime) setLatestSnapshot(snapshot fieldSnapshot) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.latest = snapshot
-}
-
-// reportError publishes a non-fatal error best-effort without blocking. The
-// error stream has capacity one, so an error is dropped if one is pending.
-func (c *channelRuntime) reportError(err error) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	if c.terminated {
-		return
+func newChannelRuntime(rt *logRuntime, id, identity uuid, schema *typeSchema, live Channel, notifications chan Event, errs chan *ChannelError) *channelRuntime {
+	return &channelRuntime{
+		rt:            rt,
+		id:            id,
+		identity:      identity,
+		schema:        schema,
+		live:          live,
+		instance:      reflect.ValueOf(live),
+		notifications: notifications,
+		errs:          errs,
+		transactions:  make(chan func() error),
+		byID:          make(map[uuid]*liveEvent),
 	}
-	c.offerErrorLocked(err)
 }
 
-func (c *channelRuntime) offerErrorLocked(err error) {
+// adoptEvent returns the live Event for a logical identity, adopting the
+// candidate when the identity is new.
+func (c *channelRuntime) adoptEvent(candidate *liveEvent) *liveEvent {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if existing, ok := c.byID[candidate.id]; ok {
+		return existing
+	}
+	c.byID[candidate.id] = candidate
+	c.events = append(c.events, candidate)
+	return candidate
+}
+
+// liveEvents returns the adopted live Events in adoption order.
+func (c *channelRuntime) liveEvents() []*liveEvent {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return append([]*liveEvent(nil), c.events...)
+}
+
+func (c *channelRuntime) newError(kind ErrorKind, cause error, events []Event) *ChannelError {
+	return &ChannelError{Kind: kind, Cause: cause, Events: events, channelID: c.id}
+}
+
+// deliverError blocks until the consumer receives err. It returns false
+// without delivering when the streams are closed or the runtime has stopped.
+func (c *channelRuntime) deliverError(err *ChannelError) (delivered bool) {
+	c.streamMu.RLock()
+	defer c.streamMu.RUnlock()
+	if c.streamsClosed {
+		return false
+	}
 	defer func() {
-		_ = recover()
+		if recover() != nil {
+			delivered = false
+		}
 	}()
 	select {
 	case c.errs <- err:
-	default:
+		return true
+	case <-c.rt.closed:
+		return false
 	}
 }
 
-// terminate ends this Channel's Reader after a fatal error: it retains the
-// first fatal error, reports it best-effort, then closes the error and
-// notification streams. Other Channels and persistence continue.
-func (c *channelRuntime) terminate(err error) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	if c.terminated {
+// terminate ends this Channel's Reader after a fatal error: it delivers the
+// error, then closes the error and notification streams. Persistence and other
+// Channels continue.
+func (c *channelRuntime) terminate(err *ChannelError) {
+	c.deliverError(err)
+	c.streamMu.Lock()
+	defer c.streamMu.Unlock()
+	if c.streamsClosed {
 		return
 	}
-	c.terminated = true
-	c.fatal = err
-	c.offerErrorLocked(err)
+	c.streamsClosed = true
 	closeQuietly(c.errs)
 	closeQuietly(c.notifications)
 }
@@ -87,12 +121,6 @@ func closeQuietly[T any](ch chan T) {
 		_ = recover()
 	}()
 	close(ch)
-}
-
-func (c *channelRuntime) fatalError() error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	return c.fatal
 }
 
 // runReader is the Channel's one continuous committed-sequence progression.
@@ -115,12 +143,12 @@ func (c *channelRuntime) runReader() {
 			return
 		}
 		if err != nil {
-			c.terminate(fmt.Errorf("eventlog: channel %s reader: %w", c.id, err))
+			c.terminate(c.newError(ReaderFailed, err, nil))
 			return
 		}
 		if err := c.deliver(event); err != nil {
 			if !errors.Is(err, errRuntimeStopped) {
-				c.terminate(err)
+				c.terminate(c.newError(DeliveryFailed, err, []Event{event}))
 			}
 			return
 		}
@@ -231,7 +259,7 @@ func (c *channelRuntime) deliver(event Event) error {
 		}
 		backoff *= 2
 	}
-	return fmt.Errorf("eventlog: channel %s notification delivery failed after %d attempts: %w", c.id, c.rt.policy.deliveryAttempts, lastErr)
+	return fmt.Errorf("notification delivery failed after %d attempts: %w", c.rt.policy.deliveryAttempts, lastErr)
 }
 
 // sendNotification blocks while the bounded notification buffer is full; that

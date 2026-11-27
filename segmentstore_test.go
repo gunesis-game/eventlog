@@ -26,16 +26,25 @@ func openTestStore(t *testing.T, dir string, options segmentStoreOptions) *segme
 	return s
 }
 
+func testOccurrence(event byte, payload string) occurrenceWrite {
+	return occurrenceWrite{
+		channelFields: map[string]interface{}{"region": fieldValue{Type: "string", Value: "eu"}},
+		eventID:       uuid(testUUID(event)),
+		eventType:     testEventType,
+		eventFields:   map[string]interface{}{"payload": fieldValue{Type: "string", Value: payload}},
+	}
+}
+
+// appendTestOccurrence appends a one-occurrence transaction and returns the
+// Event record's global sequence.
 func appendTestOccurrence(t *testing.T, s *segmentStore, channel byte, event byte, payload string) uint64 {
 	t.Helper()
-	sequence, err := s.appendOccurrence(
-		channelWrite{id: uuid(testUUID(channel)), typ: testChannelType, fields: map[string]interface{}{"region": fieldValue{Type: "string", Value: "eu"}}},
-		eventWrite{id: uuid(testUUID(event)), typ: testEventType, fields: map[string]interface{}{"payload": fieldValue{Type: "string", Value: payload}}},
-	)
-	if err != nil {
+	if err := s.appendTransaction(channelWrite{id: uuid(testUUID(channel)), typ: testChannelType}, []occurrenceWrite{testOccurrence(event, payload)}); err != nil {
 		t.Fatalf("append: %v", err)
 	}
-	return sequence
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.entries[len(s.entries)-1].sequence
 }
 
 // storeSummary captures recovered state for equality comparisons.
@@ -87,15 +96,15 @@ func TestSegmentStoreAppendAndRecover(t *testing.T) {
 	}
 }
 
-// L-02, L-04: schema-invalid data fails before anything is written.
+// L-02, L-04: one invalid occurrence fails the whole transaction before
+// anything is written.
 func TestSegmentStoreValidationFailureWritesNothing(t *testing.T) {
 	dir := t.TempDir()
 	s := openTestStore(t, dir, fastStoreOptions())
-	_, err := s.appendOccurrence(
-		channelWrite{id: uuid(testUUID(1)), typ: testChannelType, fields: map[string]interface{}{"bad": fieldValue{Type: "int8", Value: "not-a-number"}}},
-		eventWrite{id: uuid(testUUID(2)), typ: testEventType, fields: map[string]interface{}{}},
-	)
-	if err == nil {
+	good := testOccurrence(2, "ok")
+	bad := testOccurrence(3, "bad")
+	bad.eventFields = map[string]interface{}{"bad": fieldValue{Type: "int8", Value: "not-a-number"}}
+	if err := s.appendTransaction(channelWrite{id: uuid(testUUID(1)), typ: testChannelType}, []occurrenceWrite{good, bad}); err == nil {
 		t.Fatal("expected validation failure")
 	}
 	info, err := os.Stat(activeSegmentPath(s))
@@ -396,10 +405,8 @@ func TestConcurrentAppends(t *testing.T) {
 		go func(worker int) {
 			defer wg.Done()
 			for i := 0; i < 25; i++ {
-				if _, err := s.appendOccurrence(
-					channelWrite{id: uuid(testUUID(byte(worker + 1))), typ: testChannelType, fields: map[string]interface{}{}},
-					eventWrite{id: uuid(testUUID(byte(worker + 100))), typ: testEventType, fields: map[string]interface{}{"i": fieldValue{Type: "int", Value: fmt.Sprint(i)}}},
-				); err != nil {
+				occurrence := occurrenceWrite{channelFields: map[string]interface{}{}, eventID: uuid(testUUID(byte(worker + 100))), eventType: testEventType, eventFields: map[string]interface{}{"i": fieldValue{Type: "int", Value: fmt.Sprint(i)}}}
+				if err := s.appendTransaction(channelWrite{id: uuid(testUUID(byte(worker + 1))), typ: testChannelType}, []occurrenceWrite{occurrence}); err != nil {
 					t.Error(err)
 				}
 			}
@@ -421,7 +428,32 @@ func TestConcurrentAppends(t *testing.T) {
 }
 
 func TestValidateRecordStreamRejectsZeroStart(t *testing.T) {
-	if _, err := validateRecordStreamFrom(nil, nil, 0); !errors.Is(err, ErrInvalidTransaction) {
+	if _, err := validateRecordStream(nil, nil, 0); !errors.Is(err, errInvalidTransaction) {
 		t.Fatalf("zero start sequence: %v", err)
+	}
+}
+
+// A multi-occurrence transaction recovers with every occurrence, and a Channel
+// record is written only where the Channel snapshot changed.
+func TestMultiOccurrenceTransactionRecovers(t *testing.T) {
+	dir := t.TempDir()
+	s := openTestStore(t, dir, fastStoreOptions())
+	changed := testOccurrence(11, "c")
+	changed.channelFields = map[string]interface{}{"region": fieldValue{Type: "string", Value: "us"}}
+	if err := s.appendTransaction(channelWrite{id: uuid(testUUID(1)), typ: testChannelType}, []occurrenceWrite{testOccurrence(10, "a"), testOccurrence(10, "b"), changed}); err != nil {
+		t.Fatal(err)
+	}
+	// Channel, Event, Event, Channel, Event, Commit
+	if s.nextSequence != 7 {
+		t.Fatalf("next sequence = %d, want 7", s.nextSequence)
+	}
+	before := storeSummary(s)
+	_ = s.close()
+	reopened := openTestStore(t, dir, fastStoreOptions())
+	if storeSummary(reopened) != before {
+		t.Fatal("multi-occurrence transaction did not recover identically")
+	}
+	if fields, _ := persistedChannelFields(reopened, uuid(testUUID(1))); !strings.Contains(fields, `"us"`) {
+		t.Fatalf("latest Channel snapshot = %s", fields)
 	}
 }

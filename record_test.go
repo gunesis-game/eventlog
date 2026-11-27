@@ -99,8 +99,8 @@ func TestRecordFramerIncompleteTail(t *testing.T) {
 		t.Fatalf("first frame: %q, %v", first, err)
 	}
 	partial, err := f.next()
-	if !errors.Is(err, ErrIncompleteRecord) {
-		t.Fatalf("got %v, want ErrIncompleteRecord", err)
+	if !errors.Is(err, errIncompleteRecord) {
+		t.Fatalf("got %v, want errIncompleteRecord", err)
 	}
 	if string(partial) != "partial" {
 		t.Fatalf("partial bytes %q", partial)

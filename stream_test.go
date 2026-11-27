@@ -39,7 +39,7 @@ func TestValidateRecordStreamCommittedTransactions(t *testing.T) {
 	commit2 := commitRecord{SchemaVersion: 1, Sequence: 5, Kind: recordKindCommit, TransactionID: 4, RecordCount: 1, Checksum: transactionChecksum([][]byte{ev2Frame})}
 	appendStreamRecord(t, &stream, commit2, recordKindCommit, v)
 
-	result, err := validateRecordStream(stream.Bytes(), v)
+	result, err := validateRecordStream(stream.Bytes(), v, 1)
 	if err != nil {
 		t.Fatalf("validate stream: %v", err)
 	}
@@ -68,7 +68,7 @@ func TestValidateRecordStreamIdentifiesIncompleteTransactionStart(t *testing.T) 
 	}
 	stream.Write(raw[:len(raw)-4])
 
-	result, err := validateRecordStream(stream.Bytes(), v)
+	result, err := validateRecordStream(stream.Bytes(), v, 1)
 	if err != nil {
 		t.Fatalf("validate incomplete stream: %v", err)
 	}
@@ -85,7 +85,7 @@ func TestValidateRecordStreamRejectsSequenceGap(t *testing.T) {
 	v := testValidator(t)
 	var stream bytes.Buffer
 	appendStreamRecord(t, &stream, streamTestEvent(2), recordKindEvent, v)
-	if _, err := validateRecordStream(stream.Bytes(), v); err == nil {
+	if _, err := validateRecordStream(stream.Bytes(), v, 1); err == nil {
 		t.Fatal("expected sequence gap error")
 	}
 }
@@ -95,7 +95,7 @@ func TestValidateRecordStreamRejectsCommitWithoutRecords(t *testing.T) {
 	var stream bytes.Buffer
 	commit := commitRecord{SchemaVersion: 1, Sequence: 1, Kind: recordKindCommit, TransactionID: 1, RecordCount: 1, Checksum: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}
 	appendStreamRecord(t, &stream, commit, recordKindCommit, v)
-	if _, err := validateRecordStream(stream.Bytes(), v); err == nil {
+	if _, err := validateRecordStream(stream.Bytes(), v, 1); err == nil {
 		t.Fatal("expected orphan Commit error")
 	}
 }

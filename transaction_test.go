@@ -55,3 +55,31 @@ func TestValidateTransactionRejectsContractViolations(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateTransactionMultipleOccurrences(t *testing.T) {
+	records := []interface{}{
+		channelRecord{Sequence: 1, Kind: recordKindChannel, ID: "c"},
+		eventRecord{Sequence: 2, Kind: recordKindEvent, ChannelID: "c"},
+		eventRecord{Sequence: 3, Kind: recordKindEvent, ChannelID: "c"},
+		channelRecord{Sequence: 4, Kind: recordKindChannel, ID: "c"},
+		eventRecord{Sequence: 5, Kind: recordKindEvent, ChannelID: "c"},
+	}
+	frames := [][]byte{[]byte("1\n"), []byte("2\n"), []byte("3\n"), []byte("4\n"), []byte("5\n")}
+	if err := validateTransaction(records, frames, makeTestCommit(records, frames, 1, 6)); err != nil {
+		t.Fatalf("valid multi-occurrence transaction: %v", err)
+	}
+}
+
+func TestValidateTransactionRejectsMixedChannels(t *testing.T) {
+	frames := [][]byte{[]byte("1\n"), []byte("2\n")}
+	cases := map[string][]interface{}{
+		"two Channels' Events":                 {eventRecord{Sequence: 1, Kind: recordKindEvent, ChannelID: "a"}, eventRecord{Sequence: 2, Kind: recordKindEvent, ChannelID: "b"}},
+		"Channel record for another Channel":   {channelRecord{Sequence: 1, Kind: recordKindChannel, ID: "a"}, eventRecord{Sequence: 2, Kind: recordKindEvent, ChannelID: "b"}},
+		"Channel record not followed by Event": {eventRecord{Sequence: 1, Kind: recordKindEvent, ChannelID: "a"}, channelRecord{Sequence: 2, Kind: recordKindChannel, ID: "a"}},
+	}
+	for name, records := range cases {
+		if err := validateTransaction(records, frames, makeTestCommit(records, frames, 1, 3)); err == nil {
+			t.Fatalf("%s: expected rejection", name)
+		}
+	}
+}

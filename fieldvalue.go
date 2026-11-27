@@ -257,3 +257,32 @@ func decodePrimitiveInto(binding fieldBinding, target reflect.Value, value field
 	}
 	return nil
 }
+
+// restoreSnapshot writes a captured snapshot back into instance's selected
+// fields. It is used to roll back a rejected transaction.
+func restoreSnapshot(schema *typeSchema, instance reflect.Value, snapshot fieldSnapshot) error {
+	for i, binding := range schema.fields {
+		if err := decodeFieldInto(binding, schema.fieldValueOf(instance, binding), snapshot[i]); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// copySelectedFields returns a fresh instance holding isolated copies of
+// instance's selected field values, whether or not they are valid.
+func copySelectedFields(schema *typeSchema, instance reflect.Value) reflect.Value {
+	duplicate := reflect.New(schema.typ)
+	for _, binding := range schema.fields {
+		source := schema.fieldValueOf(instance, binding)
+		target := schema.fieldValueOf(duplicate, binding)
+		if binding.role == fieldRoleNullable && !source.IsNil() {
+			element := reflect.New(binding.typ.Elem())
+			element.Elem().Set(source.Elem())
+			target.Set(element)
+			continue
+		}
+		target.Set(source)
+	}
+	return duplicate
+}

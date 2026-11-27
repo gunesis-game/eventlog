@@ -20,11 +20,11 @@
 
 ## Observed results
 
-On 2026-11-27, on windows/amd64 with Go 1.27.4 (local machine), against the working tree committed as the Cycle 1 implementation commit:
+On 2026-11-27, on windows/amd64 with Go 1.27.4 (local machine), against the working tree committed as the transaction-model refactor:
 
-- `go test -count=1 ./...`, `go test -count=5 ./...`, `go test -race -count=1 ./...`, `go vet ./...`, and `gofmt -l .` passed.
-- `GOOS=linux go vet ./...` and a Linux test-binary build passed. These were cross-compiled; tests were not executed on Linux locally.
+- `go test -count=3 ./...`, `go test -race -count=2 ./...`, `go vet ./...`, `gofmt -l .`, and the benchmark smoke set passed.
+- `GOOS=linux go vet ./...` and a Linux test-binary build passed (cross-compiled; not executed on Linux locally).
 
-CI evidence for commit `9f3d6df41c2a10b40debf47181f7ff5da8d45622`: Go verification run 45964555490 succeeded on `ubuntu-latest` (gofmt, `go test`, `go test -race`, build, vet) and `windows-latest` (`go test`, build, vet; gofmt and race steps skipped by design). Steering state validation run 45964555461 succeeded. The commands run in [Go verification](../../.github/workflows/go.yml) on pushes to `main` and on manual dispatch, as Linux and Windows matrix jobs. Do not claim CI results until the run for the exact commit SHA has been inspected.
+The previous implementation commit `9f3d6df41c2a10b40debf47181f7ff5da8d45622` passed Go verification run 45964555490 on Linux and Windows. The refactor commit has no CI result yet. The commands run in [Go verification](../../.github/workflows/go.yml) on pushes to `main` and on manual dispatch, as Linux and Windows matrix jobs. Do not claim CI results until the run for the exact commit SHA has been inspected.
 
 Update this document when commands, prerequisites, suite locations, or CI triggers change. Do not claim tests or checks that were not actually run.

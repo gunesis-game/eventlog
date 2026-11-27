@@ -150,7 +150,7 @@ func (s *segmentStore) checkUnambiguousChain(ids []uint64) error {
 		if err != nil {
 			return err
 		}
-		result, err := validateRecordStreamFrom(data, s.validator, expected)
+		result, err := validateRecordStream(data, s.validator, expected)
 		if err != nil {
 			return fmt.Errorf("segment %d: %w", id, err)
 		}
@@ -175,7 +175,7 @@ func (s *segmentStore) recoverSegment(name string, last bool) error {
 	if err != nil {
 		return fmt.Errorf("%w: manifest segment %s: %v", errCorruptStorage, name, err)
 	}
-	result, err := validateRecordStreamFrom(data, s.validator, s.nextSequence)
+	result, err := validateRecordStream(data, s.validator, s.nextSequence)
 	if err != nil {
 		return fmt.Errorf("%w: segment %s: %v", errCorruptStorage, name, err)
 	}
@@ -309,7 +309,7 @@ func validateRecordFields(fields map[string]interface{}) error {
 }
 
 // canonicalRecordFields re-encodes decoded fields in the same canonical form
-// appendOccurrence uses, so persisted and live Channel snapshots compare equal.
+// appendTransaction uses, so persisted and live Channel snapshots compare equal.
 func canonicalRecordFields(fields map[string]interface{}) (string, error) {
 	canonical := make(map[string]interface{}, len(fields))
 	for name, raw := range fields {

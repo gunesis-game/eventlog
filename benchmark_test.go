@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 )
 
 // Representative smoke benchmarks for the approved catalogue in
@@ -36,12 +37,12 @@ func BenchmarkAppendOccurrence(b *testing.B) {
 		b.Fatal(err)
 	}
 	defer s.close()
-	channel := channelWrite{id: uuid(testUUID(1)), typ: testChannelType, fields: map[string]interface{}{}}
-	event := eventWrite{id: uuid(testUUID(2)), typ: testEventType, fields: benchmarkEventFields(strings.Repeat("x", 1024))}
+	channel := channelWrite{id: uuid(testUUID(1)), typ: testChannelType}
+	occurrences := []occurrenceWrite{{channelFields: map[string]interface{}{}, eventID: uuid(testUUID(2)), eventType: testEventType, eventFields: benchmarkEventFields(strings.Repeat("x", 1024))}}
 	b.ReportAllocs()
 	b.SetBytes(1024)
 	for b.Loop() {
-		if _, err := s.appendOccurrence(channel, event); err != nil {
+		if err := s.appendTransaction(channel, occurrences); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -56,10 +57,10 @@ func BenchmarkRecoverHistory(b *testing.B) {
 			if err != nil {
 				b.Fatal(err)
 			}
-			channel := channelWrite{id: uuid(testUUID(1)), typ: testChannelType, fields: map[string]interface{}{}}
+			channel := channelWrite{id: uuid(testUUID(1)), typ: testChannelType}
 			for i := 0; i < size; i++ {
-				event := eventWrite{id: uuid(testUUID(2)), typ: testEventType, fields: benchmarkEventFields(fmt.Sprint(i))}
-				if _, err := s.appendOccurrence(channel, event); err != nil {
+				occurrence := occurrenceWrite{channelFields: map[string]interface{}{}, eventID: uuid(testUUID(2)), eventType: testEventType, eventFields: benchmarkEventFields(fmt.Sprint(i))}
+				if err := s.appendTransaction(channel, []occurrenceWrite{occurrence}); err != nil {
 					b.Fatal(err)
 				}
 			}
@@ -89,13 +90,14 @@ func BenchmarkReplayDelivery(b *testing.B) {
 	channelID, _ := deriveIdentity(channelIdentityDomain, channelSchema, uuid(testUUID(1)))
 	orderID := uuid(testUUID(2))
 	eventID, _ := deriveIdentity(eventIdentityDomain, schema, orderID)
-	channel := channelWrite{id: channelID, typ: channelSchema.key(), fields: map[string]interface{}{"ID": fieldValue{Type: "uuid", Value: uuid(testUUID(1)).String()}, "Region": fieldValue{Type: "string", Value: "eu"}}}
+	channel := channelWrite{id: channelID, typ: channelSchema.key()}
+	channelFields := map[string]interface{}{"ID": fieldValue{Type: "uuid", Value: uuid(testUUID(1)).String()}, "Region": fieldValue{Type: "string", Value: "eu"}}
 	for i := 0; i < history; i++ {
-		event := eventWrite{id: eventID, typ: schema.key(), fields: map[string]interface{}{
+		occurrence := occurrenceWrite{channelFields: channelFields, eventID: eventID, eventType: schema.key(), eventFields: map[string]interface{}{
 			"ID": fieldValue{Type: "uuid", Value: orderID.String()}, "Amount": fieldValue{Type: "int64", Value: fmt.Sprint(i)},
 			"Status": fieldValue{Type: "string", Value: "placed"}, "Note": fieldValue{Type: "null"},
 		}}
-		if _, err := setup.store.appendOccurrence(channel, event); err != nil {
+		if err := setup.store.appendTransaction(channel, []occurrenceWrite{occurrence}); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -106,7 +108,7 @@ func BenchmarkReplayDelivery(b *testing.B) {
 		if err != nil {
 			b.Fatal(err)
 		}
-		_, ordersChannel, err := prepareInRuntime[*OrderPlaced, *Orders](b.Context(), rt, ordersFactory(testUUID(1), "eu"))
+		_, ordersChannel, err := prepareInRuntime[*OrderPlaced, *Orders](b.Context(), rt, placedFactory(testUUID(2)), ordersFactory(testUUID(1)))
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -114,5 +116,28 @@ func BenchmarkReplayDelivery(b *testing.B) {
 			<-ordersChannel.Notifications()
 		}
 		_ = rt.close()
+	}
+}
+
+// B-L05: end-to-end transactions on one Channel, from send to commit.
+func BenchmarkTransactionCommit(b *testing.B) {
+	rt, err := openLogRuntime(b.TempDir(), defaultSegmentStoreOptions(), defaultRuntimePolicy())
+	if err != nil {
+		b.Fatal(err)
+	}
+	defer rt.close()
+	event, _, err := prepareInRuntime[*OrderPlaced, *Orders](b.Context(), rt, placedFactory(testUUID(2)), ordersFactory(testUUID(1)))
+	if err != nil {
+		b.Fatal(err)
+	}
+	b.ReportAllocs()
+	n := 0
+	for b.Loop() {
+		n++
+		setAmount(event, int64(n))
+	}
+	deadline := time.Now().Add(time.Minute)
+	for committedCount(rt) < n && time.Now().Before(deadline) {
+		time.Sleep(time.Millisecond)
 	}
 }

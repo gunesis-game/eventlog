@@ -7,17 +7,19 @@ import (
 	"reflect"
 )
 
-// PrepareLog returns the live Event and Channel instances for a concrete Event
-// type on the logical Channel built by newChannel. Both type arguments must be
-// pointer-to-struct types. newChannel is a constructor only: it receives the
-// notification and error channels eventlog sends on, and its candidate is
-// discarded when the logical Channel already has a runtime.
+// PrepareLog returns the live Event and Channel for the logical identities
+// that newEvent and newChannel construct. Both type arguments must be
+// pointer-to-struct types. Both factories are constructors only: they receive
+// the channels eventlog uses, must set the identity field, and their result is
+// discarded when that logical Event or Channel is already live.
 //
-// Repeated compatible preparation returns the same live pointers. eventlog
-// persists a new Event occurrence whenever it observes a change to the Event's
-// selected fields, and delivers every committed occurrence of the Channel, in
-// order, on the Channel's notification stream.
-func PrepareLog[TEvent Event, TChannel Channel](ctx context.Context, newChannel func(chan Event, chan error) TChannel) (TEvent, TChannel, error) {
+// newEvent receives the Channel's shared transaction channel, which the Event
+// returns from Transaction. Each function sent on it is applied atomically, in
+// send order with every other transaction of the Channel, and each changed
+// Event becomes a committed occurrence delivered in order on the Channel's
+// notification stream. Repeated preparation of the same logical identities
+// returns the same live pointers.
+func PrepareLog[TEvent Event, TChannel Channel](ctx context.Context, newEvent func(chan<- func() error) TEvent, newChannel func(chan Event, chan *ChannelError) TChannel) (TEvent, TChannel, error) {
 	var event TEvent
 	var channel TChannel
 	if ctx == nil {
@@ -34,10 +36,10 @@ func PrepareLog[TEvent Event, TChannel Channel](ctx context.Context, newChannel 
 	if err != nil {
 		return event, channel, err
 	}
-	return prepareInRuntime[TEvent, TChannel](ctx, rt, newChannel)
+	return prepareInRuntime[TEvent, TChannel](ctx, rt, newEvent, newChannel)
 }
 
-func prepareInRuntime[TEvent Event, TChannel Channel](ctx context.Context, rt *logRuntime, newChannel func(chan Event, chan error) TChannel) (TEvent, TChannel, error) {
+func prepareInRuntime[TEvent Event, TChannel Channel](ctx context.Context, rt *logRuntime, newEvent func(chan<- func() error) TEvent, newChannel func(chan Event, chan *ChannelError) TChannel) (TEvent, TChannel, error) {
 	var zeroEvent TEvent
 	var zeroChannel TChannel
 	eventType, err := requireStructPointer(reflect.TypeFor[TEvent](), "TEvent")
@@ -47,28 +49,8 @@ func prepareInRuntime[TEvent Event, TChannel Channel](ctx context.Context, rt *l
 	if _, err := requireStructPointer(reflect.TypeFor[TChannel](), "TChannel"); err != nil {
 		return zeroEvent, zeroChannel, err
 	}
-	if newChannel == nil {
-		return zeroEvent, zeroChannel, errors.New("eventlog: Channel factory is nil")
-	}
-
-	notifications := make(chan Event, rt.policy.notificationBuffer)
-	errs := make(chan error, 1)
-	candidate, err := constructChannel(newChannel, notifications, errs)
-	if err != nil {
-		return zeroEvent, zeroChannel, err
-	}
-	channelSchema, err := resolveTypeSchema(candidate)
-	if err != nil {
-		return zeroEvent, zeroChannel, fmt.Errorf("eventlog: Channel: %w", err)
-	}
-	channelInstance := reflect.ValueOf(candidate)
-	channelSnapshot, channelRaw, err := captureSnapshot(channelSchema, channelInstance)
-	if err != nil {
-		return zeroEvent, zeroChannel, fmt.Errorf("eventlog: Channel: %w", err)
-	}
-	channelID, err := deriveIdentity(channelIdentityDomain, channelSchema, channelRaw)
-	if err != nil {
-		return zeroEvent, zeroChannel, fmt.Errorf("eventlog: Channel: %w", err)
+	if newEvent == nil || newChannel == nil {
+		return zeroEvent, zeroChannel, errors.New("eventlog: Event and Channel factories must not be nil")
 	}
 
 	eventSchema, err := resolveTypeSchema(reflect.New(eventType.Elem()).Interface())
@@ -78,55 +60,24 @@ func prepareInRuntime[TEvent Event, TChannel Channel](ctx context.Context, rt *l
 	if eventSchema, err = rt.registry.register(eventSchema); err != nil {
 		return zeroEvent, zeroChannel, err
 	}
-	if err := ctx.Err(); err != nil {
+	runtime, err := resolveChannel(rt, newChannel)
+	if err != nil {
 		return zeroEvent, zeroChannel, err
-	}
-
-	rt.mu.Lock()
-	defer rt.mu.Unlock()
-	runtime := rt.channels[channelID]
-	if runtime == nil {
-		runtime = &channelRuntime{
-			rt:            rt,
-			id:            channelID,
-			identity:      channelRaw,
-			schema:        channelSchema,
-			live:          candidate,
-			instance:      channelInstance,
-			notifications: notifications,
-			errs:          errs,
-			events:        make(map[typeKey]*eventTracker),
-			latest:        channelSnapshot,
-			observed:      channelSnapshot,
-		}
-		rt.channels[channelID] = runtime
-		rt.changes.trackChannel(runtime)
-		rt.startWorker(runtime.runReader)
 	}
 	liveChannel, ok := runtime.live.(TChannel)
 	if !ok {
-		return zeroEvent, zeroChannel, fmt.Errorf("eventlog: Channel %s is prepared as %T, not %s", channelID, runtime.live, reflect.TypeFor[TChannel]())
+		return zeroEvent, zeroChannel, fmt.Errorf("eventlog: Channel %s is prepared as %T, not %s", runtime.id, runtime.live, reflect.TypeFor[TChannel]())
 	}
-
-	runtime.mu.Lock()
-	tracker := runtime.events[eventSchema.key()]
-	if tracker == nil {
-		instance := reflect.New(eventType.Elem())
-		initial, _, captureErr := captureSnapshot(eventSchema, instance)
-		if captureErr != nil {
-			runtime.mu.Unlock()
-			return zeroEvent, zeroChannel, fmt.Errorf("eventlog: Event: %w", captureErr)
-		}
-		tracker = &eventTracker{channel: runtime, schema: eventSchema, instance: instance, last: initial}
-		runtime.events[eventSchema.key()] = tracker
-		runtime.mu.Unlock()
-		rt.changes.trackEvent(tracker)
-	} else {
-		runtime.mu.Unlock()
+	candidate, err := constructEvent(newEvent, runtime, eventSchema)
+	if err != nil {
+		return zeroEvent, zeroChannel, err
 	}
-	liveEvent, ok := tracker.instance.Interface().(TEvent)
+	if err := ctx.Err(); err != nil {
+		return zeroEvent, zeroChannel, err
+	}
+	liveEvent, ok := runtime.adoptEvent(candidate).event.(TEvent)
 	if !ok {
-		return zeroEvent, zeroChannel, fmt.Errorf("eventlog: Event %s is prepared as %s", eventSchema.key(), tracker.instance.Type())
+		return zeroEvent, zeroChannel, fmt.Errorf("eventlog: Event %s is prepared as another type", candidate.id)
 	}
 	return liveEvent, liveChannel, nil
 }
@@ -138,16 +89,86 @@ func requireStructPointer(t reflect.Type, label string) (reflect.Type, error) {
 	return t, nil
 }
 
-func constructChannel[TChannel Channel](newChannel func(chan Event, chan error) TChannel, notifications chan Event, errs chan error) (candidate TChannel, err error) {
+// resolveChannel constructs a Channel candidate and returns the runtime for its
+// logical identity, adopting the candidate and starting its Reader and
+// transaction processor when the identity is new.
+func resolveChannel[TChannel Channel](rt *logRuntime, newChannel func(chan Event, chan *ChannelError) TChannel) (*channelRuntime, error) {
+	notifications := make(chan Event, rt.policy.notificationBuffer)
+	errs := make(chan *ChannelError)
+	candidate, err := callFactory(func() TChannel {
+		return newChannel(notifications, errs)
+	})
+	if err != nil {
+		return nil, fmt.Errorf("eventlog: Channel factory: %w", err)
+	}
+	schema, err := resolveTypeSchema(candidate)
+	if err != nil {
+		return nil, fmt.Errorf("eventlog: Channel: %w", err)
+	}
+	_, identity, err := captureSnapshot(schema, reflect.ValueOf(candidate))
+	if err != nil {
+		return nil, fmt.Errorf("eventlog: Channel: %w", err)
+	}
+	id, err := deriveIdentity(channelIdentityDomain, schema, identity)
+	if err != nil {
+		return nil, fmt.Errorf("eventlog: Channel: %w", err)
+	}
+	rt.mu.Lock()
+	defer rt.mu.Unlock()
+	if runtime := rt.channels[id]; runtime != nil {
+		return runtime, nil
+	}
+	runtime := newChannelRuntime(rt, id, identity, schema, candidate, notifications, errs)
+	rt.channels[id] = runtime
+	rt.startWorker(runtime.runReader)
+	processor := newTransactionProcessor(runtime)
+	rt.startWorker(processor.runIntake)
+	rt.startWorker(processor.run)
+	return runtime, nil
+}
+
+// constructEvent builds an Event candidate wired to the Channel's transaction
+// channel and validates its schema, fields, and identity.
+func constructEvent[TEvent Event](newEvent func(chan<- func() error) TEvent, runtime *channelRuntime, schema *typeSchema) (*liveEvent, error) {
+	candidate, err := callFactory(func() TEvent {
+		return newEvent(runtime.transactions)
+	})
+	if err != nil {
+		return nil, fmt.Errorf("eventlog: Event factory: %w", err)
+	}
+	if candidate.Transaction() != (chan<- func() error)(runtime.transactions) {
+		return nil, errors.New("eventlog: Event.Transaction() must return the channel its factory received")
+	}
+	own, err := resolveTypeSchema(candidate)
+	if err != nil {
+		return nil, fmt.Errorf("eventlog: Event: %w", err)
+	}
+	if !own.sameShape(schema) {
+		return nil, fmt.Errorf("%w: %s", ErrSchemaConflict, schema.key())
+	}
+	instance := reflect.ValueOf(candidate)
+	_, identity, err := captureSnapshot(schema, instance)
+	if err != nil {
+		return nil, fmt.Errorf("eventlog: Event: %w", err)
+	}
+	id, err := deriveIdentity(eventIdentityDomain, schema, identity)
+	if err != nil {
+		return nil, fmt.Errorf("eventlog: Event: %w", err)
+	}
+	return &liveEvent{id: id, identity: identity, schema: schema, instance: instance, event: candidate}, nil
+}
+
+// callFactory runs a consumer factory, rejecting a panic or a nil result.
+func callFactory[T any](construct func() T) (result T, err error) {
 	defer func() {
 		if recovered := recover(); recovered != nil {
-			err = fmt.Errorf("eventlog: Channel factory panicked: %v", recovered)
+			err = fmt.Errorf("panicked: %v", recovered)
 		}
 	}()
-	candidate = newChannel(notifications, errs)
-	value := reflect.ValueOf(candidate)
+	result = construct()
+	value := reflect.ValueOf(result)
 	if !value.IsValid() || value.IsNil() {
-		return candidate, errors.New("eventlog: Channel factory returned nil")
+		return result, errors.New("returned nil")
 	}
-	return candidate, nil
+	return result, nil
 }
