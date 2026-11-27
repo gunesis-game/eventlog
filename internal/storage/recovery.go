@@ -76,8 +76,8 @@ func newRecovery(files *filesystem.Client, validator *record.Validator, device i
 	return &recovery{files: files, validator: validator, device: device, readOnly: readOnly, index: newIndex(), nextSequence: 1, channelCounts: make(map[identity.UUID]uint64)}
 }
 
-// newRemoteRecovery returns a tolerant recovery of another device's log.
-func newRemoteRecovery(files *filesystem.Client, validator *record.Validator, device identity.UUID) *recovery {
+// newOtherDeviceRecovery returns a tolerant recovery of another device's log.
+func newOtherDeviceRecovery(files *filesystem.Client, validator *record.Validator, device identity.UUID) *recovery {
 	r := newRecovery(files, validator, device, true)
 	r.tolerant = true
 	return r
@@ -166,7 +166,7 @@ func (r *recovery) resolveManifest() (manifest, error) {
 // damage, so a transaction only partly indexed before the damage is left out,
 // and records the damage (D-073).
 func (r *recovery) readablePrefix(cause error) (*recovery, error) {
-	limited := newRemoteRecovery(r.files, r.validator, r.device)
+	limited := newOtherDeviceRecovery(r.files, r.validator, r.device)
 	limited.limit = &r.failedAt
 	readable, err := limited.run()
 	if err != nil {

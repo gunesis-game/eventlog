@@ -76,8 +76,8 @@ type Store struct {
 	options   Options
 	// device is this device's identity, recorded with every Event occurrence.
 	device identity.UUID
-	// remotes are the other devices' logs, read but never written (D-073).
-	remotes map[identity.UUID]*remoteLog
+	// others are the other devices' logs, read but never written (D-073).
+	others map[identity.UUID]*otherLog
 
 	mu           sync.Mutex
 	manifest     manifest
@@ -232,7 +232,7 @@ func newStore(state, log, files *filesystem.Client, device identity.UUID, option
 		state:         state,
 		log:           log,
 		files:         files,
-		remotes:       make(map[identity.UUID]*remoteLog),
+		others:        make(map[identity.UUID]*otherLog),
 		device:        device,
 		clock:         causal.NewClock(recovered.lastHLC, options.Now),
 		channelCounts: recovered.channelCounts,

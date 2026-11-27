@@ -98,11 +98,11 @@ func (l *sharedLog) logDir(s *Store) string {
 	return filepath.Join(l.dir, localLogDir, devicesDirName, s.device.String())
 }
 
-func remotePayloads(t *testing.T, reader *Store, writer identity.UUID, channel byte, position int) []string {
+func otherPayloads(t *testing.T, reader *Store, writer identity.UUID, channel byte, position int) []string {
 	t.Helper()
 	var payloads []string
 	for {
-		batch, frames, err := reader.RemoteOccurrences(writer, identity.UUID(testUUID(channel)), position, 2)
+		batch, frames, err := reader.DeviceOccurrences(writer, identity.UUID(testUUID(channel)), position, 2)
 		if err != nil {
 			t.Fatalf("read device %s: %v", writer, err)
 		}
@@ -133,24 +133,24 @@ func TestDevicesReadEachOthersLogs(t *testing.T) {
 	if got := b.Devices(); len(got) != 1 || got[0] != a.device {
 		t.Fatalf("b reads devices %v, want [%s]", got, a.device)
 	}
-	if got := strings.Join(remotePayloads(t, b, a.device, 1, 0), ","); got != "a1,a2,a3" {
+	if got := strings.Join(otherPayloads(t, b, a.device, 1, 0), ","); got != "a1,a2,a3" {
 		t.Fatalf("b read a's channel 1 = %s", got)
 	}
-	if got := strings.Join(remotePayloads(t, b, a.device, 1, 2), ","); got != "a3" {
+	if got := strings.Join(otherPayloads(t, b, a.device, 1, 2), ","); got != "a3" {
 		t.Fatalf("b read a's channel 1 after position 2 = %s", got)
 	}
-	if missingFrom, cause := b.RemoteHistory(a.device); cause != nil {
+	if missingFrom, cause := b.DeviceHistory(a.device); cause != nil {
 		t.Fatalf("a's history is readable, got missing from %d: %v", missingFrom, cause)
 	}
 
 	appendTestOccurrence(t, a, 1, 10, "a4")
-	if got := strings.Join(remotePayloads(t, b, a.device, 1, 3), ","); got != "" {
+	if got := strings.Join(otherPayloads(t, b, a.device, 1, 3), ","); got != "" {
 		t.Fatalf("b saw %s before refreshing", got)
 	}
 	if err := b.Refresh(); err != nil {
 		t.Fatal(err)
 	}
-	if got := strings.Join(remotePayloads(t, b, a.device, 1, 3), ","); got != "a4" {
+	if got := strings.Join(otherPayloads(t, b, a.device, 1, 3), ","); got != "a4" {
 		t.Fatalf("b read %s after refreshing, want a4", got)
 	}
 
@@ -161,7 +161,7 @@ func TestDevicesReadEachOthersLogs(t *testing.T) {
 	if err := a.Refresh(); err != nil {
 		t.Fatal(err)
 	}
-	if got := strings.Join(remotePayloads(t, a, b.device, 1, 0), ","); got != "b1" {
+	if got := strings.Join(otherPayloads(t, a, b.device, 1, 0), ","); got != "b1" {
 		t.Fatalf("a read b's channel 1 = %s", got)
 	}
 }
@@ -204,14 +204,14 @@ func TestRefreshReadsOnlyNewBytes(t *testing.T) {
 			t.Fatalf("refresh read the whole first segment again: %s", read)
 		}
 	}
-	if got := strings.Join(remotePayloads(t, b, a.device, 1, 0), ","); got != "a1,a2,r0,r1,r2,r3,r4,r5" {
+	if got := strings.Join(otherPayloads(t, b, a.device, 1, 0), ","); got != "a1,a2,r0,r1,r2,r3,r4,r5" {
 		t.Fatalf("b read %s", got)
 	}
 }
 
 // Positions stay valid when the other device compacts its log: the files
 // read before are gone, and the log is read again from its manifest.
-func TestRemotePositionsSurviveCompaction(t *testing.T) {
+func TestOtherDevicePositionsSurviveCompaction(t *testing.T) {
 	log := newSharedLog(t)
 	options := smallSegmentOptions()
 	options.CompactionThreshold = 2
@@ -220,7 +220,7 @@ func TestRemotePositionsSurviveCompaction(t *testing.T) {
 		appendTestOccurrence(t, a, 1, 10, fmt.Sprintf("p%d", i))
 	}
 	b := log.device(t, "b", fastStoreOptions())
-	if got := strings.Join(remotePayloads(t, b, a.device, 1, 0), ","); got != "p0,p1,p2" {
+	if got := strings.Join(otherPayloads(t, b, a.device, 1, 0), ","); got != "p0,p1,p2" {
 		t.Fatalf("b read %s", got)
 	}
 	generation := a.manifest.Generation
@@ -231,21 +231,21 @@ func TestRemotePositionsSurviveCompaction(t *testing.T) {
 		t.Fatal("a did not compact")
 	}
 	want := "p1,p2,p3,p4,p5,p6,p7,p8,p9,p10,p11"
-	if got := strings.Join(remotePayloads(t, b, a.device, 1, 1), ","); got != want {
+	if got := strings.Join(otherPayloads(t, b, a.device, 1, 1), ","); got != want {
 		t.Fatalf("b read %s after a compacted, want %s: a file gone since the last read makes b read the log again", got, want)
 	}
 	if err := b.Refresh(); err != nil {
 		t.Fatal(err)
 	}
 	want = "p2,p3,p4,p5,p6,p7,p8,p9,p10,p11"
-	if got := strings.Join(remotePayloads(t, b, a.device, 1, 2), ","); got != want {
+	if got := strings.Join(otherPayloads(t, b, a.device, 1, 2), ","); got != want {
 		t.Fatalf("b read %s, want %s", got, want)
 	}
 }
 
 // An incomplete transaction at the end of another device's log is not yet
 // committed, and its file is left untouched.
-func TestRemoteIncompleteTransactionIsNotCommitted(t *testing.T) {
+func TestOtherDeviceIncompleteTransactionIsNotCommitted(t *testing.T) {
 	log := newSharedLog(t)
 	a := log.device(t, "a", fastStoreOptions())
 	appendTestOccurrence(t, a, 1, 10, "committed")
@@ -259,10 +259,10 @@ func TestRemoteIncompleteTransactionIsNotCommitted(t *testing.T) {
 	}
 
 	b := log.device(t, "b", fastStoreOptions())
-	if got := strings.Join(remotePayloads(t, b, a.device, 1, 0), ","); got != "committed" {
+	if got := strings.Join(otherPayloads(t, b, a.device, 1, 0), ","); got != "committed" {
 		t.Fatalf("b read %s", got)
 	}
-	if _, cause := b.RemoteHistory(a.device); cause != nil {
+	if _, cause := b.DeviceHistory(a.device); cause != nil {
 		t.Fatalf("an incomplete tail is not damage: %v", cause)
 	}
 	if data, _ := os.ReadFile(path); !bytes.Equal(data, partial) {
@@ -274,7 +274,7 @@ func TestRemoteIncompleteTransactionIsNotCommitted(t *testing.T) {
 	if err := b.Refresh(); err != nil {
 		t.Fatal(err)
 	}
-	if got := strings.Join(remotePayloads(t, b, a.device, 1, 0), ","); got != "committed,in flight" {
+	if got := strings.Join(otherPayloads(t, b, a.device, 1, 0), ","); got != "committed,in flight" {
 		t.Fatalf("b read %s once the transaction completed", got)
 	}
 }
@@ -282,7 +282,7 @@ func TestRemoteIncompleteTransactionIsNotCommitted(t *testing.T) {
 // D-073: damage in another device's log never stops a device from opening.
 // The readable prefix is kept, the rest is missing from the damaged
 // transaction on, and a refresh that finds the log readable again restores it.
-func TestRemoteDamageKeepsReadablePrefix(t *testing.T) {
+func TestOtherDeviceDamageKeepsReadablePrefix(t *testing.T) {
 	// Lines of a's segment: Channel, Event "kept", commit; Event "damaged",
 	// commit; Event "after", commit. The damaged transaction starts at
 	// sequence 4.
@@ -323,11 +323,11 @@ func TestRemoteDamageKeepsReadablePrefix(t *testing.T) {
 			damage(t, path, bytes.Split(bytes.TrimSuffix(original, []byte("\n")), []byte("\n")))
 
 			b := log.device(t, "b", fastStoreOptions())
-			missingFrom, cause := b.RemoteHistory(a.device)
+			missingFrom, cause := b.DeviceHistory(a.device)
 			if cause == nil {
 				t.Fatal("damage was not detected")
 			}
-			readable := strings.Join(remotePayloads(t, b, a.device, 1, 0), ",")
+			readable := strings.Join(otherPayloads(t, b, a.device, 1, 0), ",")
 			if name == "missing segment" {
 				if readable != "" || missingFrom != 1 {
 					t.Fatalf("read %q, missing from %d", readable, missingFrom)
@@ -342,10 +342,10 @@ func TestRemoteDamageKeepsReadablePrefix(t *testing.T) {
 			if err := b.Refresh(); err != nil {
 				t.Fatal(err)
 			}
-			if _, cause := b.RemoteHistory(a.device); cause != nil {
+			if _, cause := b.DeviceHistory(a.device); cause != nil {
 				t.Fatalf("restored log still damaged: %v", cause)
 			}
-			if got := strings.Join(remotePayloads(t, b, a.device, 1, 0), ","); got != "kept,damaged,after" {
+			if got := strings.Join(otherPayloads(t, b, a.device, 1, 0), ","); got != "kept,damaged,after" {
 				t.Fatalf("read %s after restoring", got)
 			}
 		})
@@ -378,7 +378,7 @@ func TestReadOnlyDeviceReadsOtherDevices(t *testing.T) {
 	if got := reader.Devices(); len(got) != 1 || got[0] != writerDevice {
 		t.Fatalf("read-only device reads %v", got)
 	}
-	if got := strings.Join(remotePayloads(t, reader, writerDevice, 1, 0), ","); got != "w1" {
+	if got := strings.Join(otherPayloads(t, reader, writerDevice, 1, 0), ","); got != "w1" {
 		t.Fatalf("read-only device read %s", got)
 	}
 }

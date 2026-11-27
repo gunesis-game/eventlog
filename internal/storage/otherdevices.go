@@ -12,9 +12,9 @@ import (
 	"github.com/gunesis-game/eventlog/internal/record"
 )
 
-// remoteLog is another device's log, read but never written (D-073). Its
+// otherLog is another device's log, read but never written (D-073). Its
 // state is a tolerant recovery of the log, extended by later refreshes.
-type remoteLog struct {
+type otherLog struct {
 	device    identity.UUID
 	files     *filesystem.Client
 	validator *record.Validator
@@ -45,13 +45,13 @@ func (s *Store) Refresh() error {
 			continue
 		}
 		s.mu.Lock()
-		remote := s.remotes[device]
-		if remote == nil {
-			remote = &remoteLog{device: device, files: s.log.Sub(deviceLogDir(device)), validator: s.validator}
-			s.remotes[device] = remote
+		other := s.others[device]
+		if other == nil {
+			other = &otherLog{device: device, files: s.log.Sub(deviceLogDir(device)), validator: s.validator}
+			s.others[device] = other
 		}
 		s.mu.Unlock()
-		remote.refresh()
+		other.refresh()
 	}
 	return nil
 }
@@ -60,8 +60,8 @@ func (s *Store) Refresh() error {
 func (s *Store) Devices() []identity.UUID {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	devices := make([]identity.UUID, 0, len(s.remotes))
-	for device := range s.remotes {
+	devices := make([]identity.UUID, 0, len(s.others))
+	for device := range s.others {
 		devices = append(devices, device)
 	}
 	slices.SortFunc(devices, func(a, b identity.UUID) int {
@@ -70,27 +70,27 @@ func (s *Store) Devices() []identity.UUID {
 	return devices
 }
 
-// RemoteHistory reports how much of another device's log is readable: nil when
+// DeviceHistory reports how much of another device's log is readable: nil when
 // all of it is; otherwise why not, and the first sequence of its history that is
 // missing (D-070, D-073).
-func (s *Store) RemoteHistory(device identity.UUID) (missingFrom uint64, cause error) {
-	remote, err := s.remote(device)
+func (s *Store) DeviceHistory(device identity.UUID) (missingFrom uint64, cause error) {
+	other, err := s.other(device)
 	if err != nil {
 		return 0, err
 	}
-	remote.mu.Lock()
-	defer remote.mu.Unlock()
+	other.mu.Lock()
+	defer other.mu.Unlock()
 	switch {
-	case remote.err != nil:
-		return 1, remote.err
-	case remote.state.damage != nil:
-		return remote.state.damagedFrom, remote.state.damage
+	case other.err != nil:
+		return 1, other.err
+	case other.state.damage != nil:
+		return other.state.damagedFrom, other.state.damage
 	default:
 		return 0, nil
 	}
 }
 
-// RemoteOccurrences returns up to limit consecutive occurrences of a Channel
+// DeviceOccurrences returns up to limit consecutive occurrences of a Channel
 // in another device's log, with their record bytes (without newlines),
 // starting after that device's first position occurrences of the Channel. The
 // position is that device's count of its occurrences of the Channel, its entry
@@ -98,30 +98,30 @@ func (s *Store) RemoteHistory(device identity.UUID) (missingFrom uint64, cause e
 // (D-073). A file gone since the last read, as after compaction, is found by
 // reading the device's log again once. An empty result means there are no more
 // readable occurrences yet.
-func (s *Store) RemoteOccurrences(device, channelID identity.UUID, position, limit int) ([]Occurrence, [][]byte, error) {
-	remote, err := s.remote(device)
+func (s *Store) DeviceOccurrences(device, channelID identity.UUID, position, limit int) ([]Occurrence, [][]byte, error) {
+	other, err := s.other(device)
 	if err != nil {
 		return nil, nil, err
 	}
-	batch, frames, err := remote.read(channelID, position, limit)
+	batch, frames, err := other.read(channelID, position, limit)
 	if errors.Is(err, fs.ErrNotExist) {
-		remote.refresh()
-		batch, frames, err = remote.read(channelID, position, limit)
+		other.refresh()
+		batch, frames, err = other.read(channelID, position, limit)
 	}
 	return batch, frames, err
 }
 
-func (s *Store) remote(device identity.UUID) (*remoteLog, error) {
+func (s *Store) other(device identity.UUID) (*otherLog, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	remote := s.remotes[device]
-	if remote == nil {
+	other := s.others[device]
+	if other == nil {
 		return nil, fmt.Errorf("no log of device %s", device)
 	}
-	return remote, nil
+	return other, nil
 }
 
-func (l *remoteLog) read(channelID identity.UUID, position, limit int) ([]Occurrence, [][]byte, error) {
+func (l *otherLog) read(channelID identity.UUID, position, limit int) ([]Occurrence, [][]byte, error) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	if l.err != nil {
@@ -142,7 +142,7 @@ func (l *remoteLog) read(channelID identity.UUID, position, limit int) ([]Occurr
 // device's manifest only adds to what was read, it reads just the new bytes;
 // otherwise, as after the device compacted or after damage, it reads the
 // whole log again.
-func (l *remoteLog) refresh() {
+func (l *otherLog) refresh() {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	if l.state != nil && l.state.damage == nil {
@@ -150,7 +150,7 @@ func (l *remoteLog) refresh() {
 			return
 		}
 	}
-	state, err := newRemoteRecovery(l.files, l.validator, l.device).run()
+	state, err := newOtherDeviceRecovery(l.files, l.validator, l.device).run()
 	l.state, l.err = state, err
 }
 
