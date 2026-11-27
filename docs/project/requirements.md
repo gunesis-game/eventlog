@@ -48,7 +48,10 @@ from replay into live tailing. It is not tied to an event-sourcing framework or 
 - Configuration is mandatory and separate from generic type selection and Context. The public configuration
   API is `Config(options ...Option) error` and requires exactly one storage option: a local storage
   directory (`WithStorageDirectory`), or a Google Drive endpoint (`WithStorageEndpoint`) whose descriptor
-  names the expected Google account, this device's state directory, and the OAuth client (D-061).
+  names the log owner's Google account, this device's state directory, and the OAuth client (D-061, D-065).
+- With Google Drive, the master store is a folder in the owner's Drive. Each device signs in with its own
+  Google account; access is granted by the owner sharing that folder in Drive (Editors read and write,
+  Viewers read only), and a device whose account cannot reach the folder is rejected (D-065).
 - Configuration validation rejects nil options, duplicate settings, missing required settings, empty or
   whitespace paths, and invalid values. Failed validation is retryable.
 - Successful configuration is immutable and one-time. Attempts to configure again or after initialization

@@ -519,23 +519,35 @@ D-061 to D-064. The current implementation is single-device and local-only. Rese
 ### Configuration and identity
 
 - `WithStorageEndpoint(GoogleDrive{Account, DeviceStateDirectory, OAuthClientFile})` selects Google Drive
-  (D-061):
-  - `Account` is the Google account the log belongs to; after sign-in eventlog verifies the signed-in account
-    matches and refuses to start otherwise.
+  (D-061, D-065):
+  - `Account` is the **log owner's** Google account, whose Drive holds the master store. It is the same on
+    every device.
   - `DeviceStateDirectory` is a directory on this device only, never shared, holding this device's
-    identity, its one-process lock, and its Google refresh token. It must be on persistent storage; losing it
-    makes the machine a new device.
-  - `OAuthClientFile` is the OAuth client created in the user's free Google Cloud project.
-- Sign-in is Google OAuth as the user, approved once per device in a browser, with the browser returning to
-  the local file-system server (D-061). Service accounts are not used: since April 2025 they cannot own
-  files in a personal Drive.
+    identity, its one-process lock, its Google refresh token, and the cached folder IDs. It must be on
+    persistent storage; losing it makes the machine a new device.
+  - `OAuthClientFile` is the Desktop-app OAuth client created in the owner's free Google Cloud project.
+- Each device signs in with **its own** Google account, through Google OAuth with the restricted `drive`
+  scope, approved in a browser, with the browser returning to the local file-system server (D-065). Every
+  account must be listed as a test user while the OAuth app stays in Testing status.
+- In Testing status, Google expires each device's authorization seven days after consent. eventlog detects
+  the expired sign-in and asks for re-approval; publishing the app later requires Google's restricted-scope
+  verification with a yearly security assessment.
+- Access is controlled by Drive sharing (D-065):
+  - The owner shares the folder: Editors read and write; Viewers can replay and tail but not write.
+  - A device whose account cannot see the owner's folder is rejected at start with a clear "not shared"
+    error. Only the owner's devices may create the folder.
+- Files a device writes are owned by that device's account and use its storage; the owner's folder holds
+  them. This is accepted (D-065).
 - A device generates a random device identity on first start and keeps it in its device state directory.
 - `WithStorageDirectory(path)` keeps its state inside that directory and serves one device.
 
 ### Storage layout
 
-- Every backend uses a folder with the fixed name `eventlog` (D-062). On Drive it is found or created at the
-  top of the account's Drive and tagged as eventlog's; locally it is `<storage directory>/eventlog`.
+- Every backend uses a folder with the fixed name `eventlog` (D-062). On Drive it is found by tag and
+  ownership, not by ID: an `appProperties` tag marking it as eventlog's root, owned by the configured owner
+  account, with the oldest winning if two were created at once (D-065). Found IDs are cached in the device
+  state directory, so later starts cost one lookup instead of a search. Locally the folder is
+  `<storage directory>/eventlog`.
 - The folder holds `log.json` with a permanent log identity generated once, so a log keeps its identity
   across backends (D-062).
 - Each device writes only its own log under `devices/{deviceID}/` (manifest, index, segments), in the
@@ -562,9 +574,10 @@ D-061 to D-064. The current implementation is single-device and local-only. Rese
 - The file-system server forwards board changes as file-change events on its `/events` SSE stream to
   `internal/storage`, which wakes the affected Channel Readers. A Reader expecting size N retries its read
   briefly if Drive does not yet show N.
-- Authentication: the Google ID token from the user's sign-in is exchanged through Firebase Authentication
-  (`accounts:signInWithIdp`, `providerId=google.com`) for a Firebase ID token and refresh token; database
-  requests pass it as `auth=`, so security rules restrict the board to the owner account.
+- Authentication: the Google ID token from each device's sign-in is exchanged through Firebase
+  Authentication (`accounts:signInWithIdp`, `providerId=google.com`) for a Firebase ID token and refresh
+  token; database requests pass it as `auth=`, and security rules restrict the board to the accounts the
+  owner allows.
 - The board holds no data of value. If Firebase is unavailable or switched off for exceeding the free plan,
   devices still commit, and see each other's changes at their next start.
 - The OS backend has no other writers and sends no change events.
@@ -587,9 +600,12 @@ D-061 to D-064. The current implementation is single-device and local-only. Rese
 
 - The Firebase project details eventlog needs (database URL and Firebase web API key) and where they come
   from: another descriptor field, or derived from the OAuth client's project.
-- The database security rules restricting the board to the owner account, and who installs them.
-- Free-plan bounds: 100 online devices and 10 GB of downloads per month; heavy sustained writing across many
-  devices can exceed the download allowance.
+- The database security rules restricting the board to the allowed accounts, and who installs and updates
+  them as the owner shares the folder with more people.
+- How a device asks for its first approval and its weekly re-approval: for example, a sign-in link reported
+  by `PrepareLog` at start and on the Channel error stream while running; and how a device without a local
+  browser completes the loopback sign-in.
+- Free-plan bounds: 100 online devices and 10 GB of Firebase downloads per month.
 
 ## Unresolved architectural details
 
