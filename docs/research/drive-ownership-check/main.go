@@ -175,6 +175,7 @@ func (c *check) callback(w http.ResponseWriter, r *http.Request) {
 	body, _ := io.ReadAll(response.Body)
 	var tokens struct {
 		AccessToken string `json:"access_token"`
+		Scope       string `json:"scope"`
 	}
 	if response.StatusCode != http.StatusOK || json.Unmarshal(body, &tokens) != nil {
 		c.logf("Token exchange failed: %s", compact(body))
@@ -182,7 +183,7 @@ func (c *check) callback(w http.ResponseWriter, r *http.Request) {
 	}
 	c.accessToken = tokens.AccessToken
 	c.email = strings.ToLower(c.signedInEmail())
-	c.logf("Step %q, signed in as: %s", c.step, c.email)
+	c.logf("Step %q, signed in as: %s (granted: %s)", c.step, c.email, tokens.Scope)
 	switch c.step {
 	case "offer":
 		c.offer()
