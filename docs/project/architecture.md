@@ -81,10 +81,35 @@ API is defined only in the root package `eventlog`; internal packages never defi
 | `internal/identity` | UUID representation and canonical v1 identity encoding with UUID v5 derivation |
 | `internal/fieldschema` | Resolving field selections into schemas; typed value capture, encoding, decoding, rollback, and copies |
 | `internal/record` | Record types, framing, encoding, embedded canonical JSON Schemas (`internal/record/schemas/`), checksums, and transaction and stream validation |
-| `internal/storage` | Files and ownership lock, segment store, manifest, derived index, recovery, and compaction |
+| `internal/storage` | Segment store, manifest, derived index, recovery, and compaction, expressed as file operations through `internal/filesystem` |
+| `internal/filesystem` | The file-system boundary (D-054): an HTTP client used by `internal/storage`, a localhost HTTP server started by `storage.Open`, and a single `Backend` interface the server delegates to. The OS backend uses the local file system and the ownership lock |
 
-Dependencies point one way: `identity` ← `fieldschema` ← `record` ← `storage` ← root. Tests live beside
-the code they test.
+Dependencies point one way: `identity` ← `fieldschema` ← `record` ← `storage` ← root, with `storage` →
+`filesystem`. Tests live beside the code they test.
+
+### File-system boundary (D-054)
+
+`internal/storage` performs no operating-system calls. It calls the `internal/filesystem` client, which
+speaks HTTP to a server bound to `127.0.0.1` on a random port and authenticated by a per-process random
+bearer token; the server is started and stopped with the store and is invisible above `internal/storage`.
+Paths are slash-separated and relative to the storage root; the server rejects absolute paths and `..`.
+
+| Operation | Request | Contract |
+|---|---|---|
+| Read a byte range or whole file | `GET /files/{path}` with optional `Range: bytes=a-b` | Missing file is 404 |
+| List a folder | `GET /dirs/{path}` | JSON array of `{name, dir}` |
+| Create a folder | `PUT /dirs/{path}` | Idempotent |
+| Create an empty file only if absent | `PUT /files/{path}` with `If-None-Match: *` and no body | Existing file is 412; durable on success |
+| Atomically replace a file | `PUT /files/{path}` with the content | Readers see the old or new content, never a mix; durable on success |
+| Append | `POST /files/{path}?op=append` with the bytes | Returns the new size; appends are ordered |
+| Truncate | `POST /files/{path}?op=truncate&size=N` | |
+| Sync | `POST /files/{path}?op=sync` | Earlier appends are durable on success |
+| Rename | `POST /files/{path}?op=rename&to={path}` | Atomic; replaces the target; durable on success |
+| Delete | `DELETE /files/{path}` | Missing file is 404 |
+| Acquire / release ownership | `POST /locks/{name}`, `DELETE /locks/{name}` | Held lock is 409; the OS backend's lock is released by the operating system when the process exits |
+
+The server enforces these contracts for every backend, so recovery's guarantees (exclusive create, atomic
+replace and rename, truncation, sync before success, offset reads) do not depend on the backend.
 
 ## Internal components
 
