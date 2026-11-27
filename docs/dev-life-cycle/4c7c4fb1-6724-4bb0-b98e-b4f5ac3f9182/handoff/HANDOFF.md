@@ -29,6 +29,8 @@ D-054 (file-system boundary, Phase 1) was approved on 2026-11-27 and integrated 
 
 Multi-device scope (2026-11-27): the user clarified that single-process ownership is per device and large distribution was always the plan. Approved and recorded locally (not yet published): D-056 (many devices, concurrent writers, same Channels, no central coordinator), D-057 (causal order), D-058 (conflicts reported, deterministic convergence), D-059 (remote changes applied to live instances through the transaction queue). D-060, the per-device-log design in architecture.md, is **Proposed** and awaits approval, with three open points: where per-device local state lives, version vectors versus interval tree clocks, and record-format versioning. Research: docs/research/causal-ordering-and-conflicts.md. Google Drive change notifications need either a public HTTPS endpoint (webhooks) or the Workspace Events API with Pub/Sub StreamingPull (gRPC); polling is ruled out by the user; Drive has no WebRTC support.
 
+Google Drive and notifications (2026-11-27), recorded locally and not yet published: D-061 (OAuth user sign-in; account in configuration; device state directory), D-062 (fixed `eventlog` folder with permanent log identity), D-063 (Firebase Realtime Database board over SSE, authenticated through Firebase Authentication with the Google ID token, in the file-system layer), D-064 (per-Channel version vectors; v1 format changed in place). D-060 remains Proposed with open points: Firebase project details source, security rules installation, and free-plan bounds. Research: docs/research/cross-device-notifications.md.
+
 User rules recorded for this work: no new public package functions (new behaviour goes on the Event/Channel interfaces); refactors remove everything made redundant, with no future-proofing.
 
 ## Current repository checkpoint
@@ -47,7 +49,7 @@ User rules recorded for this work: no new public package functions (new behaviou
 - The full benchmark catalogue is not implemented.
 
 ## Immediate next action
-1. Get approval for D-060 and its open points, and choose the Drive notification route; then record the Phase 2 decisions and plan the multi-device and Google Drive implementation.
+1. Get approval for D-060 and settle its open points; then plan and implement the multi-device design and the Google Drive backend in reviewable increments.
 2. Implement the full benchmark catalogue and capture baselines; complete the coding-standard review.
 3. Re-run CI on the final SHA and assess the Implement exit gate.
 
