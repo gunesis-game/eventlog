@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Two-device file flow</title>
+<style>
+:root{
+  --bg:#faf9f5;--surface:#ffffff;--surface-alt:#f1efe8;--text:#1f1e1d;--muted:#5f5e5a;--border:#d3d1c7;
+  --accent:#534ab7;--write-bg:#e1f5ee;--write-fg:#085041;--read-bg:#eeedfe;--read-fg:#3c3489;
+  --built-bg:#eaf3de;--built-fg:#27500a;--planned-bg:#faeeda;--planned-fg:#633806;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;--sans:system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#1f1e1d;--surface:#2c2c2a;--surface-alt:#262624;--text:#f1efe8;--muted:#b4b2a9;--border:#5f5e5a;
+    --accent:#afa9ec;--write-bg:#085041;--write-fg:#e1f5ee;--read-bg:#3c3489;--read-fg:#eeedfe;
+    --built-bg:#27500a;--built-fg:#eaf3de;--planned-bg:#633806;--planned-fg:#faeeda;
+  }
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.6 var(--sans)}
+main{max-width:960px;margin:0 auto;padding:24px 16px 40px}
+h1{font-size:22px;font-weight:500;margin:0 0 4px}
+.lead{color:var(--muted);margin:0 0 20px}
+figure{margin:0 0 24px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px}
+figure img{display:block;width:100%;height:auto}
+figcaption{color:var(--muted);font-size:13px;margin-top:6px}
+.bar{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+button{font:inherit;font-size:14px;border:1px solid var(--border);background:var(--surface);color:var(--text);border-radius:8px;padding:6px 14px;cursor:pointer}
+button:disabled{opacity:.45;cursor:default}
+button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.dots{display:flex;gap:6px;flex:1;justify-content:center;flex-wrap:wrap}
+.dot{width:10px;height:10px;border-radius:50%;border:0;padding:0;background:var(--border)}
+.dot.on{background:var(--accent)}
+.step-title{font-size:18px;font-weight:500;margin:0 0 4px}
+.note{color:var(--muted);margin:0 0 10px}
+.status{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 14px;font-size:12px}
+.pill{border-radius:999px;padding:2px 10px}
+.pill.built{background:var(--built-bg);color:var(--built-fg)}
+.pill.planned{background:var(--planned-bg);color:var(--planned-fg)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:10px 12px;min-width:0}
+.card h2{font-size:13px;font-weight:500;margin:0 0 6px;color:var(--muted)}
+.tree,.lines{font-family:var(--mono);font-size:12.5px;line-height:1.7;white-space:pre;overflow-x:auto;margin:0}
+.lines{white-space:pre-wrap;word-break:break-word;color:var(--muted)}
+.wide{grid-column:1/-1}
+.w{background:var(--write-bg);color:var(--write-fg);border-radius:4px;padding:0 3px}
+.r{background:var(--read-bg);color:var(--read-fg);border-radius:4px;padding:0 3px}
+.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:13px;color:var(--muted);margin-top:12px}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+</style>
+</head>
+<body>
+<main>
+<h1>Two-device file flow</h1>
+<p class="lead">How eventlog's folders change as one device places an order and another ships it, on web storage with Google Drive (design D-060 to D-072). Device A is signed in as an Editor's account; device B is signed in as the log owner's account.</p>
+
+<figure>
+<img src="two-device-flow.svg" alt="Device A and device B each append only to their own folder in the owner's Drive folder, read the other's folder, and learn of each other's writes through a Firebase board.">
+<figcaption>Overview. Both directions work the same way: each device posts the end of its log to the board and streams the other's.</figcaption>
+</figure>
+
+<section aria-labelledby="stepper-heading">
+<h2 id="stepper-heading" class="sr-only">Step by step</h2>
+<div class="bar">
+<button id="prev" type="button">Back</button>
+<div class="dots" id="dots" role="tablist" aria-label="Steps"></div>
+<button id="next" type="button">Next</button>
+</div>
+<div aria-live="polite">
+<p class="step-title" id="title"></p>
+<p class="note" id="note"></p>
+<div class="status" id="status"></div>
+</div>
+<div class="grid">
+<div class="card"><h2>Device A, local disk</h2><pre class="tree" id="localA"></pre></div>
+<div class="card"><h2>Device B, local disk</h2><pre class="tree" id="localB"></pre></div>
+<div class="card wide"><h2>Owner's Google Drive</h2><pre class="tree" id="drive"></pre></div>
+<div class="card wide"><h2>Firebase board</h2><pre class="tree" id="board"></pre></div>
+<div class="card wide"><h2 id="linesTitle"></h2><pre class="lines" id="lines"></pre></div>
+</div>
+<div class="legend"><span><span class="w">written</span> in this step</span><span><span class="r">read</span> by the other device</span><span>Use the arrow keys to step.</span></div>
+</section>
+</main>
+<script>
+const steps = [
+  {
+    title: "Both devices have started",
+    note: "On first start each device created its own device/ folder on its local disk: its identity and its one-process lock. In the owner's Drive folder, log.json was created once, and each device created its folder under devices/ with one empty segment. Each posted its log's end, still 0 bytes, to the board.",
+    built: ["Layout and identities (12.2)"], planned: ["Drive backend (12.7)", "Board (12.9)"],
+    drive: {}, a: 0, b: 0, ownerA: "bob", board: { A: 0, B: 0 },
+    linesTitle: "Committed data", lines: "None yet."
+  },
+  {
+    title: "A's app places an order",
+    note: "A transaction on device A changes an OrderPlaced Event. A commits it by appending three lines to its own segment: the Orders Channel (new in A's log), the Event, and a commit line. Drive makes the uploading account, bob, the file's owner. Nothing in B's folder changes.",
+    built: ["Transactions and commits"], planned: ["Causal fields (12.3)", "Drive backend (12.7)"],
+    drive: { segA: "w" }, a: 612, b: 0, ownerA: "bob", board: { A: 0, B: 0 },
+    linesTitle: "Appended to devices/A/segments/segment-000001.ndjson",
+    lines: '{"kind":"channel","sequence":1,"id":"<Orders>","fields":{"region":"eu"},...}\n{"kind":"event","sequence":2,"id":"<OrderPlaced>","channel_id":"<Orders>","fields":{"amount":40},\n "device":"A","vector":{"A":1},"hlc":"...",...}\n{"kind":"commit","sequence":3,"transaction_id":1,"record_count":2,"checksum":"...",...}\n\nThe device, vector, and hlc fields are planned in 12.3; their final names are settled there.'
+  },
+  {
+    title: "A offers ownership and posts its position",
+    note: "Once the upload succeeds, A's Drive backend offers the segment's ownership to the owner account, and writes one small entry to the board saying where A's log now ends. The board never holds data.",
+    built: [], planned: ["Ownership handover (12.8)", "Board (12.9)"],
+    drive: { segA: "w" }, a: 612, b: 0, ownerA: "bob, offered to owner", board: { A: 612, B: 0 }, boardWrite: "A",
+    linesTitle: "Written to the board by A",
+    lines: '/eventlog/{logID}/devices/{uid}/A = {"path":"devices/A/segments/segment-000001.ndjson","size":612}'
+  },
+  {
+    title: "B is told, reads A's folder, and accepts ownership",
+    note: "B's open board stream delivers A's new size. B's Orders Reader reads the new bytes from A's segment, read-only. The vector {A:1} depends on nothing B lacks, so B delivers OrderPlaced to its app and updates its live instance, writing nothing. Because B is signed in as the owner, its Drive backend also accepts the pending ownership offer.",
+    built: [], planned: ["Reading other devices (12.4)", "Causal delivery (12.5)", "Live instances (12.6)", "Ownership handover (12.8)"],
+    drive: { segA: "r" }, a: 612, b: 0, ownerA: "owner", board: { A: 612, B: 0 }, boardRead: "A",
+    linesTitle: "Delivered to B's app",
+    lines: "OrderPlaced {amount: 40} on Channel Orders, from device A."
+  },
+  {
+    title: "B's app ships the order",
+    note: "A transaction on device B changes an OrderShipped Event. B appends to its own segment: the Orders Channel (new in B's log), the Event, and a commit. Its vector records that B had already seen A's first occurrence. B is the owner, so its file needs no handover.",
+    built: ["Transactions and commits"], planned: ["Causal fields (12.3)", "Drive backend (12.7)"],
+    drive: { segB: "w" }, a: 612, b: 598, ownerA: "owner", board: { A: 612, B: 0 },
+    linesTitle: "Appended to devices/B/segments/segment-000001.ndjson",
+    lines: '{"kind":"channel","sequence":1,"id":"<Orders>","fields":{"region":"eu"},...}\n{"kind":"event","sequence":2,"id":"<OrderShipped>","channel_id":"<Orders>","fields":{"carrier":"post"},\n "device":"B","vector":{"A":1,"B":1},"hlc":"...",...}\n{"kind":"commit","sequence":3,"transaction_id":1,"record_count":2,"checksum":"...",...}'
+  },
+  {
+    title: "B posts, and A reads B's folder",
+    note: "B writes its log's end to the board. A's stream delivers it, and A reads the new bytes from B's segment. The vector {A:1, B:1} needs A's own first occurrence, which A has, so A delivers OrderShipped to its app.",
+    built: [], planned: ["Reading other devices (12.4)", "Causal delivery (12.5)", "Board (12.9)"],
+    drive: { segB: "r" }, a: 612, b: 598, ownerA: "owner", board: { A: 612, B: 598 }, boardWrite: "B",
+    linesTitle: "Delivered to A's app",
+    lines: "OrderShipped {carrier: post} on Channel Orders, from device B."
+  },
+  {
+    title: "Each device's sync point",
+    note: "At its next sync point each device rewrites its own index.json, a derived lookup from each Channel's occurrences to their place in its segments. It can always be rebuilt from the segments.",
+    built: ["Index and sync points"], planned: ["Drive backend (12.7)"],
+    drive: { idxA: "w", idxB: "w" }, a: 612, b: 598, ownerA: "owner", board: { A: 612, B: 598 },
+    linesTitle: "Files rewritten",
+    lines: "devices/A/index.json, by A\ndevices/B/index.json, by B"
+  },
+  {
+    title: "If the board is unavailable",
+    note: "If Firebase is down or over its free limits, A still commits: its segment grows to 1,190 bytes, but the board keeps the old size. B is not told, so each of B's Channels reports ChangeEventsUnavailable once. At B's next start it reads A's folder from its last position and catches up in order. No data is lost; only live updates pause.",
+    built: [], planned: ["Board (12.9)"],
+    drive: { segA: "w" }, a: 1190, b: 598, ownerA: "owner", board: { A: 612, B: 598 },
+    linesTitle: "Reported on each of B's Channels",
+    lines: "ChannelError{Kind: ChangeEventsUnavailable}: live updates from other devices have stopped until the next start."
+  }
+];
+
+const el = id => document.getElementById(id);
+const mark = (text, kind) => kind ? '<span class="' + kind + '">' + text + "</span>" : text;
+const dots = el("dots");
+let current = 0;
+
+steps.forEach((step, k) => {
+  const dot = document.createElement("button");
+  dot.type = "button";
+  dot.className = "dot";
+  dot.setAttribute("role", "tab");
+  dot.setAttribute("aria-label", "Step " + (k + 1) + ": " + step.title);
+  dot.addEventListener("click", () => show(k));
+  dots.appendChild(dot);
+});
+
+function show(k) {
+  current = Math.max(0, Math.min(steps.length - 1, k));
+  const s = steps[current], d = s.drive;
+  el("title").textContent = (current + 1) + " of " + steps.length + ": " + s.title;
+  el("note").textContent = s.note;
+  el("status").innerHTML = s.built.map(x => '<span class="pill built">Built: ' + x + "</span>").join("") +
+    s.planned.map(x => '<span class="pill planned">Planned: ' + x + "</span>").join("");
+  const local = id => "device/\n├── device.json   identity " + id + "\n└── lock";
+  el("localA").textContent = local("A");
+  el("localB").textContent = local("B");
+  el("drive").innerHTML =
+    "eventlog/\n├── log.json\n└── devices/\n" +
+    "    ├── A/\n    │   ├── manifest.json\n    │   ├── " + mark("index.json", d.idxA) + "\n" +
+    "    │   └── segments/\n    │       └── " + mark("segment-000001.ndjson", d.segA) + "\n" +
+    "    │             " + s.a + " bytes, owner: " + s.ownerA + "\n" +
+    "    └── B/\n        ├── manifest.json\n        ├── " + mark("index.json", d.idxB) + "\n" +
+    "        └── segments/\n            └── " + mark("segment-000001.ndjson", d.segB) + "\n" +
+    "                  " + s.b + " bytes, owner: owner";
+  const entry = id => mark(id, s.boardWrite === id ? "w" : s.boardRead === id ? "r" : "");
+  el("board").innerHTML = "/eventlog/{logID}/devices/\n├── {uid of bob}/" + entry("A") + "    size " + s.board.A +
+    "\n└── {uid of owner}/" + entry("B") + "  size " + s.board.B;
+  el("linesTitle").textContent = s.linesTitle;
+  el("lines").textContent = s.lines;
+  [...dots.children].forEach((dot, i) => {
+    dot.classList.toggle("on", i === current);
+    dot.setAttribute("aria-selected", i === current ? "true" : "false");
+  });
+  el("prev").disabled = current === 0;
+  el("next").disabled = current === steps.length - 1;
+}
+
+el("prev").addEventListener("click", () => show(current - 1));
+el("next").addEventListener("click", () => show(current + 1));
+document.addEventListener("keydown", e => {
+  if (e.key === "ArrowRight") show(current + 1);
+  if (e.key === "ArrowLeft") show(current - 1);
+});
+show(0);
+</script>
+</body>
+</html>

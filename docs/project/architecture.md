@@ -528,12 +528,20 @@ equal-priority supported platforms; macOS is excluded. If platform behavior diff
 core functionality must use a strategy that works on both platforms. Correctness, recovery, predictable
 memory use and platform parity precede numeric performance targets.
 
-## Multi-device operation (D-060; approved, not implemented)
+## Multi-device operation (D-060; approved, being implemented)
 
-**Status: Approved on 2026-11-27, not yet implemented.** This section designs the response to D-056 to
-D-059 and applies D-061 to D-071. The current implementation is single-device and local-only. Research:
+**Status: Approved on 2026-11-27, being implemented in increments (cycle plan item 12).** This section
+designs the response to D-056 to D-059 and applies D-061 to D-072. Built so far: storage that refuses
+writes (D-068, D-072) and the device and log layout on local storage. Reading other devices' logs,
+causal delivery, web storage, and change notifications are not built yet. Research:
 [causal ordering and conflicts](../research/causal-ordering-and-conflicts.md) and
 [cross-device notifications](../research/cross-device-notifications.md).
+
+![Two devices each append only to their own folder in the owner's Drive folder, read the other's, and learn of each other's writes through the Firebase board](diagrams/two-device-flow.svg)
+
+A step-by-step view of how the folders change as two devices exchange Events, marking which parts are
+built and which are planned, is in [two-device-flow.html](diagrams/two-device-flow.html) (open it in a
+browser).
 
 ### Configuration and identity (D-068)
 
