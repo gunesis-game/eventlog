@@ -73,6 +73,12 @@ This is the durable register of approved project decisions. It records outcomes 
 
 | D-055 | The file-system client and server speak only HTTP/2 over cleartext TCP with prior knowledge (RFC 9113 section 3.3) via the standard library's `http.Protocols`, with the client limited to one connection; no deprecated mechanism (`Upgrade: h2c`, `x/net/http2/h2c`) is used. Research: docs/research/os-connection-limits.md | Recorded | docs/project/architecture.md | 7a9eb8542a231440e3f8f2c48c985724c5aec000 |
 
+| D-056 | Large-scale distribution is in scope: many devices share one log through shared storage, each running at most one eventlog process for it, writing concurrently, including to the same Channels; there is no central coordinator. Supersedes the single-process ownership and no-distributed-coordination constraints | Recorded | docs/project/requirements.md | PENDING |
+| D-057 | Channel Readers deliver in causal order: if a writer had seen X before writing Y, every device delivers X before Y; concurrent occurrences may be delivered in different orders on different devices; each device's own occurrences keep their write order | Recorded | docs/project/requirements.md | PENDING |
+| D-058 | Concurrent changes to the same logical Event on different devices are reported as conflicts: every occurrence is kept and delivered, all devices converge on one current state by a deterministic rule, and the conflict is reported through Errors() | Recorded | docs/project/requirements.md | PENDING |
+| D-059 | Changes committed on other devices are applied to local live Event and Channel instances through the Channel's transaction queue, and are also delivered as notifications | Recorded | docs/project/requirements.md | PENDING |
+| D-060 | Multi-device design: one log per device under devices/{deviceID}/, per-device identity in local state, per-Channel version vectors plus hybrid logical clock timestamps on occurrences, blocking causal delivery, informational conflict errors with deterministic convergence, remote changes applied through the transaction processor, read-only recovery of other devices' logs. Research: docs/research/causal-ordering-and-conflicts.md | Proposed | docs/project/architecture.md | — |
+
 ## Decision maintenance
 
 When a user approves a material project decision:

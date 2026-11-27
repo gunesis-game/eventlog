@@ -509,6 +509,51 @@ equal-priority supported platforms; macOS is excluded. If platform behavior diff
 core functionality must use a strategy that works on both platforms. Correctness, recovery, predictable
 memory use and platform parity precede numeric performance targets.
 
+## Multi-device operation (Proposed, D-060; not implemented)
+
+**Status: Proposed, awaiting approval.** This section designs the response to D-056 to D-059. The current
+implementation is single-device. The research behind it is in
+[docs/research/causal-ordering-and-conflicts.md](../research/causal-ordering-and-conflicts.md).
+
+- **One log per device.** Each device writes only its own log inside the shared storage root, under
+  `devices/{deviceID}/` (manifest, index, segments), in the existing single-writer format. No file has two
+  writers, so storage that lacks append or compare-and-swap (such as Google Drive) stays safe. Each device's
+  ownership lock covers only its own folder.
+- **Device identity.** A device generates a random UUID on its first start and keeps it in local state on
+  that device, never in the shared root.
+- **Causal metadata on each occurrence.**
+  - Each Event record adds the writing device's identity.
+  - It adds the Channel's causal context: a version vector mapping each device that has written to that
+    Channel to how many of that device's Channel occurrences this writer had delivered when it wrote.
+  - It adds a hybrid logical clock timestamp.
+  - Vectors are scoped per Channel, so they hold entries only for devices that wrote to that Channel.
+  - This changes the persisted record format.
+- **Causal delivery.** A Channel's Reader reads every device's log for that Channel and delivers a remote
+  occurrence only once every occurrence in its version vector has been delivered (blocking causal delivery).
+  Unrelated occurrences are not delayed, so an offline device holds back only what depends on it.
+- **Conflicts.**
+  - When a delivered occurrence of a logical Event has a version vector concurrent with that Event's current
+    state, eventlog reports a conflict on the Channel's error stream, naming both occurrences.
+  - The current state is the occurrence with the greatest hybrid logical clock timestamp, with device
+    identity as the tie-break, so every device converges on the same state.
+  - A conflict is informational: both occurrences are already committed, so it neither rejects anything nor
+    pauses the Channel.
+- **Remote changes applied to live instances.**
+  - The Reader submits each delivered remote occurrence to the Channel's transaction processor, which sets
+    the local live instance's selected fields to the converged current state without persisting anything
+    (the occurrence is already persisted by its writer).
+  - Local transactions therefore stamp version vectors that include every remote occurrence they observed.
+- **Recovery.** A device fully recovers and may truncate only its own log. It reads other devices' logs
+  read-only, treats an incomplete trailing transaction there as not yet committed, and never modifies it.
+- **Discovering remote commits.** Storage change events (for the Google Drive backend, Drive change
+  notifications) wake the affected Channel Readers through the file-system server's event stream.
+
+Open points for approval:
+- Where each device keeps its local state, including its identity, given that the Google Drive endpoint has
+  no local directory.
+- Version vectors per Channel versus interval tree clocks for very large or churning device populations.
+- How the record format change is versioned, given that no log has been released.
+
 ## Unresolved architectural details
 
 - Canonical type naming is settled by D-037: reflected package path and runtime-provided name, with aliases resolving to their target and instantiated generic names treated as opaque text; v1 framing limits are settled by D-038.

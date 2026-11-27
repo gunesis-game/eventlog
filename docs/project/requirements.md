@@ -16,7 +16,9 @@ from replay into live tailing. It is not tied to an event-sourcing framework or 
 ## Functional requirements
 
 ### Ownership, concurrency, and scope
-- A single process owns a log at a time. Multi-process and distributed writer coordination are out of scope.
+- A log may be shared by many devices through shared storage (D-056). Each device runs at most one eventlog
+  process for a given log, and devices may write concurrently, including to the same Channels. Large-scale
+  distribution across many devices is in scope. There is no central coordinator.
 - Multiple goroutines may use the library concurrently. The library must coordinate operations and preserve
   ordering and integrity.
 - Consumers own their Event and Channel domain behavior and explicitly select the data eventlog stores.
@@ -104,6 +106,19 @@ from replay into live tailing. It is not tied to an event-sourcing framework or 
 - Context cancellation and explicit errors are required. Re-appended logical Events are separate
   occurrences. Consumers do not directly control internal readers.
 
+### Multi-device ordering, conflicts, and remote changes
+- Channel Readers deliver occurrences in causal order (D-057): if a device had seen occurrence X before it
+  wrote occurrence Y, every device delivers X before Y. Occurrences written concurrently on different devices
+  (neither writer had seen the other) may be delivered in a different order on different devices. A device's
+  own occurrences are delivered in the order it wrote them.
+- Concurrent changes to the same logical Event on different devices are reported as conflicts (D-058). Every
+  occurrence is kept in history and delivered; all devices converge on the same current state by a
+  deterministic rule; and each device reports the conflict, naming the occurrences involved, through the
+  Channel's error stream.
+- Changes committed on other devices are applied to the local live Event and Channel instances through the
+  Channel's transaction queue (D-059), so local transactions always start from the converged current state.
+  Remote changes are also delivered as notifications.
+
 ### Change detection and notifications
 - Consumers change Events and Channels through transactions sent on the Event's transaction channel
   (D-049). Transactions on one Channel apply in send order, atomically, and race-free. A transaction can
@@ -126,7 +141,7 @@ from replay into live tailing. It is not tied to an event-sourcing framework or 
   of numeric performance claims.
 - Go standard library only, except the approved JSON Schema validation dependency (D-046); local filesystem storage. Linux and Windows are equal-priority supported
   platforms. macOS is excluded. Core behavior must not rely on platform-exclusive features.
-- No distributed coordination, multi-process writers, broker/database functionality, custom codecs, or
+- No central coordinator, broker/database functionality, custom codecs, or
   domain-specific behavior.
 
 ## Acceptance expectations
