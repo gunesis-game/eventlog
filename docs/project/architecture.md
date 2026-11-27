@@ -563,8 +563,14 @@ D-061 to D-064. The current implementation is single-device and local-only. Rese
   - The owner shares the folder: Editors read and write; Viewers can replay and tail but not write.
   - A device whose account cannot see the owner's folder is rejected at start with a clear "not shared"
     error. Only the owner's devices may create the folder.
-- Files a device writes are owned by that device's account and use its storage; the owner's folder holds
-  them. This is accepted (D-065).
+- **Every file is handed to the owner (D-069).** Drive makes the creating account a file's owner. Right
+  after a device creates a file, its Drive backend offers ownership to the owner account by setting
+  `pendingOwner` on the owner's permission inherited from the folder. The Drive backend of every device
+  signed in as the owner accepts pending offers (`role: owner`, `transferOwnership`) when a file-change
+  event names a new file and at its start. Once accepted, the file uses the owner's storage, the writing
+  account keeps write access and can no longer trash or delete it, and deleting that account no longer
+  removes it. Until an owner's device is online to accept, the file stays owned by the writing account.
+  Research: [drive access model](../research/drive-access-model.md).
 
 ### Storage layout
 

@@ -1,6 +1,6 @@
 # Research: Drive access for several Google accounts sharing one owner's folder
 
-**Status:** Research note, 2026-11-27. It informs D-065 and the proposed multi-device design D-060; the current specification is owned by [requirements.md](../project/requirements.md) and [architecture.md](../project/architecture.md).
+**Status:** Research note, 2026-11-27. It informs D-065, D-069, and the proposed multi-device design D-060; the current specification is owned by [requirements.md](../project/requirements.md) and [architecture.md](../project/architecture.md).
 
 ## Question
 
@@ -23,6 +23,25 @@ Findings:
 - Picking a shared folder grants access to the folder itself, but not to files other accounts own inside it.
 - Each account sees only the files its own app instance created, so separate accounts cannot read each other's logs with `drive.file`.
 - Setup lessons: the web Picker embedded in a local page failed with a Google 403 page with a Desktop-app client, while the desktop Picker flow needs no API key or project number; a loopback redirect to the root path on a fixed port worked; accounts not listed as test users are refused with `access_denied`.
+
+## Ownership transfer check (2026-11-27)
+
+A second throwaway program (since removed) tested whether files a second account writes into the owner's folder can be handed to the owner automatically, with both accounts signed in with the full `drive` scope. It found or created a tagged folder owned by the owner and shared it with the second account as Editor, then ran four steps, each with its own browser sign-in:
+
+| Step | Account | Result |
+|---|---|---|
+| Setup | Owner | Folder created, owned by the owner; second account added as Editor |
+| Offer | Second | File created in the folder, owned by the second account. Creating a `pendingOwner` permission for the owner returned the owner's existing writer permission, inherited from the folder, unchanged (`pendingOwner: false`); updating that permission with `pendingOwner: true` succeeded |
+| Accept | Owner | Listing the folder found the pending offer; updating the owner's permission to `role: owner` with `transferOwnership=true` returned HTTP 200. The owner now owns the file; the second account became a writer |
+| Verify | Second | Owner shown as the owner; capabilities `canModifyContent: true`, `canTrash: false`, `canDelete: false`, `canShare: true`; updating the content succeeded; moving it to the trash failed with HTTP 403 `insufficientFilePermissions` |
+
+Findings:
+
+- Ownership can be handed to the owner entirely through the API: the writing account offers, and the owner accepts, with no one acting in Drive or in an email.
+- The offer must update the owner's inherited permission on the file; creating a new permission silently returns the existing one.
+- After the transfer the writing account can still update the file, as a device appending to its segments needs, and can no longer trash or delete it.
+- Editors keep `canShare` by default; the owner can turn this off on the folder.
+- Drive reports email addresses with their original capitals (`MarchuanV@...`), so comparisons must ignore case.
 
 ## Prior project: pulsyflux-queue
 
