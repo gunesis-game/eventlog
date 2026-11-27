@@ -93,9 +93,11 @@ func TestStorageMissingDirectoryAndInvalidTruncate(t *testing.T) {
 }
 
 type zeroWriter struct{}
+
 func (zeroWriter) Write([]byte) (int, error) { return 0, nil }
 
 type failingWriter struct{}
+
 func (failingWriter) Write([]byte) (int, error) { return 0, io.ErrClosedPipe }
 
 func TestStorageWriteAllErrors(t *testing.T) {

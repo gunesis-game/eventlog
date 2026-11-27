@@ -20,12 +20,12 @@ func TestEncodeDecodeRecord(t *testing.T) {
 	v := testValidator(t)
 	record := eventRecord{
 		SchemaVersion: 1,
-		Sequence: 2,
-		Kind: recordKindEvent,
-		ID: "12345678-1234-1234-1234-123456789abc",
-		ChannelID: "87654321-4321-4321-4321-cba987654321",
-		Type: recordType{PackagePath: "example.org/app", Name: "Event"},
-		Fields: map[string]interface{}{"message": map[string]interface{}{"type": "string", "value": "hello"}},
+		Sequence:      2,
+		Kind:          recordKindEvent,
+		ID:            "12345678-1234-1234-1234-123456789abc",
+		ChannelID:     "87654321-4321-4321-4321-cba987654321",
+		Type:          recordType{PackagePath: "example.org/app", Name: "Event"},
+		Fields:        map[string]interface{}{"message": map[string]interface{}{"type": "string", "value": "hello"}},
 	}
 	frame, err := encodeRecord(recordKindEvent, record, v)
 	if err != nil {

@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 )
 
 var ErrShortStorageWrite = errors.New("short storage write")
@@ -88,4 +89,52 @@ func storageTruncate(f *os.File, size int64) error {
 
 func storageSegmentPath(directory string, segmentID uint64) string {
 	return filepath.Join(directory, fmt.Sprintf("segment-%06d.ndjson", segmentID))
+}
+
+// storageReplaceFile atomically replaces path with data: it writes a temporary
+// sibling, syncs it, renames it over path, and syncs the parent directory.
+// Rename replaces an existing file on both Linux and Windows.
+func storageReplaceFile(path string, data []byte) error {
+	temporary := path + ".tmp"
+	f, err := os.OpenFile(temporary, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o600)
+	if err != nil {
+		return fmt.Errorf("create temporary file %q: %w", temporary, err)
+	}
+	if err := storageWriteAll(f, data); err != nil {
+		_ = f.Close()
+		_ = os.Remove(temporary)
+		return err
+	}
+	if err := storageSync(f); err != nil {
+		_ = f.Close()
+		_ = os.Remove(temporary)
+		return err
+	}
+	if err := f.Close(); err != nil {
+		_ = os.Remove(temporary)
+		return fmt.Errorf("close temporary file %q: %w", temporary, err)
+	}
+	if err := os.Rename(temporary, path); err != nil {
+		_ = os.Remove(temporary)
+		return fmt.Errorf("replace %q: %w", path, err)
+	}
+	return storageSyncDirectory(filepath.Dir(path))
+}
+
+// storageSyncDirectory makes directory entry changes durable where the platform
+// supports syncing a directory handle. Windows does not, and NTFS metadata
+// journaling covers renames, so it is a no-op there.
+func storageSyncDirectory(directory string) error {
+	if runtime.GOOS == "windows" {
+		return nil
+	}
+	d, err := os.Open(directory)
+	if err != nil {
+		return fmt.Errorf("open directory %q for sync: %w", directory, err)
+	}
+	defer d.Close()
+	if err := d.Sync(); err != nil {
+		return fmt.Errorf("sync directory %q: %w", directory, err)
+	}
+	return nil
 }

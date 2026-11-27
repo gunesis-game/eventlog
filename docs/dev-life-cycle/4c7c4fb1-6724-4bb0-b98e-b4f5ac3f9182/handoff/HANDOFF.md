@@ -5,10 +5,10 @@
 - **Sequence / execution order:** 1 / 1
 - **Workflow:** standard
 - **Registry status / phase:** in-progress / implement
-- **Checkpoint date:** 2026-11-25
+- **Checkpoint date:** 2026-11-27
 
 ## Objective
-Implement eventlog according to approved requirements, architecture, acceptance criteria, and public API. This is an Implement-phase checkpoint; the earlier Define-phase checkpoint is superseded and must not guide work.
+Implement eventlog according to the approved requirements, architecture, acceptance criteria, and public API.
 
 ## Authoritative project records
 - [Requirements](../../../project/requirements.md)
@@ -18,35 +18,30 @@ Implement eventlog according to approved requirements, architecture, acceptance 
 - [Testing strategy](../../../project/testing-strategy.md)
 - [Performance strategy](../../../project/performance-strategy.md) and [benchmarks](../../../project/benchmarks.md)
 - [Git workflow](../../../project/git-workflow.md)
+- [Plan](../plan/PLAN.md)
+
+## Decisions this session
+D-044 (IdentityOf selector), D-045 (zero identity rules), D-046 (jsonschema dependency exception), D-047 (factory `func(chan Event, chan error) TChannel`), and D-048 (size-triggered compaction) were approved by the user on 2026-11-27 and integrated into their owning specifications. The ledger entries cite local commit revisions. They are **not yet published** to the shared `main` branch, so publication and fetch-back verification remain outstanding for the approval-to-artifact gate.
 
 ## Current repository checkpoint
-- **Branch:** main (project policy permits only main).
-- **Latest main SHA observed:** `aef9584f7095dc25fe409e80fe43b4ddac2ae7a6`.
-- Repository contains Go module and CI, schema and record serialization/framing, storage/transaction/checksum validation, stream validation and sequence-continuation code, with focused test files.
-- Recent commits include `fc19fecd` (restore transaction checksum helper), `5f171341` (record stream validation), `9d69d75a` (tests for stream validation), `4abc282f` (global sequence continuation across segments), and `aef9584f` (invalid stream starting sequence).
-- This is source-tree/commit-history evidence only. CI status for the latest SHA has not been independently verified during this checkpoint; check exact-SHA runs before claiming green.
-- This checkpoint corrects prior handoff claims that implementation, Go tests, and CI were absent. Those claims are stale.
+- **Branch:** main. The local branch is ahead of `origin/main` by unpushed commits: the decision record, and the implementation and docs checkpoint.
+- The full library is implemented: public API, field selection, identity, typed encoding, segment store, manifest, index, recovery, compaction, change manager, Reader, notification delivery, and process runtime.
+- Tests cover acceptance layers D/F/T/M/L/R/N/RT/API; see the suite map in the testing strategy.
 
-## Approved constraints
-- Public consumer API must remain stable: `PrepareLog[TEvent, TChannel](ctx, newChannel)`, `Notifications() <-chan Event`, and `Errors() <-chan error`.
-- TEvent is the common Event interface; concrete consumer Events can be heterogenous through that interface.
-- No public shutdown API; process-lifetime runtime behavior follows D-034.
-- No execution-lock concept.
-- Main-only direct commit workflow; never bypass repository controls.
+## Verification
+- Local windows/amd64, Go 1.27.4: `go test -count=1 ./...`, `go test -count=5 ./...`, `go test -race -count=1 ./...`, `go vet ./...`, and `gofmt -l .` passed.
+- Cross-compiled for Linux: vet and test-binary build passed. Tests were not executed on Linux.
+- Exact-SHA CI: **not observed** (not pushed).
 
-## Progress / remaining work
-- Implementation has progressed through record serialization/framing, storage/transaction/checksum/validation, and stream validation/sequence-continuation increments.
-- Continue auditing against ordered implementation items in [PLAN.md](../plan/PLAN.md); do not equate presence of files or commit messages with completed acceptance items.
-- Event identity/typed fields/registration/Channel snapshots, Reader/live delivery/backpressure/retry, runtime/public API integration, comprehensive acceptance tests, and full verification remain work to inspect/complete as applicable.
-- CI status and coverage for the latest SHA remain unverified in this checkpoint.
+## Unresolved risks
+- No public mechanism lets consumers synchronize field mutation with polling (architecture implementation notes).
+- Memory and startup replay cost scale with total history size.
+- The full benchmark catalogue is not implemented; only a smoke set exists.
 
 ## Immediate next action
-1. Inspect `stream.go` and its tests for the zero-start-sequence validation boundary; ensure expected sequence is validated before subtraction and add a focused regression test if missing.
-2. Check CI runs/jobs for exact SHA `aef9584f7095dc25fe409e80fe43b4ddac2ae7a6`. Do not claim green unless all required platform jobs are observed successful.
-3. Fix any uncovered issue, verify, and checkpoint both registry/plan/handoff at the next material boundary.
+1. With user approval, push to `main`; fetch back and confirm the D-044–D-048 artifacts at their revisions.
+2. Inspect the Go verification run for the exact pushed SHA, on both Linux and Windows jobs.
+3. Fix any failures, then complete the benchmark work and the coding-standard review before assessing the Implement exit gate.
 
-## Stop conditions
-Stop and reconcile records if CI or connector evidence is unavailable/ambiguous, if the working branch or repository controls conflict with main-only policy, or if implementation would require a public API/architecture deviation. Preserve existing repository work; do not guess.
-
-## Verification boundaries
-No local Go verification was run as part of this checkpoint reconciliation. This checkpoint was based on fetched GitHub tree, source/record contents, and commit history. Latest-SHA CI status is not established here.
+## Uncommitted or unpushed work
+All work is committed locally; nothing is pushed.

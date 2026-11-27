@@ -10,8 +10,8 @@ import (
 // offset at which recovery must truncate.
 type streamValidation struct {
 	CommittedSequence uint64
-	CommittedOffset  int64
-	IncompleteStart  *int64
+	CommittedOffset   int64
+	IncompleteStart   *int64
 }
 
 // validateRecordStream validates complete newline-delimited records in order. It
@@ -24,6 +24,9 @@ func validateRecordStream(data []byte, validator *recordSchemaValidator) (stream
 // validateRecordStreamFrom validates a segment whose first global sequence is
 // expectedSequence. Segment sequences are global and therefore do not restart at 1.
 func validateRecordStreamFrom(data []byte, validator *recordSchemaValidator, expectedSequence uint64) (streamValidation, error) {
+	if expectedSequence == 0 {
+		return streamValidation{}, fmt.Errorf("%w: stream starting sequence must be positive", ErrInvalidTransaction)
+	}
 	result := streamValidation{CommittedSequence: expectedSequence - 1}
 	var pendingRecords []interface{}
 	var pendingFrames [][]byte
@@ -69,7 +72,7 @@ func validateRecordStreamFrom(data []byte, validator *recordSchemaValidator, exp
 			if len(pendingRecords) > 2 {
 				return result, fmt.Errorf("%w: transaction has too many records starting at byte offset %d", ErrInvalidTransaction, pendingStart)
 			}
-		 continue
+			continue
 		}
 
 		commit, ok := record.(commitRecord)

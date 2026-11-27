@@ -28,8 +28,23 @@ jobs:
           go-version: '1.27.4'
           cache: true
 
+      - name: Format
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          unformatted="$(gofmt -l .)"
+          if [ -n "$unformatted" ]; then
+            echo "Files need gofmt:"
+            echo "$unformatted"
+            exit 1
+          fi
+
       - name: Test
-        run: go test ./...
+        run: go test -count=1 ./...
+
+      - name: Race test
+        if: runner.os == 'Linux'
+        run: go test -race -count=1 ./...
 
       - name: Build
         run: go build ./...

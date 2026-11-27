@@ -13,35 +13,35 @@ var ErrIncompleteRecord = errors.New("incomplete record")
 
 type recordType struct {
 	PackagePath string `json:"package_path"`
-	Name       string `json:"name"`
+	Name        string `json:"name"`
 }
 
 type channelRecord struct {
 	SchemaVersion int                    `json:"schema_version"`
-	Sequence     uint64                 `json:"sequence"`
-	Kind        string                 `json:"kind"`
-	ID          string                 `json:"id"`
-	Type        recordType             `json:"type"`
-	Fields      map[string]interface{}  `json:"fields"`
+	Sequence      uint64                 `json:"sequence"`
+	Kind          string                 `json:"kind"`
+	ID            string                 `json:"id"`
+	Type          recordType             `json:"type"`
+	Fields        map[string]interface{} `json:"fields"`
 }
 
 type eventRecord struct {
-	SchemaVersion int                   `json:"schema_version"`
-	Sequence     uint64                `json:"sequence"`
-	Kind        string                `json:"kind"`
-	ID          string                `json:"id"`
-	ChannelID   string                `json:"channel_id"`
-	Type        recordType            `json:"type"`
-	Fields      map[string]interface{} `json:"fields"`
+	SchemaVersion int                    `json:"schema_version"`
+	Sequence      uint64                 `json:"sequence"`
+	Kind          string                 `json:"kind"`
+	ID            string                 `json:"id"`
+	ChannelID     string                 `json:"channel_id"`
+	Type          recordType             `json:"type"`
+	Fields        map[string]interface{} `json:"fields"`
 }
 
 type commitRecord struct {
 	SchemaVersion int    `json:"schema_version"`
-	Sequence     uint64 `json:"sequence"`
-	Kind         string `json:"kind"`
+	Sequence      uint64 `json:"sequence"`
+	Kind          string `json:"kind"`
 	TransactionID uint64 `json:"transaction_id"`
-	RecordCount  uint64 `json:"record_count"`
-	Checksum     string `json:"checksum"`
+	RecordCount   uint64 `json:"record_count"`
+	Checksum      string `json:"checksum"`
 }
 
 type recordFramer struct {
@@ -58,9 +58,9 @@ func (f *recordFramer) next() ([]byte, error) {
 	line, err := f.reader.ReadBytes('\n')
 	if err != nil {
 		if errors.Is(err, io.EOF) {
-		if len(line) == 0 {
-			return nil, io.EOF
-		}
+			if len(line) == 0 {
+				return nil, io.EOF
+			}
 			return line, fmt.Errorf("%w: trailing %d bytes", ErrIncompleteRecord, len(line))
 		}
 		return nil, fmt.Errorf("read record frame: %w", err)
@@ -90,7 +90,7 @@ func decodeRecord(raw []byte, validator *recordSchemaValidator) (interface{}, er
 	}
 	var header struct {
 		SchemaVersion int    `json:"schema_version"`
-		Kind         string `json:"kind"`
+		Kind          string `json:"kind"`
 	}
 	if err := json.Unmarshal(raw, &header); err != nil {
 		return nil, fmt.Errorf("decode record envelope: %w", err)

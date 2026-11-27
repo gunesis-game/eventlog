@@ -1,6 +1,6 @@
 # Acceptance test strategy
 
-**Status:** Acceptance structure approved during Define; scenarios are agreed, but no implementation or test execution has started.
+**Status:** Acceptance structure approved during Define. Executable tests for these scenarios exist; their locations are mapped in [testing-strategy.md](testing-strategy.md#suite-locations), and observed results are recorded in [commands.md](commands.md). This document defines criteria, not evidence.
 
 This document defines the bottom-up acceptance-test layers and their observable pass conditions. Tests proceed from the lowest storage boundary upward. Each layer verifies its own contract without depending on higher-level components; higher layers build on the guarantees established below them. A small end-to-end suite verifies integration across layers but does not replace lower-layer tests.
 

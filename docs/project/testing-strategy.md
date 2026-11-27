@@ -4,7 +4,7 @@
 
 This document is the project-specific implementation of the [Testing Standard](../standards/testing.md). The approved acceptance scenarios are maintained in [acceptance.md](acceptance.md). This strategy maps those scenarios to architectural boundaries, feedback tiers, and verification evidence.
 
-**Current status:** Approved as the project testing baseline for Define (D-042). Acceptance scenarios are defined, but implementation and test execution have not started. The repository currently has a steering-governance validation workflow; it does not yet define a project Go test workflow or verified Go test commands. Do not report acceptance coverage as implemented or passing until executable tests have been added and run.
+**Current status:** Executable suites exist in the package root as `*_test.go` files and run with the commands in [commands.md](commands.md). Local Windows results are recorded there. Linux execution and exact-SHA CI evidence are still required before the Implement exit gate.
 
 ## Architecture and test ownership
 
@@ -41,11 +41,26 @@ The system boundary and component responsibilities are defined in [architecture.
 - Avoid timing-only assertions where synchronization or observable state can establish the condition more reliably.
 - Coverage percentages and other numeric quality thresholds have not been approved; do not invent or enforce them.
 
+## Suite locations
+
+| Acceptance layer | Test files |
+|---|---|
+| Disk and storage (D-*) | `storage_test.go`, `segmentstore_test.go` (lock, missing directory, replace and cleanup) |
+| Persistence format and transactions (F-*, T-*) | `record_test.go`, `schema_test.go`, `transaction_test.go`, `stream_test.go`, `segmentstore_test.go` |
+| Metadata and recovery (M-*) | `segmentstore_test.go` (index rebuild, manifest recovery, corruption, compaction) |
+| Core Event/Channel behavior (L-*) | `typeschema_test.go`, `fieldvalue_test.go`, `identity_test.go`, `segmentstore_test.go`, `runtime_test.go` |
+| Channel and Reader (R-*) | `runtime_test.go` |
+| Notification delivery (N-*) | `runtime_test.go`, `process_test.go` |
+| Runtime lifecycle (RT-*) | `runtime_test.go`, `process_test.go` (subprocess Config contract and process termination) |
+| Public API and integration (API-*) | `example_test.go` (external consumer compile check), `process_test.go`, `runtime_test.go` |
+| Benchmarks (smoke set) | `benchmark_test.go` |
+
+Test-only controls (closing an in-process runtime, pausing polling to synchronize test mutations, delivery fault injection, lowered storage thresholds) are unexported and are not part of the public API. Subprocess children run with `GORACE=exitcode=0` because they mutate fields the way a consumer would, without synchronizing with polling (see the architecture implementation notes); in-process tests keep full race-detector coverage.
+
 ## CI and evidence
 
-- Current workflow: [Steering state validation](../../.github/workflows/steering-validation.yml). It validates governance state only; it is not a project test suite.
-- No project test workflow, required Go test job, test report artifact, or platform matrix is currently configured.
-- When project CI is introduced, document exact workflow paths, triggers, required jobs, and platform coverage here before treating CI as an acceptance gate.
+- [Go verification](../../.github/workflows/go.yml) runs on pushes to `main` and on manual dispatch, as Linux and Windows jobs: gofmt (Linux), `go test`, `go test -race` (Linux), `go build`, and `go vet`.
+- [Steering state validation](../../.github/workflows/steering-validation.yml) validates governance state only; it is not a project test suite.
 - Associate every result with the exact commit SHA. Distinguish success, failure, skipped, cancelled, inaccessible, and not-run results.
 - A missing or incomplete required result is not a pass.
 
@@ -56,9 +71,9 @@ No acceptance layer is excluded. Performance measurement is separate and governe
 ## Define approval checklist
 
 - [x] Acceptance layers and observable scenarios are documented in [acceptance.md](acceptance.md).
-- [ ] Executable suite locations and architecture-to-test ownership are confirmed during implementation.
-- [ ] Fast, integration, and full-verification commands and triggers are verified.
-- [ ] Linux and Windows test execution is configured.
+- [x] Executable suite locations and architecture-to-test ownership are confirmed during implementation.
+- [x] Fast, integration, and full-verification commands are verified locally on Windows; CI triggers are configured.
+- [x] Linux and Windows test execution is configured in CI; exact-SHA results are not yet observed.
 - [x] Full verification is mandatory before implementation exit.
 - [x] No acceptance layer is excluded; blocking behavior and any future exclusion approval requirements are explicit.
 - [x] The Define-level strategy is approved and recorded in the decision ledger (D-042).

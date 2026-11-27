@@ -18,7 +18,8 @@
     { "$ref": "#/$defs/uint32" },
     { "$ref": "#/$defs/uint64" },
     { "$ref": "#/$defs/float32" },
-    { "$ref": "#/$defs/float64" }
+    { "$ref": "#/$defs/float64" },
+    { "$ref": "#/$defs/uuid" }
   ],
   "$defs": {
     "null": {
@@ -70,6 +71,12 @@
     "float64": {
       "type": "object",
       "properties": { "type": { "const": "float64" }, "value": { "type": "string", "pattern": "^[0-9a-f]{16}$" } },
+      "required": ["type", "value"],
+      "additionalProperties": false
+    },
+    "uuid": {
+      "type": "object",
+      "properties": { "type": { "const": "uuid" }, "value": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$" } },
       "required": ["type", "value"],
       "additionalProperties": false
     }

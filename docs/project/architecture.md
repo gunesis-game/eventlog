@@ -184,7 +184,9 @@ are not authoritative recovery input and are cleaned only after finalized source
 
 Persisted values use strict type-tagged JSON objects. Strings and bools are native JSON; integers are
 decimal strings to avoid parser precision loss; float32/float64 are lowercase raw IEEE bit-pattern hex
-(8/16 digits) preserving width and signed zero; null is type-only. JSON Schema uses strict variants,
+(8/16 digits) preserving width and signed zero; null is type-only. The designated identity field is
+persisted as a `uuid`-tagged value holding the lowercase canonical hyphenated text, so reconstruction
+restores it and recovery can re-derive and verify the record's logical identity (D-044). JSON Schema uses strict variants,
 required keys, fixed type tags, and no extra properties to validate representation; Go validates exact
 integer bounds and non-finite float rejection. Schemas are versioned canonical standalone files under the
 schema directory and embedded from those same files using go:embed. Named primitive types use underlying
@@ -419,6 +421,22 @@ validate/checksum → sync → finalize/rename → atomically switch manifest/in
 while readers pin it → delete after last pin releases. Temporary files are ignored during recovery and
 cleaned only after finalized source segments validate. New readers bind to the switched generation;
 existing readers continue on their pinned generation.
+
+## Implementation notes
+
+The current implementation realizes this design as one Go package. Internal policy values (notification
+buffer 64, poll interval 100 ms, ingress queue 256, five delivery attempts with doubling backoff from
+10 ms, target segment size 64 MiB, compaction at 8 finalized segments, sync every 1 s or 1 MiB) are
+implementation/test policy, not public configuration. Single-process ownership uses an OS-held lock file
+(`flock` on Linux, an unshared handle on Windows) that is released when the process exits. The derived
+index is held in memory and persisted to `index.json` at sync points; recovery always revalidates every
+segment and replaces a stored index that does not match. Each segment keeps one shared read handle for
+Readers, closed before the segment is deleted. Every process start replays a Channel's full committed
+history, because delivery has no acknowledgement.
+
+Consumer field mutations are not synchronized with the poller. In Go's memory model, a consumer write that
+overlaps a poll is a data race. The public API currently gives consumers no way to synchronize with polling,
+so race-free mutation cannot be expressed; this is an open design gap, not resolved behavior.
 
 ## Portability and dependencies
 

@@ -33,10 +33,10 @@ func TestValidateTransactionRejectsContractViolations(t *testing.T) {
 	valid := makeTestCommit(records, frames, 1, 3)
 
 	tests := []struct {
-		name string
+		name    string
 		records []interface{}
-		frames [][]byte
-		commit commitRecord
+		frames  [][]byte
+		commit  commitRecord
 	}{
 		{name: "wrong transaction ID", records: records, frames: frames, commit: commitRecord{Sequence: 3, TransactionID: 99, RecordCount: 2, Checksum: valid.Checksum}},
 		{name: "wrong count", records: records, frames: frames, commit: commitRecord{Sequence: 3, TransactionID: 1, RecordCount: 1, Checksum: valid.Checksum}},

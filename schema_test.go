@@ -9,9 +9,9 @@ func TestRecordSchemaValidator(t *testing.T) {
 	}
 
 	tests := []struct {
-		name string
-		kind string
-		json string
+		name      string
+		kind      string
+		json      string
 		wantValid bool
 	}{
 		{
