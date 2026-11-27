@@ -48,7 +48,7 @@ Implement eventlog according to approved requirements, public API, architecture,
 - Coding-standard review of the final implementation is not yet done.
 
 ## Next action
-Publish Phase 1 of the file-system boundary and the HTTP/2 transport, and check exact-SHA CI. Then settle the open Phase 2 questions (callbacks), record the Phase 2 decisions, and implement the Google Drive backend. The full benchmark catalogue, the coding-standard review, and the Implement exit gate follow.
+Settle the open Phase 2 questions (callbacks), record the Phase 2 decisions, and implement the Google Drive backend. The full benchmark catalogue, the coding-standard review, and the Implement exit gate follow.
 
 ## Phase exit
 Implement exit requires the mandatory full verification suite, applicable performance checks, coding-standard review, and evidence tied to the exact final implementation SHA. Do not transition phases until the documented gate is satisfied and user authorization is obtained where required.
