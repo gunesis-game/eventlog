@@ -33,6 +33,8 @@ Google Drive and notifications (2026-11-27), recorded locally and not yet publis
 
 Drive access (2026-11-27), recorded locally and not yet published: a feasibility check showed `drive.file` cannot read other accounts' files in a shared folder, matching the user's earlier pulsyflux-queue project. D-065: separate accounts with the restricted `drive` scope, Testing status, test users, and weekly re-approval; owner account in configuration; folder found by tag and ownership. Research: docs/research/drive-access-model.md.
 
+D-060 open points settled (2026-11-27), recorded locally and not yet published: D-066 (Firebase details as two descriptor fields for the owner's project; fixed rules with board access following Drive sharing through a members list synced by owner devices; `*SignInRequired` from `PrepareLog` and new ChannelError kinds `SignInRequired` and `NotificationsUnavailable`; SSH port forward for headless sign-in; free-plan bounds accepted). D-060 itself remains Proposed until the user approves the whole design.
+
 User rules recorded for this work: no new public package functions (new behaviour goes on the Event/Channel interfaces); refactors remove everything made redundant, with no future-proofing.
 
 ## Current repository checkpoint

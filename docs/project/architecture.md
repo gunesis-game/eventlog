@@ -596,16 +596,59 @@ D-061 to D-064. The current implementation is single-device and local-only. Rese
 - **Recovery:** a device fully recovers and may truncate only its own log; other devices' logs are read
   read-only, and an incomplete trailing transaction there is treated as not yet committed.
 
-### Open points for approval
+### Sign-in, Firebase access, and free-plan bounds (D-066)
 
-- The Firebase project details eventlog needs (database URL and Firebase web API key) and where they come
-  from: another descriptor field, or derived from the OAuth client's project.
-- The database security rules restricting the board to the allowed accounts, and who installs and updates
-  them as the owner shares the folder with more people.
-- How a device asks for its first approval and its weekly re-approval: for example, a sign-in link reported
-  by `PrepareLog` at start and on the Channel error stream while running; and how a device without a local
-  browser completes the loopback sign-in.
-- Free-plan bounds: 100 online devices and 10 GB of Firebase downloads per month.
+Approved on 2026-11-27; these settle the open points of this design.
+
+1. **Firebase project details.** The `GoogleDrive` descriptor gains two fields, `FirebaseDatabaseURL` and
+   `FirebaseAPIKey`, copied from the Firebase console. Neither can be derived: the database URL depends on
+   the database's region, and the web API key is not in the OAuth client file. The web API key identifies
+   the project and is not a secret. The Firebase project is the owner's, in the same Google Cloud project as
+   the OAuth client, because Firebase Authentication accepts Google ID tokens from that project's clients.
+   Like the Drive folder, it exists once, under the owner's account. Other accounts never sign up for
+   Firebase or create anything: eventlog exchanges each device's Google sign-in for a token from the owner's
+   project, which records the account there automatically.
+2. **Security rules.** The rules are fixed and installed once by the owner, pasted from eventlog's
+   documentation into the Firebase console, with the owner's email filled in; they never change as the folder
+   is shared with more people. Access to the board follows the Drive folder's sharing, as access to the data
+   does:
+   - **Members list:** `/eventlog/{logID}/members/{emailKey} = "writer" | "reader"`, where `emailKey` is the
+     lowercased email with `.` replaced by `,` (keys cannot hold `.`). Drive Editors and the owner are
+     writers; Viewers are readers. Only the owner's account may write this list.
+   - **Sync from Drive:** an owner's device reads the folder's Drive permissions and rewrites the members
+     list at its start and whenever a membership request arrives. Nobody maintains the list by hand.
+   - **Membership requests:** a device whose account Drive admits but the members list does not yet name
+     writes `/eventlog/{logID}/requests/{emailKey}`, the only place a non-member may write, and only under its
+     own key. Owner devices stream the requests and re-sync from Drive on each one, so a newly shared account
+     gets live notifications as soon as an owner's device is online, without polling. Until then the device
+     works without live notifications and reports `NotificationsUnavailable`.
+   - **Board:** `/eventlog/{logID}/devices/{uid}/{deviceID}`, where `uid` is the signed-in Firebase user.
+     Writers may write only under their own `uid`; writers and readers may read the board; anyone else is
+     refused.
+   - **Revocation:** when the owner stops sharing the folder, Drive refuses the data at once; the members
+     list drops the account at an owner's device's next sync. Until then the account can only see positions.
+   - Sign-in itself is also limited by the project's test-user list while the OAuth app is in Testing, so
+     the owner both adds each account as a test user and shares the folder with it.
+3. **Sign-in and re-approval.**
+   - First start: when the device has no valid sign-in, `PrepareLog` returns a `*SignInRequired` error with
+     `URL` (the local file-system server's sign-in address, which redirects to Google) and `Completed`, a
+     channel closed when the sign-in finishes. The application shows the URL, waits on `Completed`, and calls
+     `PrepareLog` again. No polling, and no new public function.
+   - While running: when Google expires the sign-in after seven days, each Channel reports one ChannelError
+     of a new kind `SignInRequired`, whose `Cause` is the `*SignInRequired` error. Transactions sent while
+     signed out are rejected with that kind under the prefix rule; Readers wait and resume by themselves
+     once sign-in completes.
+   - A device without a local browser: Google's device flow for limited-input devices does not allow the
+     `drive` scope, so the loopback sign-in stays. The user forwards the port from a machine with a browser
+     (`ssh -L 8765:127.0.0.1:8765 <device>`) and opens the URL there; this is documented, not coded.
+4. **Free-plan bounds.** Accepted as limits, documented with a budget:
+   - At most 100 devices online at once, one stream each; a device beyond that has no live notifications.
+   - Downloads: each board change reaches every online device, about 200 bytes each. With N devices each
+     writing continuously, coalesced to once per second, that is about N² × 200 bytes per second, so 10 GB a
+     month allows about 5 devices writing nonstop, or many more writing in bursts.
+   - Over either limit, or when Firebase is switched off for the month, devices keep committing and see each
+     other's changes at their next start. Each Channel reports this once with a new ChannelError kind
+     `NotificationsUnavailable`, so the loss of live updates is not silent.
 
 ## Unresolved architectural details
 
