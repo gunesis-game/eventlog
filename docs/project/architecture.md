@@ -668,11 +668,22 @@ browser).
 - **Remote changes:** the Reader submits each delivered remote occurrence to the Channel's transaction
   processor, which sets the live instance's selected fields to the converged current state without
   persisting anything.
-- **Positions in other devices' logs (D-067):** a device tracks its place in another device's log by that
-  device's sequence number, never by file and offset; compaction preserves sequences byte-for-byte. The
-  Reader finds a sequence through that device's manifest file, and re-reads the manifest when a file-change
-  event names a file it does not know or a file it expects is gone, then resumes at the same sequence, so
-  nothing is skipped or delivered twice.
+- **Reading other devices' logs (D-073):** at open, and when refreshed, a device opens every other
+  device's folder under `devices/` read-only, including on a device that may not write. Each is recovered
+  like the device's own log but repairs nothing: an incomplete trailing transaction is not yet committed,
+  and every occurrence must name that device, count exactly one more of its occurrences of the Channel,
+  and follow its previous clock reading. A refresh reads only the bytes appended since the last one; when
+  that device's manifest has changed, as after its compaction, or a file it named is gone, the device's
+  log is read again from its manifest.
+- **Positions in other devices' logs (D-067, D-073):** a device's place in another device's log for a
+  Channel is that device's count of its occurrences of the Channel, its own entry in the version vector.
+  Counts are stable across compaction, which copies records unchanged; sequence numbers locate records
+  inside the store and check their integrity.
+- **Damaged logs of other devices (D-073):** another device's log never stops this device from opening. Its
+  valid history up to the first damaged transaction, missing file, or record failing the checks above is
+  kept; everything from there on is treated as missing history (D-070) until a refresh finds it readable
+  again. This device's own log still fails closed. Missing history is detected when a log is read and
+  reported on the affected Channels by causal delivery (12.5).
 - **Compaction on Drive (D-067):** compaction keeps its trigger and protocol, building the merged segment as
   a Drive file and removing replaced segments as it does today. The Drive backend carries out `Remove` by
   moving the file to the Drive trash, so reads already in progress on other devices can finish; Drive
