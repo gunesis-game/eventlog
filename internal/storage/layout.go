@@ -11,21 +11,28 @@ import (
 	"github.com/gunesis-game/eventlog/internal/identity"
 )
 
-// Storage layout (D-060, D-062). The device state folder belongs to this
-// device only and is never shared; the eventlog folder is the log, which every
-// device of the log shares, each writing only its own folder under devices.
+// Storage layout (D-060, D-062). A store works with two folders. The device
+// state folder belongs to this device only and is never shared:
 //
-//	device/device.json                 this device's identity
-//	device/lock                        this device's one-process lock
-//	eventlog/log.json                  the log's permanent identity
-//	eventlog/devices/{deviceID}/...    one device's manifest, index, segments
+//	device.json                this device's identity
+//	lock                       this device's one-process lock
+//
+// The log folder is the log, which every device of the log shares, each
+// writing only its own folder under devices:
+//
+//	log.json                   the log's permanent identity
+//	devices/{deviceID}/...     one device's manifest, index, segments
+//
+// A Local directory holds both, as device/ and eventlog/.
 const (
-	deviceStateDirName    = "device"
-	deviceFileName        = "device/device.json"
-	lockPath              = "device/lock"
-	logFileName           = "eventlog/log.json"
-	devicesDirName        = "eventlog/devices"
+	deviceFileName        = "device.json"
+	lockFileName          = "lock"
+	logFileName           = "log.json"
+	devicesDirName        = "devices"
 	identityFormatVersion = 1
+
+	localDeviceStateDir = "device"
+	localLogDir         = "eventlog"
 )
 
 // logIdentity is the content of log.json: generated once, it identifies the
@@ -42,8 +49,8 @@ type deviceIdentity struct {
 	DeviceID      string `json:"device_id"`
 }
 
-// deviceLogDir returns the folder of a device's log, relative to the storage
-// root.
+// deviceLogDir returns the folder of a device's log, relative to the log
+// folder.
 func deviceLogDir(device identity.UUID) string {
 	return path.Join(devicesDirName, device.String())
 }

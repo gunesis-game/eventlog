@@ -486,7 +486,7 @@ func diskPath(dir, relative string) string {
 // deviceLogPath returns the operating-system path of the log folder of the
 // device whose state is in dir, or "" when it has none.
 func deviceLogPath(dir string) string {
-	raw, err := os.ReadFile(filepath.Join(dir, filepath.FromSlash(deviceFileName)))
+	raw, err := os.ReadFile(filepath.Join(dir, localDeviceStateDir, deviceFileName))
 	if err != nil {
 		return ""
 	}
@@ -494,7 +494,7 @@ func deviceLogPath(dir string) string {
 	if json.Unmarshal(raw, &device) != nil {
 		return ""
 	}
-	return filepath.Join(dir, filepath.FromSlash(devicesDirName), device.DeviceID)
+	return filepath.Join(dir, localLogDir, devicesDirName, device.DeviceID)
 }
 
 func readManifestFile(t *testing.T, dir string) manifest {

@@ -531,10 +531,10 @@ memory use and platform parity precede numeric performance targets.
 ## Multi-device operation (D-060; approved, being implemented)
 
 **Status: Approved on 2026-11-27, being implemented in increments (cycle plan item 12).** This section
-designs the response to D-056 to D-059 and applies D-061 to D-072. Built so far: storage that refuses
-writes (D-068, D-072), the device and log layout on local storage, and causal metadata in Event records
-(D-064). Reading other devices' logs,
-causal delivery, web storage, and change notifications are not built yet. Research:
+designs the response to D-056 to D-059 and applies D-061 to D-073. Built so far: storage that refuses
+writes (D-068, D-072), the device and log layout on local storage, causal metadata in Event records
+(D-064), and reading other devices' logs in the store (D-073). Causal delivery, web storage, and change
+notifications are not built yet. Research:
 [causal ordering and conflicts](../research/causal-ordering-and-conflicts.md) and
 [cross-device notifications](../research/cross-device-notifications.md).
 

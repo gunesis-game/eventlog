@@ -66,14 +66,18 @@ type OccurrenceWrite struct {
 // Store is this device's open append log in one storage. It is safe for
 // concurrent use.
 type Store struct {
-	// root is the storage root; files is this device's log folder in it.
-	root      *filesystem.Client
+	// state is this device's state folder, log the shared log folder, and
+	// files this device's own folder in it.
+	state     *filesystem.Client
+	log       *filesystem.Client
 	files     *filesystem.Client
 	server    *filesystem.Server
 	validator *record.Validator
 	options   Options
 	// device is this device's identity, recorded with every Event occurrence.
 	device identity.UUID
+	// remotes are the other devices' logs, read but never written (D-073).
+	remotes map[identity.UUID]*remoteLog
 
 	mu           sync.Mutex
 	manifest     manifest
@@ -121,7 +125,7 @@ func Open(directory string, options Options) (*Store, error) {
 		_ = backend.Close()
 		return nil, err
 	}
-	s, err := open(filesystem.NewClient(server.URL(), server.Token()), options)
+	s, err := openLocal(filesystem.NewClient(server.URL(), server.Token()), options)
 	if err != nil {
 		_ = server.Close()
 		return nil, err
@@ -130,54 +134,68 @@ func Open(directory string, options Options) (*Store, error) {
 	return s, nil
 }
 
-// open recovers this device's log in the storage behind root, creating the
-// log's and this device's identities on first use. When the storage refuses a
-// write that opening needs (fs.ErrPermission), it opens again read-only:
-// nothing is written, the ownership lock is not taken, recovery repairs
-// nothing, and every append fails with that permission error.
-func open(root *filesystem.Client, options Options) (*Store, error) {
+// openLocal opens the store of a Local directory served at root, which holds
+// the device state folder and the log folder side by side.
+func openLocal(root *filesystem.Client, options Options) (*Store, error) {
+	return open(root.Sub(localDeviceStateDir), root.Sub(localLogDir), options)
+}
+
+// open recovers this device's log in the log folder, creating the log's and
+// this device's identities on first use, and opens every other device's log
+// read-only. When the storage refuses a write that opening needs
+// (fs.ErrPermission), it opens again read-only: nothing is written, the
+// ownership lock is not taken, recovery repairs nothing, and every append fails
+// with that permission error.
+func open(state, log *filesystem.Client, options Options) (*Store, error) {
 	validator, err := record.NewValidator()
 	if err != nil {
 		return nil, err
 	}
-	s, err := openWritable(root, options, validator)
+	s, err := openWritable(state, log, options, validator)
 	if errors.Is(err, fs.ErrPermission) {
-		return openReadOnly(root, options, validator, err)
+		s, err = openReadOnly(state, log, options, validator, err)
 	}
-	return s, err
+	if err != nil {
+		return nil, err
+	}
+	if err := s.Refresh(); err != nil {
+		_ = s.Close()
+		return nil, err
+	}
+	return s, nil
 }
 
-func openWritable(root *filesystem.Client, options Options, validator *record.Validator) (*Store, error) {
-	if err := root.MakeDirectory(deviceStateDirName); err != nil {
+func openWritable(state, log *filesystem.Client, options Options, validator *record.Validator) (*Store, error) {
+	if err := state.MakeDirectory(""); err != nil {
 		return nil, fmt.Errorf("create device state folder: %w", err)
 	}
-	if err := root.Lock(lockPath); err != nil {
+	if err := state.Lock(lockFileName); err != nil {
 		if errors.Is(err, fs.ErrPermission) {
 			return nil, err
 		}
 		return nil, fmt.Errorf("storage is owned by another process: %w", err)
 	}
-	s, err := openLockedLog(root, options, validator)
+	s, err := openLockedLog(state, log, options, validator)
 	if err != nil {
-		_ = root.Unlock(lockPath)
+		_ = state.Unlock(lockFileName)
 		return nil, err
 	}
 	s.locked = true
 	return s, nil
 }
 
-func openLockedLog(root *filesystem.Client, options Options, validator *record.Validator) (*Store, error) {
-	if err := root.MakeDirectory(devicesDirName); err != nil {
+func openLockedLog(state, log *filesystem.Client, options Options, validator *record.Validator) (*Store, error) {
+	if err := log.MakeDirectory(devicesDirName); err != nil {
 		return nil, fmt.Errorf("create log folder: %w", err)
 	}
-	if _, err := ensureLogID(root); err != nil {
+	if _, err := ensureLogID(log); err != nil {
 		return nil, err
 	}
-	device, err := ensureDeviceID(root)
+	device, err := ensureDeviceID(state)
 	if err != nil {
 		return nil, err
 	}
-	files := root.Sub(deviceLogDir(device))
+	files := log.Sub(deviceLogDir(device))
 	if err := files.MakeDirectory(segmentsDirName); err != nil {
 		return nil, fmt.Errorf("create segments folder: %w", err)
 	}
@@ -185,13 +203,13 @@ func openLockedLog(root *filesystem.Client, options Options, validator *record.V
 	if err != nil {
 		return nil, err
 	}
-	return newStore(root, files, device, options, validator, recovered), nil
+	return newStore(state, log, files, device, options, validator, recovered), nil
 }
 
 // openReadOnly opens this device's log without writing. Storage where this
-// device has no identity yet holds no log of it: the store is empty.
-func openReadOnly(root *filesystem.Client, options Options, validator *record.Validator, refusal error) (*Store, error) {
-	device, err := readDeviceID(root)
+// device has no identity yet holds no log of it: its own log is empty.
+func openReadOnly(state, log *filesystem.Client, options Options, validator *record.Validator, refusal error) (*Store, error) {
+	device, err := readDeviceID(state)
 	var recovered *recovery
 	switch {
 	case errors.Is(err, fs.ErrNotExist):
@@ -199,20 +217,22 @@ func openReadOnly(root *filesystem.Client, options Options, validator *record.Va
 	case err != nil:
 		return nil, err
 	default:
-		recovered, err = newRecovery(root.Sub(deviceLogDir(device)), validator, device, true).run()
+		recovered, err = newRecovery(log.Sub(deviceLogDir(device)), validator, device, true).run()
 		if err != nil {
 			return nil, err
 		}
 	}
-	s := newStore(root, root.Sub(deviceLogDir(device)), device, options, validator, recovered)
+	s := newStore(state, log, log.Sub(deviceLogDir(device)), device, options, validator, recovered)
 	s.writeRefusal = refusal
 	return s, nil
 }
 
-func newStore(root, files *filesystem.Client, device identity.UUID, options Options, validator *record.Validator, recovered *recovery) *Store {
+func newStore(state, log, files *filesystem.Client, device identity.UUID, options Options, validator *record.Validator, recovered *recovery) *Store {
 	s := &Store{
-		root:          root,
+		state:         state,
+		log:           log,
 		files:         files,
+		remotes:       make(map[identity.UUID]*remoteLog),
 		device:        device,
 		clock:         causal.NewClock(recovered.lastHLC, options.Now),
 		channelCounts: recovered.channelCounts,
@@ -479,38 +499,57 @@ const maxReadSpan = 1 << 20
 // delete it mid-read. At least one occurrence must exist at position.
 func (s *Store) ReadOccurrences(channelID identity.UUID, position, limit int) ([]Occurrence, [][]byte, error) {
 	s.mu.Lock()
-	first, ok := s.index.occurrence(channelID, position)
-	if !ok {
+	batch := collectBatch(s.index, channelID, position, limit)
+	if len(batch) == 0 {
 		s.mu.Unlock()
 		return nil, nil, fmt.Errorf("channel %s has no occurrence %d", channelID, position)
 	}
+	seg := batch[0].segment
+	seg.refs++
+	s.mu.Unlock()
+	defer s.unpin(seg)
+	frames, err := readFrames(s.files, batch)
+	if err != nil {
+		return nil, nil, err
+	}
+	return batch, frames, nil
+}
+
+// collectBatch returns up to limit consecutive occurrences of a Channel in x
+// from position, all in one segment and within maxReadSpan bytes.
+func collectBatch(x *index, channelID identity.UUID, position, limit int) []Occurrence {
+	first, ok := x.occurrence(channelID, position)
+	if !ok {
+		return nil
+	}
 	batch := []Occurrence{*first}
 	for len(batch) < limit {
-		next, ok := s.index.occurrence(channelID, position+len(batch))
+		next, ok := x.occurrence(channelID, position+len(batch))
 		if !ok || next.segment != first.segment || next.offset+next.length-first.offset > maxReadSpan {
 			break
 		}
 		batch = append(batch, *next)
 	}
-	seg := first.segment
-	seg.refs++
-	s.mu.Unlock()
-	defer s.unpin(seg)
+	return batch
+}
 
-	last := batch[len(batch)-1]
-	span, err := s.files.Read(seg.path, first.offset, last.offset+last.length-first.offset)
+// readFrames fetches a batch from collectBatch with one ranged read and splits
+// it into record frames, without newlines.
+func readFrames(files *filesystem.Client, batch []Occurrence) ([][]byte, error) {
+	first, last := batch[0], batch[len(batch)-1]
+	span, err := files.Read(first.segment.path, first.offset, last.offset+last.length-first.offset)
 	if err != nil {
-		return nil, nil, fmt.Errorf("read occurrences %d-%d of %s: %w", first.Sequence, last.Sequence, seg.path, err)
+		return nil, fmt.Errorf("read occurrences %d-%d of %s: %w", first.Sequence, last.Sequence, first.segment.path, err)
 	}
 	frames := make([][]byte, len(batch))
 	for i, occurrence := range batch {
 		frame := span[occurrence.offset-first.offset : occurrence.offset-first.offset+occurrence.length]
 		if len(frame) == 0 || frame[len(frame)-1] != '\n' {
-			return nil, nil, fmt.Errorf("occurrence %d is not a complete frame", occurrence.Sequence)
+			return nil, fmt.Errorf("occurrence %d is not a complete frame", occurrence.Sequence)
 		}
 		frames[i] = frame[:len(frame)-1]
 	}
-	return batch, frames, nil
+	return frames, nil
 }
 
 func (s *Store) unpin(seg *segment) {
@@ -566,7 +605,7 @@ func (s *Store) Close() error {
 		}
 		s.retryPendingDeletesLocked()
 		if s.locked {
-			err = s.root.Unlock(lockPath)
+			err = s.state.Unlock(lockFileName)
 		}
 		s.files.Close()
 		if s.server != nil {

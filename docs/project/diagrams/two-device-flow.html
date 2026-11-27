@@ -111,7 +111,7 @@ const steps = [
   {
     title: "B is told, reads A's folder, and accepts ownership",
     note: "B's open board stream delivers A's new size. B's Orders Reader reads the new bytes from A's segment, read-only. The vector {A:1} depends on nothing B lacks, so B delivers OrderPlaced to its app and updates its live instance, writing nothing. Because B is signed in as the owner, its Drive backend also accepts the pending ownership offer.",
-    built: [], planned: ["Reading other devices (12.4)", "Causal delivery (12.5)", "Live instances (12.6)", "Ownership handover (12.9)"],
+    built: ["Reading other devices (12.4)"], planned: ["Causal delivery (12.5)", "Live instances (12.6)", "Ownership handover (12.9)"],
     drive: { segA: "r" }, a: 612, b: 0, ownerA: "owner", board: { A: 612, B: 0 }, boardRead: "A",
     linesTitle: "Delivered to B's app",
     lines: "OrderPlaced {amount: 40} on Channel Orders, from device A."
@@ -127,7 +127,7 @@ const steps = [
   {
     title: "B posts, and A reads B's folder",
     note: "B writes its log's end to the board. A's stream delivers it, and A reads the new bytes from B's segment. The vector {A:1, B:1} needs A's own first occurrence, which A has, so A delivers OrderShipped to its app.",
-    built: [], planned: ["Reading other devices (12.4)", "Causal delivery (12.5)", "Board (12.10)"],
+    built: ["Reading other devices (12.4)"], planned: ["Causal delivery (12.5)", "Board (12.10)"],
     drive: { segB: "r" }, a: 612, b: 598, ownerA: "owner", board: { A: 612, B: 598 }, boardWrite: "B",
     linesTitle: "Delivered to A's app",
     lines: "OrderShipped {carrier: post} on Channel Orders, from device B."

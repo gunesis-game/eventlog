@@ -107,7 +107,7 @@ func openRefusingStore(t *testing.T, dir string, refuse bool) (*Store, *refusing
 	if err != nil {
 		t.Fatal(err)
 	}
-	s, err := open(filesystem.NewClient(server.URL(), server.Token()), fastStoreOptions())
+	s, err := openLocal(filesystem.NewClient(server.URL(), server.Token()), fastStoreOptions())
 	if err != nil {
 		_ = server.Close()
 		t.Fatalf("open store: %v", err)

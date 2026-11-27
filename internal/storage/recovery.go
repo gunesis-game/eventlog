@@ -26,7 +26,9 @@ var errCorruptStorage = errors.New("corrupt storage")
 // an incomplete trailing transaction; rebuilds the derived index; and only then
 // cleans orphaned artifacts. A read-only recovery writes nothing: it ignores an
 // incomplete trailing transaction instead of truncating it, and keeps a
-// rebuilt manifest and index in memory only.
+// rebuilt manifest and index in memory only. A tolerant recovery reads another
+// device's log (D-073): it is read-only, and damage ends the log's readable
+// history instead of failing.
 type recovery struct {
 	files     *filesystem.Client
 	validator *record.Validator
@@ -47,15 +49,48 @@ type recovery struct {
 	// its log: its occurrences per Channel, and its last clock reading.
 	channelCounts map[identity.UUID]uint64
 	lastHLC       causal.Timestamp
+
+	tolerant bool
+	// limit ends reading at a position, set when a tolerant first pass found
+	// damage there.
+	limit *logPosition
+	// damage says why the readable history ends early, and damagedFrom is the
+	// first sequence not readable; damage is nil when the log reads to its end.
+	damage      error
+	damagedFrom uint64
+	// current is the manifest position of the segment being read; committedEnd
+	// is the position just after the last commit indexed; failedAt is where a
+	// failed read found damage.
+	current      int
+	committedEnd logPosition
+	failedAt     logPosition
+}
+
+// logPosition is a byte offset in the segment at a manifest position.
+type logPosition struct {
+	segment int
+	offset  int64
 }
 
 func newRecovery(files *filesystem.Client, validator *record.Validator, device identity.UUID, readOnly bool) *recovery {
 	return &recovery{files: files, validator: validator, device: device, readOnly: readOnly, index: newIndex(), nextSequence: 1, channelCounts: make(map[identity.UUID]uint64)}
 }
 
+// newRemoteRecovery returns a tolerant recovery of another device's log.
+func newRemoteRecovery(files *filesystem.Client, validator *record.Validator, device identity.UUID) *recovery {
+	r := newRecovery(files, validator, device, true)
+	r.tolerant = true
+	return r
+}
+
 func (r *recovery) run() (*recovery, error) {
 	m, err := r.resolveManifest()
 	if err != nil {
+		if r.tolerant && errors.Is(err, errCorruptStorage) {
+			empty := emptyRecovery()
+			empty.damage, empty.damagedFrom = err, 1
+			return empty, nil
+		}
 		return nil, err
 	}
 	r.manifest = m
@@ -64,9 +99,18 @@ func (r *recovery) run() (*recovery, error) {
 		return r, nil
 	}
 	for i, name := range m.Segments {
-		if err := r.recoverSegment(name, i == len(m.Segments)-1); err != nil {
+		if r.limit != nil && (i > r.limit.segment || i == r.limit.segment && r.limit.offset == 0) {
+			break
+		}
+		if err := r.recoverSegment(i, name, i == len(m.Segments)-1); err != nil {
+			if r.tolerant && r.limit == nil && errors.Is(err, errCorruptStorage) {
+				return r.readablePrefix(err)
+			}
 			return nil, err
 		}
+	}
+	if r.active == nil {
+		r.active = &segment{id: 0, path: ""}
 	}
 	if r.readOnly {
 		return r, nil
@@ -116,6 +160,20 @@ func (r *recovery) resolveManifest() (manifest, error) {
 		return rebuilt, nil
 	}
 	return rebuilt, writeManifest(r.files, rebuilt)
+}
+
+// readablePrefix reads the log again up to where this tolerant pass found
+// damage, so a transaction only partly indexed before the damage is left out,
+// and records the damage (D-073).
+func (r *recovery) readablePrefix(cause error) (*recovery, error) {
+	limited := newRemoteRecovery(r.files, r.validator, r.device)
+	limited.limit = &r.failedAt
+	readable, err := limited.run()
+	if err != nil {
+		return nil, err
+	}
+	readable.damage, readable.damagedFrom = cause, readable.nextSequence
+	return readable, nil
 }
 
 // freshManifest is the first manifest of a new log: one empty segment.
@@ -176,26 +234,37 @@ func (r *recovery) checkUnambiguousChain(ids []uint64) error {
 	return nil
 }
 
-// recoverSegment validates one manifest segment and indexes its committed
-// occurrences. Only the last (active) segment may end with an incomplete
-// transaction, which is truncated from its start.
-func (r *recovery) recoverSegment(name string, last bool) error {
+// recoverSegment validates the segment at manifest position i and indexes its
+// committed occurrences. Only the last (active) segment may end with an
+// incomplete transaction, which is truncated from its start. On damage it
+// records in failedAt where the readable history ends.
+func (r *recovery) recoverSegment(i int, name string, last bool) error {
 	id, err := segmentIDFromName(name)
 	if err != nil {
 		return err
 	}
+	r.current = i
+	r.failedAt = logPosition{segment: i}
 	path := segmentPath(id)
 	data, err := r.files.Read(path, 0, -1)
+	if errors.Is(err, fs.ErrNotExist) {
+		return fmt.Errorf("%w: manifest segment %s: %w", errCorruptStorage, name, err)
+	}
 	if err != nil {
-		return fmt.Errorf("%w: manifest segment %s: %v", errCorruptStorage, name, err)
+		return fmt.Errorf("read segment %s: %w", name, err)
+	}
+	if r.limit != nil && r.limit.segment == i && r.limit.offset < int64(len(data)) {
+		data, last = data[:r.limit.offset], true
 	}
 	result, err := record.ValidateStream(data, r.validator, r.nextSequence)
 	if err != nil {
+		r.failedAt.offset = result.CommittedOffset
 		return fmt.Errorf("%w: segment %s: %v", errCorruptStorage, name, err)
 	}
 	seg := &segment{id: id, path: path, size: int64(len(data))}
 	if result.IncompleteStart != nil {
 		if !last {
+			r.failedAt.offset = *result.IncompleteStart
 			return fmt.Errorf("%w: finalized segment %s ends with an incomplete transaction", errCorruptStorage, name)
 		}
 		if err := r.truncate(path, *result.IncompleteStart); err != nil {
@@ -204,7 +273,9 @@ func (r *recovery) recoverSegment(name string, last bool) error {
 		data = data[:*result.IncompleteStart]
 		seg.size = *result.IncompleteStart
 	}
-	if err := r.indexSegment(seg, data); err != nil {
+	r.committedEnd = logPosition{segment: i}
+	if err := r.indexSegment(seg, data, 0); err != nil {
+		r.failedAt = r.committedEnd
 		return fmt.Errorf("%w: segment %s: %v", errCorruptStorage, name, err)
 	}
 	r.nextSequence = result.CommittedSequence + 1
@@ -228,8 +299,9 @@ func (r *recovery) truncate(path string, size int64) error {
 
 // indexSegment applies the semantic checks the stream validator does not:
 // valid UTF-8, value ranges, Channel references, and Channel type stability.
-// data contains only complete, committed transactions.
-func (r *recovery) indexSegment(seg *segment, data []byte) error {
+// data contains only complete, committed transactions, and starts at byte
+// offset base of the segment. After each commit it advances committedEnd.
+func (r *recovery) indexSegment(seg *segment, data []byte, base int64) error {
 	offset := int64(0)
 	for offset < int64(len(data)) {
 		end := offset
@@ -238,24 +310,32 @@ func (r *recovery) indexSegment(seg *segment, data []byte) error {
 		}
 		raw := data[offset:end]
 		if !utf8.Valid(raw) {
-			return fmt.Errorf("record at byte offset %d is not valid UTF-8", offset)
+			return fmt.Errorf("record at byte offset %d is not valid UTF-8", base+offset)
 		}
-		if err := r.indexRecord(seg, raw, offset); err != nil {
-			return fmt.Errorf("record at byte offset %d: %w", offset, err)
+		kind, err := r.indexRecord(seg, raw, base+offset)
+		if err != nil {
+			return fmt.Errorf("record at byte offset %d: %w", base+offset, err)
 		}
 		offset = end + 1
+		if kind == record.KindCommit {
+			r.committedEnd = logPosition{segment: r.current, offset: base + offset}
+		}
 	}
 	return nil
 }
 
-func (r *recovery) indexRecord(seg *segment, raw []byte, offset int64) error {
+func (r *recovery) indexRecord(seg *segment, raw []byte, offset int64) (string, error) {
 	var header struct {
 		Kind string `json:"kind"`
 	}
 	if err := json.Unmarshal(raw, &header); err != nil {
-		return err
+		return "", err
 	}
-	switch header.Kind {
+	return header.Kind, r.indexKind(header.Kind, seg, raw, offset)
+}
+
+func (r *recovery) indexKind(kind string, seg *segment, raw []byte, offset int64) error {
+	switch kind {
 	case record.KindChannel:
 		var channel record.Channel
 		if err := json.Unmarshal(raw, &channel); err != nil {
