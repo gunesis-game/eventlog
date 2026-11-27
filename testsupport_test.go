@@ -183,10 +183,26 @@ func runtimeDirectory(rt *logRuntime) string {
 	return dir.(string)
 }
 
-// persistedRecords decodes every complete record in the directory's segments,
+// deviceLogDir returns the log folder of the device whose state is in the
+// storage directory dir, or "" before the device has an identity.
+func deviceLogDir(dir string) string {
+	raw, err := os.ReadFile(filepath.Join(dir, "device", "device.json"))
+	if err != nil {
+		return ""
+	}
+	var device struct {
+		DeviceID string `json:"device_id"`
+	}
+	if json.Unmarshal(raw, &device) != nil || device.DeviceID == "" {
+		return ""
+	}
+	return filepath.Join(dir, "eventlog", "devices", device.DeviceID)
+}
+
+// persistedRecords decodes every complete record in the device's segments,
 // in segment order. A trailing line still being written is skipped.
 func persistedRecords(dir string) []map[string]any {
-	paths, _ := filepath.Glob(filepath.Join(dir, "segments", "segment-*.ndjson"))
+	paths, _ := filepath.Glob(filepath.Join(deviceLogDir(dir), "segments", "segment-*.ndjson"))
 	sort.Strings(paths)
 	var records []map[string]any
 	for _, path := range paths {

@@ -44,8 +44,8 @@ func Serve(backend Backend) (*Server, error) {
 	mux.HandleFunc("DELETE /files/{path...}", s.removeFile)
 	mux.HandleFunc("GET /dirs/{path...}", s.listDirectory)
 	mux.HandleFunc("PUT /dirs/{path...}", s.makeDirectory)
-	mux.HandleFunc("POST /locks/{name}", s.lock)
-	mux.HandleFunc("DELETE /locks/{name}", s.unlock)
+	mux.HandleFunc("POST /locks/{name...}", s.lock)
+	mux.HandleFunc("DELETE /locks/{name...}", s.unlock)
 	s.http = &http.Server{Handler: s.authenticate(mux), Protocols: unencryptedHTTP2()}
 	go func() {
 		_ = s.http.Serve(listener)

@@ -3,6 +3,7 @@
 package identity
 
 import (
+	"crypto/rand"
 	"encoding/hex"
 	"fmt"
 )
@@ -10,6 +11,16 @@ import (
 // UUID is the 16-byte identity value. Its canonical text form is lowercase,
 // hyphenated 8-4-4-4-12 hex.
 type UUID [16]byte
+
+// NewRandom returns a random version 4 UUID, for identities generated once
+// and then kept, such as a log's or a device's.
+func NewRandom() UUID {
+	var u UUID
+	_, _ = rand.Read(u[:])
+	u[6] = u[6]&0x0f | 0x40
+	u[8] = u[8]&0x3f | 0x80
+	return u
+}
 
 // IsZero reports whether u is the all-zero UUID, which is never a valid identity.
 func (u UUID) IsZero() bool {

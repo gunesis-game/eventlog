@@ -19,12 +19,9 @@ import (
 	"github.com/gunesis-game/eventlog/internal/record"
 )
 
-const (
-	lockFileName    = "lock"
-	segmentsDirName = "segments"
-)
+const segmentsDirName = "segments"
 
-// segmentPath returns the storage-relative path of a segment.
+// segmentPath returns the path of a segment, relative to its device's log.
 func segmentPath(id uint64) string {
 	return path.Join(segmentsDirName, segmentFileName(id))
 }
@@ -62,9 +59,11 @@ type OccurrenceWrite struct {
 	EventFields   map[string]interface{}
 }
 
-// Store is the open append log of one storage directory. It is safe for
+// Store is this device's open append log in one storage. It is safe for
 // concurrent use.
 type Store struct {
+	// root is the storage root; files is this device's log folder in it.
+	root      *filesystem.Client
 	files     *filesystem.Client
 	server    *filesystem.Server
 	validator *record.Validator
@@ -97,10 +96,10 @@ type Store struct {
 	stopOnce sync.Once
 }
 
-// Open creates or recovers the storage directory and returns a store ready
-// for appends. It starts the store's file-system server over the local
-// operating system. Recovery validates every segment and fails closed on
-// anything ambiguous or corrupt.
+// Open creates or recovers the storage directory, laid out as described in
+// layout.go, and returns this device's store, ready for appends. It starts the
+// store's file-system server over the local operating system. Recovery
+// validates every segment and fails closed on anything ambiguous or corrupt.
 func Open(directory string, options Options) (*Store, error) {
 	backend, err := filesystem.NewOSBackend(directory)
 	if err != nil {
@@ -120,54 +119,88 @@ func Open(directory string, options Options) (*Store, error) {
 	return s, nil
 }
 
-// open recovers the storage behind files. When the storage refuses a write
-// that opening needs (fs.ErrPermission), it opens again read-only: nothing is
-// written, the ownership lock is not taken, recovery repairs nothing, and every
-// append fails with that permission error.
-func open(files *filesystem.Client, options Options) (*Store, error) {
+// open recovers this device's log in the storage behind root, creating the
+// log's and this device's identities on first use. When the storage refuses a
+// write that opening needs (fs.ErrPermission), it opens again read-only:
+// nothing is written, the ownership lock is not taken, recovery repairs
+// nothing, and every append fails with that permission error.
+func open(root *filesystem.Client, options Options) (*Store, error) {
 	validator, err := record.NewValidator()
 	if err != nil {
 		return nil, err
 	}
-	s, err := openWritable(files, options, validator)
+	s, err := openWritable(root, options, validator)
 	if errors.Is(err, fs.ErrPermission) {
-		return openReadOnly(files, options, validator, err)
+		return openReadOnly(root, options, validator, err)
 	}
 	return s, err
 }
 
-func openWritable(files *filesystem.Client, options Options, validator *record.Validator) (*Store, error) {
-	if err := files.MakeDirectory(segmentsDirName); err != nil {
-		return nil, fmt.Errorf("create segments folder: %w", err)
+func openWritable(root *filesystem.Client, options Options, validator *record.Validator) (*Store, error) {
+	if err := root.MakeDirectory(deviceStateDirName); err != nil {
+		return nil, fmt.Errorf("create device state folder: %w", err)
 	}
-	if err := files.Lock(lockFileName); err != nil {
+	if err := root.Lock(lockPath); err != nil {
 		if errors.Is(err, fs.ErrPermission) {
 			return nil, err
 		}
 		return nil, fmt.Errorf("storage is owned by another process: %w", err)
 	}
-	recovered, err := (&recovery{files: files, validator: validator, index: newIndex(), nextSequence: 1}).run()
+	s, err := openLockedLog(root, options, validator)
 	if err != nil {
-		_ = files.Unlock(lockFileName)
+		_ = root.Unlock(lockPath)
 		return nil, err
 	}
-	s := newStore(files, options, validator, recovered)
 	s.locked = true
 	return s, nil
 }
 
-func openReadOnly(files *filesystem.Client, options Options, validator *record.Validator, refusal error) (*Store, error) {
-	recovered, err := (&recovery{files: files, validator: validator, index: newIndex(), nextSequence: 1, readOnly: true}).run()
+func openLockedLog(root *filesystem.Client, options Options, validator *record.Validator) (*Store, error) {
+	if err := root.MakeDirectory(devicesDirName); err != nil {
+		return nil, fmt.Errorf("create log folder: %w", err)
+	}
+	if _, err := ensureLogID(root); err != nil {
+		return nil, err
+	}
+	device, err := ensureDeviceID(root)
 	if err != nil {
 		return nil, err
 	}
-	s := newStore(files, options, validator, recovered)
+	files := root.Sub(deviceLogDir(device))
+	if err := files.MakeDirectory(segmentsDirName); err != nil {
+		return nil, fmt.Errorf("create segments folder: %w", err)
+	}
+	recovered, err := (&recovery{files: files, validator: validator, index: newIndex(), nextSequence: 1}).run()
+	if err != nil {
+		return nil, err
+	}
+	return newStore(root, files, options, validator, recovered), nil
+}
+
+// openReadOnly opens this device's log without writing. Storage where this
+// device has no identity yet holds no log of it: the store is empty.
+func openReadOnly(root *filesystem.Client, options Options, validator *record.Validator, refusal error) (*Store, error) {
+	device, err := readDeviceID(root)
+	var recovered *recovery
+	switch {
+	case errors.Is(err, fs.ErrNotExist):
+		recovered = emptyRecovery()
+	case err != nil:
+		return nil, err
+	default:
+		recovered, err = (&recovery{files: root.Sub(deviceLogDir(device)), validator: validator, index: newIndex(), nextSequence: 1, readOnly: true}).run()
+		if err != nil {
+			return nil, err
+		}
+	}
+	s := newStore(root, root.Sub(deviceLogDir(device)), options, validator, recovered)
 	s.writeRefusal = refusal
 	return s, nil
 }
 
-func newStore(files *filesystem.Client, options Options, validator *record.Validator, recovered *recovery) *Store {
+func newStore(root, files *filesystem.Client, options Options, validator *record.Validator, recovered *recovery) *Store {
 	s := &Store{
+		root:         root,
 		files:        files,
 		validator:    validator,
 		options:      options,
@@ -514,7 +547,7 @@ func (s *Store) Close() error {
 		}
 		s.retryPendingDeletesLocked()
 		if s.locked {
-			err = s.files.Unlock(lockFileName)
+			err = s.root.Unlock(lockPath)
 		}
 		s.files.Close()
 		if s.server != nil {

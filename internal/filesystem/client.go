@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"net/http"
 	"net/url"
+	"path"
 	"strconv"
 	"strings"
 )
@@ -19,6 +20,8 @@ type Client struct {
 	base  string
 	token string
 	http  *http.Client
+	// prefix is the folder every path is relative to; empty for the root.
+	prefix string
 }
 
 // NewClient returns a client for the server at base, presenting token.
@@ -29,11 +32,19 @@ func NewClient(base, token string) *Client {
 	return &Client{base: base, token: token, http: &http.Client{Transport: transport}}
 }
 
+// Sub returns a client for the folder dir, relative to c's folder, sharing
+// c's connection. Paths given to it, including lock names, are relative to
+// dir.
+func (c *Client) Sub(dir string) *Client {
+	return &Client{base: c.base, token: c.token, http: c.http, prefix: path.Join(c.prefix, dir)}
+}
+
 // do sends one request and returns the response body of a 2xx reply.
 func (c *Client) do(method, route, p string, query url.Values, header http.Header, body []byte) ([]byte, error) {
 	if _, err := cleanPath(p); err != nil {
 		return nil, err
 	}
+	p = path.Join(c.prefix, p)
 	target := c.base + route + (&url.URL{Path: p}).EscapedPath()
 	if len(query) > 0 {
 		target += "?" + query.Encode()
@@ -128,7 +139,10 @@ func (c *Client) Replace(p string, data []byte) error {
 }
 
 func (c *Client) Rename(from, to string) error {
-	_, err := c.do(http.MethodPost, "/files/", from, url.Values{"op": {"rename"}, "to": {to}}, nil, nil)
+	if _, err := cleanPath(to); err != nil {
+		return err
+	}
+	_, err := c.do(http.MethodPost, "/files/", from, url.Values{"op": {"rename"}, "to": {path.Join(c.prefix, to)}}, nil, nil)
 	return err
 }
 
@@ -159,7 +173,8 @@ func (c *Client) Unlock(name string) error {
 	return err
 }
 
-// Close releases idle connections.
+// Close releases idle connections, including those of clients sharing them
+// through Sub.
 func (c *Client) Close() {
 	c.http.CloseIdleConnections()
 }

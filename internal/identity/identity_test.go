@@ -106,3 +106,21 @@ func TestCanonicalInputLimits(t *testing.T) {
 		}
 	}
 }
+
+// NewRandom returns distinct version 4, RFC 4122 variant UUIDs.
+func TestNewRandom(t *testing.T) {
+	seen := make(map[UUID]bool)
+	for i := 0; i < 1000; i++ {
+		u := NewRandom()
+		if u[6]>>4 != 4 || u[8]>>6 != 2 {
+			t.Fatalf("%s is not a version 4, RFC 4122 variant UUID", u)
+		}
+		if parsed, err := ParseUUID(u.String()); err != nil || parsed != u {
+			t.Fatalf("%s does not round-trip: %v", u, err)
+		}
+		if seen[u] {
+			t.Fatalf("%s repeated", u)
+		}
+		seen[u] = true
+	}
+}

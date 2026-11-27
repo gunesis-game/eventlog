@@ -446,17 +446,27 @@ public Flush or Close operation and no final library-managed sync at process exi
 are not promised to survive power loss; process termination recovery applies to the committed records
 that remain present in the authoritative append log.
 
-Storage layout:
+Storage layout of a `Local{Directory}` (D-060, D-062): the device state folder belongs to this device and
+is never shared; the `eventlog` folder is the log, in which each device writes only its own folder.
 
 ```text
-eventlog/
-├── manifest.json
-├── index.json
-└── segments/
-    ├── segment-000001.ndjson
-    ├── segment-000002.ndjson
-    └── ...
+<Directory>/
+├── device/
+│   ├── device.json          this device's identity, generated on first start
+│   └── lock                 this device's one-process lock
+└── eventlog/
+    ├── log.json             the log's permanent identity, generated once
+    └── devices/
+        └── {deviceID}/
+            ├── manifest.json
+            ├── index.json
+            └── segments/
+                ├── segment-000001.ndjson
+                └── ...
 ```
+
+Unreadable or invalid `device.json` or `log.json` fails closed; neither is ever regenerated over an
+existing file. Losing the device state makes the machine a new device with a new folder under `devices`.
 
 Segment IDs are monotonic and never reused (including compaction), distinct from global record sequences.
 Finalized segments are immutable; only the active segment is writable. Rotate only at transaction
@@ -588,7 +598,7 @@ D-059 and applies D-061 to D-071. The current implementation is single-device an
   ownership, not by ID: an `appProperties` tag marking it as eventlog's root, owned by the configured owner
   account, with the oldest winning if two were created at once (D-065). Found IDs are cached in the device
   state directory, so later starts cost one lookup instead of a search. Locally the folder is
-  `<storage directory>/eventlog`.
+  `<Directory>/eventlog`, beside the device state folder `<Directory>/device`.
 - The folder holds `log.json` with a permanent log identity generated once, so a log keeps its identity
   across backends (D-062).
 - With Google Drive, the Drive backend keeps no local files other than the device state directory. Every

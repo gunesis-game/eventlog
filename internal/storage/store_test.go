@@ -200,7 +200,7 @@ func TestRecoveryRebuildsDerivedIndex(t *testing.T) {
 	appendTestOccurrence(t, s, 1, 10, "a")
 	appendTestOccurrence(t, s, 1, 10, "b")
 	_ = s.Close()
-	indexPath := filepath.Join(dir, indexFileName)
+	indexPath := diskPath(dir, indexFileName)
 	good, err := os.ReadFile(indexPath)
 	if err != nil {
 		t.Fatal(err)
@@ -241,7 +241,7 @@ func TestRecoveryRebuildsDerivedIndex(t *testing.T) {
 func TestOpenInitializesMissingStorage(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "nested", "log")
 	s := openTestStore(t, dir, fastStoreOptions())
-	for _, path := range []string{filepath.Join(dir, manifestFileName), diskPath(dir, segmentPath(1))} {
+	for _, path := range []string{diskPath(dir, manifestFileName), diskPath(dir, segmentPath(1))} {
 		if _, err := os.Stat(path); err != nil {
 			t.Fatalf("expected %s: %v", path, err)
 		}
@@ -294,7 +294,7 @@ func TestMissingManifestRecovery(t *testing.T) {
 	}
 	before := storeSummary(s)
 	_ = s.Close()
-	_ = os.Remove(filepath.Join(dir, manifestFileName))
+	_ = os.Remove(diskPath(dir, manifestFileName))
 	reopened := openTestStore(t, dir, smallSegmentOptions())
 	if storeSummary(reopened) != before {
 		t.Fatal("manifest rebuild changed recovered history")
@@ -306,7 +306,7 @@ func TestMissingManifestRecovery(t *testing.T) {
 	if err := os.WriteFile(diskPath(dir, segmentPath(99)), first, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	_ = os.Remove(filepath.Join(dir, manifestFileName))
+	_ = os.Remove(diskPath(dir, manifestFileName))
 	if store, err := Open(dir, smallSegmentOptions()); err == nil {
 		_ = store.Close()
 		t.Fatal("ambiguous segments without a manifest must fail closed")
@@ -341,7 +341,7 @@ func TestCompactionPreservesHistory(t *testing.T) {
 	}
 	before := storeSummary(s)
 	_ = s.Close()
-	ids, _ := filepath.Glob(filepath.Join(dir, segmentsDirName, "segment-*.ndjson"))
+	ids, _ := filepath.Glob(diskPath(dir, segmentsDirName+"/segment-*.ndjson"))
 	m := readManifestFile(t, dir)
 	if len(ids) != len(m.Segments) {
 		t.Fatalf("old generation files were not removed: files=%v manifest=%v", ids, m.Segments)
@@ -386,7 +386,7 @@ func TestRecoveryCleansOrphans(t *testing.T) {
 	s := openTestStore(t, dir, fastStoreOptions())
 	appendTestOccurrence(t, s, 1, 10, "a")
 	_ = s.Close()
-	orphans := []string{diskPath(dir, segmentPath(50)), diskPath(dir, segmentPath(51)) + temporaryFileSuffix, filepath.Join(dir, manifestFileName+temporaryFileSuffix)}
+	orphans := []string{diskPath(dir, segmentPath(50)), diskPath(dir, segmentPath(51)) + temporaryFileSuffix, diskPath(dir, manifestFileName+temporaryFileSuffix)}
 	for _, path := range orphans {
 		_ = os.WriteFile(path, []byte("x"), 0o600)
 	}
@@ -477,14 +477,29 @@ func persistedChannelFields(s *Store, channelID identity.UUID) (string, bool) {
 	return channel.fields, ok
 }
 
-// diskPath returns the operating-system path of a storage-relative path.
+// diskPath returns the operating-system path of a path relative to the log
+// folder of the device whose state is in dir.
 func diskPath(dir, relative string) string {
-	return filepath.Join(dir, filepath.FromSlash(relative))
+	return filepath.Join(deviceLogPath(dir), filepath.FromSlash(relative))
+}
+
+// deviceLogPath returns the operating-system path of the log folder of the
+// device whose state is in dir, or "" when it has none.
+func deviceLogPath(dir string) string {
+	raw, err := os.ReadFile(filepath.Join(dir, filepath.FromSlash(deviceFileName)))
+	if err != nil {
+		return ""
+	}
+	var device deviceIdentity
+	if json.Unmarshal(raw, &device) != nil {
+		return ""
+	}
+	return filepath.Join(dir, filepath.FromSlash(devicesDirName), device.DeviceID)
 }
 
 func readManifestFile(t *testing.T, dir string) manifest {
 	t.Helper()
-	raw, err := os.ReadFile(filepath.Join(dir, manifestFileName))
+	raw, err := os.ReadFile(diskPath(dir, manifestFileName))
 	if err != nil {
 		t.Fatal(err)
 	}

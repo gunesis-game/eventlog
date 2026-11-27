@@ -83,7 +83,7 @@ func (r *recovery) resolveManifest() (manifest, error) {
 		if !missing {
 			return manifest{}, fmt.Errorf("%w: manifest is unusable and no segments exist: %v", errCorruptStorage, err)
 		}
-		fresh := manifest{FormatVersion: manifestFormatVersion, Generation: 1, Segments: []string{segmentFileName(1)}, NextSegmentID: 2}
+		fresh := freshManifest()
 		if r.readOnly {
 			r.empty = true
 			return fresh, nil
@@ -104,6 +104,17 @@ func (r *recovery) resolveManifest() (manifest, error) {
 		return rebuilt, nil
 	}
 	return rebuilt, writeManifest(r.files, rebuilt)
+}
+
+// freshManifest is the first manifest of a new log: one empty segment.
+func freshManifest() manifest {
+	return manifest{FormatVersion: manifestFormatVersion, Generation: 1, Segments: []string{segmentFileName(1)}, NextSegmentID: 2}
+}
+
+// emptyRecovery is the recovered state of a log that does not exist and may
+// not be created.
+func emptyRecovery() *recovery {
+	return &recovery{index: newIndex(), nextSequence: 1, readOnly: true, empty: true, manifest: freshManifest(), active: &segment{id: 1, path: segmentPath(1)}}
 }
 
 func (r *recovery) listSegmentIDs() ([]uint64, error) {

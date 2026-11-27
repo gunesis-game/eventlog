@@ -271,3 +271,46 @@ func TestSingleHTTP2Connection(t *testing.T) {
 		t.Fatalf("protocols = %v, want only HTTP/2.0", protocols)
 	}
 }
+
+// A Sub client works inside its folder: paths and lock names are relative to
+// it, and paths cannot leave it.
+func TestSubClient(t *testing.T) {
+	client, dir := openClient(t)
+	sub := client.Sub("a/b")
+	if err := sub.MakeDirectory("c"); err != nil {
+		t.Fatal(err)
+	}
+	if err := sub.Replace("c/file", []byte("data")); err != nil {
+		t.Fatal(err)
+	}
+	if data, err := client.Read("a/b/c/file", 0, -1); err != nil || string(data) != "data" {
+		t.Fatalf("read through the root = %q, %v", data, err)
+	}
+	if err := sub.Rename("c/file", "moved"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "a", "b", "moved")); err != nil {
+		t.Fatalf("rename target: %v", err)
+	}
+	if err := sub.Lock("lock"); err != nil {
+		t.Fatal(err)
+	}
+	if err := client.Lock("a/b/lock"); !errors.Is(err, ErrLocked) {
+		t.Fatalf("lock through the root = %v, want ErrLocked", err)
+	}
+	if err := sub.Unlock("lock"); err != nil {
+		t.Fatal(err)
+	}
+	for _, escape := range []string{"../x", "/x", "c/../../x"} {
+		if err := sub.Replace(escape, nil); err == nil {
+			t.Fatalf("path %q left the folder", escape)
+		}
+		if err := sub.Rename("moved", escape); err == nil {
+			t.Fatalf("rename target %q left the folder", escape)
+		}
+	}
+	entries, err := sub.Sub("c").List("")
+	if err != nil || len(entries) != 0 {
+		t.Fatalf("nested Sub listing = %v, %v", entries, err)
+	}
+}

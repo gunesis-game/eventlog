@@ -128,8 +128,10 @@ func scenarioConfig(dir string) error {
 	if _, _, err := PrepareLog[*OrderPlaced, *Orders](context.Background(), placedFactory(testUUID(2)), ordersFactory(testUUID(1))); err != nil {
 		return fmt.Errorf("PrepareLog: %v", err)
 	}
-	if _, err := os.Stat(filepath.Join(dir, "manifest.json")); err != nil {
-		return fmt.Errorf("PrepareLog must create storage: %v", err)
+	for _, path := range []string{filepath.Join(dir, "eventlog", "log.json"), filepath.Join(deviceLogDir(dir), "manifest.json")} {
+		if _, err := os.Stat(path); err != nil {
+			return fmt.Errorf("PrepareLog must create storage: %v", err)
+		}
 	}
 	fmt.Println("RESULT ok")
 	return nil
@@ -211,7 +213,7 @@ func TestProcessTerminationAndRecovery(t *testing.T) {
 		t.Fatalf("second lifetime committed %s", got)
 	}
 
-	segments, _ := filepath.Glob(filepath.Join(dir, "segments", "segment-*.ndjson"))
+	segments, _ := filepath.Glob(filepath.Join(deviceLogDir(dir), "segments", "segment-*.ndjson"))
 	if len(segments) == 0 {
 		t.Fatal("no segments")
 	}
