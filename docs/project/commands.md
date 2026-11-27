@@ -12,6 +12,7 @@
 | Command | Purpose |
 |---|---|
 | `go test -count=1 ./...` | Full test suite: unit, integration, recovery, and subprocess process-termination tests |
+| `bash scripts/go-test-verbose.sh <label> [-race]` | The full suite in verbose mode, as CI runs it; reports passed, failed, and skipped counts with the names of skipped and failed tests as a GitHub Actions notice |
 | `go test -race -count=1 ./...` | Full suite under the race detector (requires cgo; CI runs it on Linux) |
 | `go vet ./...` | Static analysis |
 | `go build ./...` | Build all packages |
@@ -26,6 +27,6 @@ On 2026-11-27, on windows/amd64 with Go 1.27.4 (local machine), against the work
 - `GOOS=linux go vet ./...` and Linux test-binary builds of every package passed (cross-compiled; not executed on Linux locally).
 - `go doc -all .` output is unchanged, so the public API is unchanged.
 
-CI evidence: commit `3581f9cf3804741b14da3a8bf8b29f406d7dc5d7` (increment 12.1: refused writes, D-068 and D-072) passed Go verification run 46060721099 on `ubuntu-latest` (gofmt, test, race, build, vet) and `windows-latest` (test, build, vet; gofmt and race skipped by design), and Steering state validation run 46060720992. The commands run in [Go verification](../../.github/workflows/go.yml) on pushes to `main` and on manual dispatch, as Linux and Windows matrix jobs. Do not claim CI results until the run for the exact commit SHA has been inspected.
+CI evidence: commit `3581f9cf3804741b14da3a8bf8b29f406d7dc5d7` (increment 12.1: refused writes, D-068 and D-072) passed Go verification run 46060721099 on `ubuntu-latest` (gofmt, test, race, build, vet) and `windows-latest` (test, build, vet; gofmt and race skipped by design), and Steering state validation run 46060720992. The commands run in [Go verification](../../.github/workflows/go.yml) on pushes to `main` and on manual dispatch, as Linux and Windows matrix jobs. CI runs the tests verbosely through `scripts/go-test-verbose.sh`; each test step's counts and skipped tests appear as a notice on the run's summary page and as check-run annotations, readable without the job log. Do not claim CI results until the run for the exact commit SHA has been inspected.
 
 Update this document when commands, prerequisites, suite locations, or CI triggers change. Do not claim tests or checks that were not actually run.
