@@ -31,6 +31,8 @@ Multi-device scope (2026-11-27): the user clarified that single-process ownershi
 
 Google Drive and notifications (2026-11-27), recorded locally and not yet published: D-061 (OAuth user sign-in; account in configuration; device state directory), D-062 (fixed `eventlog` folder with permanent log identity), D-063 (Firebase Realtime Database board over SSE, authenticated through Firebase Authentication with the Google ID token, in the file-system layer), D-064 (per-Channel version vectors; v1 format changed in place). D-060 remains Proposed with open points: Firebase project details source, security rules installation, and free-plan bounds. Research: docs/research/cross-device-notifications.md.
 
+Drive access (2026-11-27), recorded locally and not yet published: a feasibility check showed `drive.file` cannot read other accounts' files in a shared folder, matching the user's earlier pulsyflux-queue project. D-065: separate accounts with the restricted `drive` scope, Testing status, test users, and weekly re-approval; owner account in configuration; folder found by tag and ownership. Research: docs/research/drive-access-model.md.
+
 User rules recorded for this work: no new public package functions (new behaviour goes on the Event/Channel interfaces); refactors remove everything made redundant, with no future-proofing.
 
 ## Current repository checkpoint
