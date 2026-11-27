@@ -47,7 +47,7 @@ Tests live beside the code they test (D-053).
 
 | Acceptance layer | Test files |
 |---|---|
-| Disk and storage (D-*) | `internal/filesystem/contract_test.go` (client, server, and OS backend: create, append, read, truncate, sync, replace, rename, remove, list, lock, reopen, missing folder, path and token rejection), `internal/storage/store_test.go` (lock exclusivity, missing directory, cleanup) |
+| Disk and storage (D-*) | `internal/filesystem/contract_test.go` (client, server, and OS backend: create, append, read, truncate, sync, replace, rename, remove, list, lock, reopen, missing folder, path and token rejection, HTTP/2-only with all concurrent requests on one connection), `internal/storage/store_test.go` (lock exclusivity, missing directory, cleanup) |
 | Persistence format and transactions (F-*, T-*) | `internal/record/*_test.go`, `internal/storage/store_test.go` |
 | Metadata and recovery (M-*) | `internal/storage/store_test.go` (index rebuild, manifest recovery, corruption, compaction) |
 | Core Event/Channel behavior (L-*) | `internal/identity/*_test.go`, `internal/fieldschema/*_test.go`, `internal/storage/store_test.go`, `runtime_test.go`, `declaredschema_test.go` |

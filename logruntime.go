@@ -19,6 +19,7 @@ var errRuntimeStopped = errors.New("eventlog runtime stopped")
 // implementation/test policy, not public configuration.
 type runtimePolicy struct {
 	notificationBuffer int
+	readBatch          int
 	transactionBuffer  int
 	batchLimit         int
 	deliveryAttempts   int
@@ -30,6 +31,7 @@ type runtimePolicy struct {
 func defaultRuntimePolicy() runtimePolicy {
 	return runtimePolicy{
 		notificationBuffer: 64,
+		readBatch:          64,
 		transactionBuffer:  64,
 		batchLimit:         64,
 		deliveryAttempts:   5,
@@ -58,7 +60,7 @@ type logRuntime struct {
 type occurrenceStore interface {
 	AppendTransaction(channel storage.ChannelWrite, occurrences []storage.OccurrenceWrite) error
 	ChannelOccurrence(channelID identity.UUID, position int) (storage.Occurrence, bool, <-chan struct{})
-	ReadOccurrenceFrame(channelID identity.UUID, position int) ([]byte, error)
+	ReadOccurrences(channelID identity.UUID, position, limit int) ([]storage.Occurrence, [][]byte, error)
 	ChannelHistoryTypes(channelID identity.UUID) []fieldschema.TypeKey
 	Close() error
 }

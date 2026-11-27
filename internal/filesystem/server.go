@@ -16,7 +16,9 @@ import (
 )
 
 // Server exposes a Backend over HTTP on 127.0.0.1, at a random port, to
-// clients presenting its random bearer token.
+// clients presenting its random bearer token. It speaks only HTTP/2 over
+// cleartext TCP with prior knowledge (RFC 9113 section 3.3), so one
+// connection carries every concurrent request (D-055).
 type Server struct {
 	backend  Backend
 	listener net.Listener
@@ -44,7 +46,7 @@ func Serve(backend Backend) (*Server, error) {
 	mux.HandleFunc("PUT /dirs/{path...}", s.makeDirectory)
 	mux.HandleFunc("POST /locks/{name}", s.lock)
 	mux.HandleFunc("DELETE /locks/{name}", s.unlock)
-	s.http = &http.Server{Handler: s.authenticate(mux)}
+	s.http = &http.Server{Handler: s.authenticate(mux), Protocols: unencryptedHTTP2()}
 	go func() {
 		_ = s.http.Serve(listener)
 	}()

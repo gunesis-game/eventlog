@@ -71,7 +71,7 @@ This is the durable register of approved project decisions. It records outcomes 
 
 | D-054 | `internal/storage` performs file operations only through `internal/filesystem`: an HTTP client, a localhost token-authenticated HTTP server started with the store, and one `Backend` interface; the OS backend comes first; the HTTP contract enforces exclusive create, atomic replace and rename, ordered append, truncate, sync, offset reads, and ownership locking for every backend | Recorded | docs/project/architecture.md | 3ef0a0b044eb0585c403cd9052a67bbadb744bcd |
 
-| D-055 | The file-system client and server speak only HTTP/2 over cleartext TCP with prior knowledge (RFC 9113 section 3.3) via the standard library's `http.Protocols`, with the client limited to one connection; no deprecated mechanism (`Upgrade: h2c`, `x/net/http2/h2c`) is used. Research: docs/research/os-connection-limits.md | Recorded | docs/project/architecture.md | PENDING |
+| D-055 | The file-system client and server speak only HTTP/2 over cleartext TCP with prior knowledge (RFC 9113 section 3.3) via the standard library's `http.Protocols`, with the client limited to one connection; no deprecated mechanism (`Upgrade: h2c`, `x/net/http2/h2c`) is used. Research: docs/research/os-connection-limits.md | Recorded | docs/project/architecture.md | 7a9eb8542a231440e3f8f2c48c985724c5aec000 |
 
 ## Decision maintenance
 

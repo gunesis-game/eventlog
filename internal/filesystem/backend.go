@@ -3,7 +3,10 @@
 // enforces the file contract and delegates to a Backend.
 package filesystem
 
-import "errors"
+import (
+	"errors"
+	"net/http"
+)
 
 // ErrLocked reports that an ownership lock is already held.
 var ErrLocked = errors.New("lock is held")
@@ -36,4 +39,12 @@ type Backend interface {
 	Lock(name string) error
 	Unlock(name string) error
 	Close() error
+}
+
+// unencryptedHTTP2 selects HTTP/2 over cleartext TCP with prior knowledge and
+// nothing else: no HTTP/1.1 and no deprecated Upgrade: h2c handshake.
+func unencryptedHTTP2() *http.Protocols {
+	protocols := new(http.Protocols)
+	protocols.SetUnencryptedHTTP2(true)
+	return protocols
 }

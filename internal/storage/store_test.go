@@ -92,7 +92,7 @@ func TestSegmentStoreAppendAndRecover(t *testing.T) {
 	if after := storeSummary(reopened); after != before {
 		t.Fatalf("recovered state differs:\n%s\nvs\n%s", after, before)
 	}
-	frame, err := reopened.ReadOccurrenceFrame(identity.UUID(testUUID(1)), 1)
+	frame, err := readOneOccurrence(reopened, identity.UUID(testUUID(1)), 1)
 	if err != nil || !bytes.Contains(frame, []byte(`"value":"b"`)) {
 		t.Fatalf("read occurrence = %s, %v", frame, err)
 	}
@@ -333,7 +333,7 @@ func TestCompactionPreservesHistory(t *testing.T) {
 		t.Fatalf("expected compaction: generation=%d finalized=%d", generation, finalized)
 	}
 	for i := 0; i < 7; i++ {
-		frame, err := s.ReadOccurrenceFrame(identity.UUID(testUUID(1)), i)
+		frame, err := readOneOccurrence(s, identity.UUID(testUUID(1)), i)
 		if err != nil || !bytes.Contains(frame, []byte(fmt.Sprintf(`"value":"%d"`, i))) {
 			t.Fatalf("occurrence %d after compaction: %s, %v", i, frame, err)
 		}
@@ -493,4 +493,52 @@ func readManifestFile(t *testing.T, dir string) manifest {
 		t.Fatal(err)
 	}
 	return m
+}
+
+func readOneOccurrence(s *Store, channelID identity.UUID, position int) ([]byte, error) {
+	_, frames, err := s.ReadOccurrences(channelID, position, 1)
+	if err != nil {
+		return nil, err
+	}
+	return frames[0], nil
+}
+
+// Batched reads return consecutive occurrences in order, within one segment.
+func TestReadOccurrencesBatches(t *testing.T) {
+	dir := t.TempDir()
+	s := openTestStore(t, dir, fastStoreOptions())
+	for i := 0; i < 10; i++ {
+		appendTestOccurrence(t, s, 1, 10, fmt.Sprint(i))
+		appendTestOccurrence(t, s, 2, 11, "other")
+	}
+	occurrences, frames, err := s.ReadOccurrences(identity.UUID(testUUID(1)), 3, 4)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(frames) != 4 || len(occurrences) != 4 {
+		t.Fatalf("batch size = %d", len(frames))
+	}
+	for i, frame := range frames {
+		if !bytes.Contains(frame, []byte(fmt.Sprintf(`"value":"%d"`, 3+i))) || bytes.HasSuffix(frame, []byte("\n")) {
+			t.Fatalf("frame %d = %s", i, frame)
+		}
+	}
+	if _, frames, _ := s.ReadOccurrences(identity.UUID(testUUID(1)), 8, 64); len(frames) != 2 {
+		t.Fatalf("tail batch = %d frames, want 2", len(frames))
+	}
+	if _, _, err := s.ReadOccurrences(identity.UUID(testUUID(1)), 10, 1); err == nil {
+		t.Fatal("reading past the last occurrence must fail")
+	}
+}
+
+// A batch never crosses a segment boundary.
+func TestReadOccurrencesStaysInOneSegment(t *testing.T) {
+	dir := t.TempDir()
+	s := openTestStore(t, dir, smallSegmentOptions())
+	for i := 0; i < 3; i++ {
+		appendTestOccurrence(t, s, 1, 10, fmt.Sprint(i))
+	}
+	if _, frames, err := s.ReadOccurrences(identity.UUID(testUUID(1)), 0, 64); err != nil || len(frames) != 1 {
+		t.Fatalf("batch across segments = %d frames, %v", len(frames), err)
+	}
 }

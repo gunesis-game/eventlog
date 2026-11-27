@@ -30,38 +30,46 @@ func (r *channelReader) run() {
 			return
 		}
 	}
-	for position := 0; ; position++ {
-		entry, err := r.awaitOccurrence(position)
-		if err != nil {
+	for position := 0; ; {
+		if err := r.awaitOccurrence(position); err != nil {
 			return
 		}
-		event, err := r.reconstruct(position, entry)
-		if errors.Is(err, errRuntimeStopped) {
-			return
-		}
+		entries, frames, err := r.channel.rt.store.ReadOccurrences(r.channel.id, position, r.channel.rt.policy.readBatch)
 		if err != nil {
 			r.channel.terminate(r.channel.newError(ReaderFailed, err, nil))
 			return
 		}
-		if err := r.deliver(event); err != nil {
-			if !errors.Is(err, errRuntimeStopped) {
-				r.channel.terminate(r.channel.newError(DeliveryFailed, err, []Event{event}))
+		for i, entry := range entries {
+			event, err := r.reconstruct(frames[i], entry)
+			if errors.Is(err, errRuntimeStopped) {
+				return
 			}
-			return
+			if err != nil {
+				r.channel.terminate(r.channel.newError(ReaderFailed, err, nil))
+				return
+			}
+			if err := r.deliver(event); err != nil {
+				if !errors.Is(err, errRuntimeStopped) {
+					r.channel.terminate(r.channel.newError(DeliveryFailed, err, []Event{event}))
+				}
+				return
+			}
+			position++
 		}
 	}
 }
 
-func (r *channelReader) awaitOccurrence(position int) (storage.Occurrence, error) {
+// awaitOccurrence waits until the position-th occurrence is committed.
+func (r *channelReader) awaitOccurrence(position int) error {
 	for {
-		entry, ok, wake := r.channel.rt.store.ChannelOccurrence(r.channel.id, position)
+		_, ok, wake := r.channel.rt.store.ChannelOccurrence(r.channel.id, position)
 		if ok {
-			return entry, nil
+			return nil
 		}
 		select {
 		case <-wake:
 		case <-r.channel.rt.closed:
-			return storage.Occurrence{}, errRuntimeStopped
+			return errRuntimeStopped
 		}
 	}
 }
@@ -83,11 +91,7 @@ func (r *channelReader) awaitDecoder(key fieldschema.TypeKey) (*fieldschema.Sche
 
 // reconstruct decodes a committed occurrence into a fresh concrete Event
 // pointer and verifies its persisted identity.
-func (r *channelReader) reconstruct(position int, entry storage.Occurrence) (Event, error) {
-	frame, err := r.channel.rt.store.ReadOccurrenceFrame(r.channel.id, position)
-	if err != nil {
-		return nil, err
-	}
+func (r *channelReader) reconstruct(frame []byte, entry storage.Occurrence) (Event, error) {
 	// The frame was schema-validated at recovery or before it was written;
 	// field values and identity are re-checked below during reconstruction.
 	var occurrence record.Event

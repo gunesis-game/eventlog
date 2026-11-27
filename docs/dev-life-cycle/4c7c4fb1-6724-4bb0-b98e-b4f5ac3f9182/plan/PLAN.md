@@ -39,6 +39,7 @@ Implement eventlog according to approved requirements, public API, architecture,
 9. [~] Benchmarks: smoke set (B-F01, B-L01, B-L05, B-T03/B-M06, replay). The full catalogue, profile protocol, and baselines remain.
 
 11. [x] File-system boundary, Phase 1 (D-054): `internal/filesystem` with the `Backend` interface, OS backend, localhost token-authenticated HTTP server, and client; `internal/storage` makes no OS calls; contract tests cover the HTTP contract; public API unchanged.
+13. [x] Transport (D-055): HTTP/2 over cleartext TCP with prior knowledge from the standard library, one client connection, no deprecated mechanism; research in docs/research/os-connection-limits.md. Readers fetch occurrences in batched ranged reads.
 12. [ ] File-system boundary, Phase 2: Google Drive backend, `WithStorageEndpoint` with a `GoogleDrive{FolderID, CredentialsFile}` descriptor, service-account authentication, 1 MiB segments for Drive, best-effort single-process ownership, and the requirement changes this brings. Approved in principle on 2026-11-27; callback handling awaits the user's confirmation; decisions to be recorded before implementation.
 
 ## Known gaps and follow-ups
@@ -47,7 +48,7 @@ Implement eventlog according to approved requirements, public API, architecture,
 - Coding-standard review of the final implementation is not yet done.
 
 ## Next action
-Publish Phase 1 of the file-system boundary and check exact-SHA CI. Then settle the open Phase 2 questions (callbacks), record the Phase 2 decisions, and implement the Google Drive backend. The full benchmark catalogue, the coding-standard review, and the Implement exit gate follow.
+Publish Phase 1 of the file-system boundary and the HTTP/2 transport, and check exact-SHA CI. Then settle the open Phase 2 questions (callbacks), record the Phase 2 decisions, and implement the Google Drive backend. The full benchmark catalogue, the coding-standard review, and the Implement exit gate follow.
 
 ## Phase exit
 Implement exit requires the mandatory full verification suite, applicable performance checks, coding-standard review, and evidence tied to the exact final implementation SHA. Do not transition phases until the documented gate is satisfied and user authorization is obtained where required.

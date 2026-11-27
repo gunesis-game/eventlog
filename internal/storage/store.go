@@ -359,29 +359,48 @@ func (s *Store) ChannelOccurrence(channelID identity.UUID, position int) (Occurr
 	return *occurrence, true, nil
 }
 
-// ReadOccurrenceFrame reads the record bytes, without the newline, of the
-// position-th occurrence of a Channel, pinning its segment so compaction
-// cannot delete it mid-read.
-func (s *Store) ReadOccurrenceFrame(channelID identity.UUID, position int) ([]byte, error) {
+// maxReadSpan bounds the bytes one batched occurrence read fetches.
+const maxReadSpan = 1 << 20
+
+// ReadOccurrences returns up to limit consecutive committed occurrences of a
+// Channel starting at position, with their record bytes (without newlines).
+// The batch stays within one segment and maxReadSpan bytes, so it is fetched
+// with a single ranged read. The segment is pinned so compaction cannot
+// delete it mid-read. At least one occurrence must exist at position.
+func (s *Store) ReadOccurrences(channelID identity.UUID, position, limit int) ([]Occurrence, [][]byte, error) {
 	s.mu.Lock()
-	occurrence, ok := s.index.occurrence(channelID, position)
+	first, ok := s.index.occurrence(channelID, position)
 	if !ok {
 		s.mu.Unlock()
-		return nil, fmt.Errorf("channel %s has no occurrence %d", channelID, position)
+		return nil, nil, fmt.Errorf("channel %s has no occurrence %d", channelID, position)
 	}
-	located := *occurrence
-	located.segment.refs++
+	batch := []Occurrence{*first}
+	for len(batch) < limit {
+		next, ok := s.index.occurrence(channelID, position+len(batch))
+		if !ok || next.segment != first.segment || next.offset+next.length-first.offset > maxReadSpan {
+			break
+		}
+		batch = append(batch, *next)
+	}
+	seg := first.segment
+	seg.refs++
 	s.mu.Unlock()
-	defer s.unpin(located.segment)
+	defer s.unpin(seg)
 
-	frame, err := s.files.Read(located.segment.path, located.offset, located.length)
+	last := batch[len(batch)-1]
+	span, err := s.files.Read(seg.path, first.offset, last.offset+last.length-first.offset)
 	if err != nil {
-		return nil, fmt.Errorf("read occurrence %d of %s: %w", located.Sequence, located.segment.path, err)
+		return nil, nil, fmt.Errorf("read occurrences %d-%d of %s: %w", first.Sequence, last.Sequence, seg.path, err)
 	}
-	if len(frame) == 0 || frame[len(frame)-1] != '\n' {
-		return nil, fmt.Errorf("occurrence %d is not a complete frame", located.Sequence)
+	frames := make([][]byte, len(batch))
+	for i, occurrence := range batch {
+		frame := span[occurrence.offset-first.offset : occurrence.offset-first.offset+occurrence.length]
+		if len(frame) == 0 || frame[len(frame)-1] != '\n' {
+			return nil, nil, fmt.Errorf("occurrence %d is not a complete frame", occurrence.Sequence)
+		}
+		frames[i] = frame[:len(frame)-1]
 	}
-	return frame[:len(frame)-1], nil
+	return batch, frames, nil
 }
 
 func (s *Store) unpin(seg *segment) {

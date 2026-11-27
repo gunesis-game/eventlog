@@ -1,12 +1,15 @@
 package filesystem
 
 import (
+	"context"
 	"errors"
 	"io/fs"
 	"net/http"
+	"net/http/httptrace"
 	"os"
 	"path/filepath"
 	"sort"
+	"sync"
 	"testing"
 )
 
@@ -160,7 +163,7 @@ func TestServerRejectsBadRequests(t *testing.T) {
 	}
 	request, _ := http.NewRequest(http.MethodPost, c.base+"/files/x?op=explode", nil)
 	request.Header.Set("Authorization", "Bearer "+c.token)
-	response, err := http.DefaultClient.Do(request)
+	response, err := c.http.Do(request)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -217,5 +220,54 @@ func TestReopenAndMissingFolder(t *testing.T) {
 	}
 	if err := c.Truncate("data", -1); err == nil {
 		t.Fatal("negative truncate must fail")
+	}
+}
+
+// D-055: the server speaks only HTTP/2 with prior knowledge, and the client
+// carries every concurrent request on one connection.
+func TestSingleHTTP2Connection(t *testing.T) {
+	c, _ := openClient(t)
+	if err := c.Replace("f", []byte("data")); err != nil {
+		t.Fatal(err)
+	}
+	request, _ := http.NewRequest(http.MethodGet, c.base+"/files/f", nil)
+	request.Header.Set("Authorization", "Bearer "+c.token)
+	if response, err := http.DefaultClient.Do(request); err == nil {
+		response.Body.Close()
+		t.Fatalf("an HTTP/1.1 request must be refused, got %s", response.Status)
+	}
+
+	var mu sync.Mutex
+	connections := make(map[string]bool)
+	protocols := make(map[string]bool)
+	trace := &httptrace.ClientTrace{GotConn: func(info httptrace.GotConnInfo) {
+		mu.Lock()
+		connections[info.Conn.LocalAddr().String()] = true
+		mu.Unlock()
+	}}
+	var wg sync.WaitGroup
+	for i := 0; i < 200; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			request, _ := http.NewRequestWithContext(httptrace.WithClientTrace(context.Background(), trace), http.MethodGet, c.base+"/files/f", nil)
+			request.Header.Set("Authorization", "Bearer "+c.token)
+			response, err := c.http.Do(request)
+			if err != nil {
+				t.Error(err)
+				return
+			}
+			response.Body.Close()
+			mu.Lock()
+			protocols[response.Proto] = true
+			mu.Unlock()
+		}()
+	}
+	wg.Wait()
+	if len(connections) != 1 {
+		t.Fatalf("requests used %d connections, want 1", len(connections))
+	}
+	if len(protocols) != 1 || !protocols["HTTP/2.0"] {
+		t.Fatalf("protocols = %v, want only HTTP/2.0", protocols)
 	}
 }

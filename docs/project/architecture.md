@@ -496,7 +496,8 @@ released by the operating system when the process exits. The derived
 index is held in memory and persisted to `index.json` at sync points; recovery always revalidates every
 segment and replaces a stored index that does not match. The OS backend keeps one open handle per file and
 closes it before the file is renamed or removed, which Windows requires. The file-system client multiplexes every
-request over one HTTP/2 connection (D-055). Every process start replays a Channel's full committed
+request over one HTTP/2 connection (D-055). A Reader fetches up to 64 consecutive occurrences of its Channel
+from one segment, at most 1 MiB, with a single ranged read rather than one request per occurrence. Every process start replays a Channel's full committed
 history, because delivery has no acknowledgement.
 
 ## Portability and dependencies

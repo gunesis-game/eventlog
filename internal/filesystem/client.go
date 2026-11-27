@@ -22,9 +22,9 @@ type Client struct {
 
 // NewClient returns a client for the server at base, presenting token.
 func NewClient(base, token string) *Client {
-	// Several store goroutines issue requests concurrently; keep enough idle
-	// loopback connections that they are reused rather than reopened.
-	transport := &http.Transport{MaxIdleConns: 64, MaxIdleConnsPerHost: 64}
+	// Every request is a stream on one long-lived HTTP/2 connection, so
+	// concurrent store goroutines never open or close connections (D-055).
+	transport := &http.Transport{Protocols: unencryptedHTTP2(), MaxConnsPerHost: 1}
 	return &Client{base: base, token: token, http: &http.Client{Transport: transport}}
 }
 
