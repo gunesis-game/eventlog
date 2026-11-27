@@ -8,44 +8,47 @@ When a second Google account creates a file in a folder the owner shared with it
 
 ## Setup
 
-The same as the earlier access check: the Desktop-app `oauth-client.json` in the repository root (never committed), both accounts listed as test users, and the shared folder with the second account as **Editor**. The check asks for the full `drive` permission. Copy the folder ID from the folder's address: `drive.google.com/drive/folders/<FOLDER_ID>`.
+The Desktop-app `oauth-client.json` in the repository root (never committed), and both accounts listed as test users. The check asks for the full `drive` permission. Nothing else needs preparing: the check finds or creates its own folder and file.
+
+- **Folder:** `eventlog-ownership-check`, found as eventlog finds its folder, by an `appProperties` tag and the owner's ownership (oldest wins). The setup step creates it only if it does not exist, and shares it with the second account as Editor only if it is not shared yet.
+- **File:** `ownership-check.txt` in that folder. The offer step creates it only if it does not exist.
 
 ## Run
 
-From the repository root, three steps, each opening the browser to sign in. Pick the account named for each step.
+From the repository root, four steps, each opening the browser to sign in. Pick the account named for each step. Every step can be run again safely.
 
-1. **Offer, as the second account:**
-
-   ```powershell
-   go run ./docs/research/drive-ownership-check -step offer -folder <FOLDER_ID> -owner <OWNER_EMAIL>
-   ```
-
-   It creates `drive-ownership-check-<time>.txt` in the folder, offers its ownership to the owner, and prints the file ID. Google may email the owner about the offer.
-
-2. **Accept, as the owner:**
+1. **Setup, as the owner:**
 
    ```powershell
-   go run ./docs/research/drive-ownership-check -step accept -folder <FOLDER_ID> -owner <OWNER_EMAIL>
+   go run ./docs/research/drive-ownership-check -step setup -owner <OWNER_EMAIL> -member <SECOND_EMAIL>
    ```
 
-   It lists the folder and accepts every pending ownership offer to the owner, as an owner's device would at start.
-
-3. **Verify, as the second account:**
+2. **Offer, as the second account:** finds or creates the file and offers its ownership to the owner. Google may email the owner about the offer.
 
    ```powershell
-   go run ./docs/research/drive-ownership-check -step verify -file <FILE_ID>
+   go run ./docs/research/drive-ownership-check -step offer -owner <OWNER_EMAIL>
    ```
 
-   It reports the file's owner and the second account's capabilities, updates the file's content, and tries to move it to the trash, restoring it if that works. It never deletes the file permanently.
+3. **Accept, as the owner:** accepts every pending ownership offer in the folder, as an owner's device would at start.
 
-The program keeps tokens in memory only and writes nothing to disk. Delete the test file from the folder afterwards.
+   ```powershell
+   go run ./docs/research/drive-ownership-check -step accept -owner <OWNER_EMAIL>
+   ```
+
+4. **Verify, as the second account:** reports the file's owner and the second account's capabilities, updates the file's content, and tries to move it to the trash, restoring it if that works. It never deletes the file permanently.
+
+   ```powershell
+   go run ./docs/research/drive-ownership-check -step verify -owner <OWNER_EMAIL>
+   ```
+
+The program keeps tokens in memory only and writes nothing to disk. Delete the `eventlog-ownership-check` folder afterwards.
 
 ## Reading the result
 
 | Outcome | Meaning |
 |---|---|
-| Offer step 3 HTTP 200 with `pendingOwner: true`; accept step 2 HTTP 200 with `role: owner` | Ownership can be handed to the owner automatically |
-| Offer step 3 fails, and the retry fails too | A second account cannot offer ownership to the owner through the API |
-| Accept step 2 fails | The owner cannot accept through the API; acceptance would need the owner by hand |
+| The offer succeeds with `pendingOwner: true`; the accept step returns HTTP 200 with `role: owner` | Ownership can be handed to the owner automatically |
+| The offer fails, and the retry fails too | A second account cannot offer ownership to the owner through the API |
+| The accept step fails | The owner cannot accept through the API; acceptance would need the owner by hand |
 | Verify step 1 shows the owner as owner; step 2 HTTP 200 | After the transfer the second account can still append, as its device needs |
 | Verify step 3 HTTP 403 | After the transfer the second account can no longer move the file to the trash |

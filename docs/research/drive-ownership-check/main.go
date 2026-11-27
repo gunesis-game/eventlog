@@ -4,12 +4,17 @@
 // ownership be handed to the owner automatically through the Drive API, and
 // what can the second account still do with the file afterwards?
 //
-// It runs in three steps, each with its own browser sign-in:
+// The folder and the file are found, not passed in: the folder by an
+// appProperties tag and the owner's ownership (oldest wins), as eventlog
+// finds its folder, and the file by its fixed name in that folder. Each is
+// created only when it does not exist yet. It runs in four steps, each with
+// its own browser sign-in:
 //
-//	offer   (second account) creates a file in the folder and offers its
-//	        ownership to the owner (pending owner).
-//	accept  (owner) finds files in the folder with a pending ownership offer
-//	        to it and accepts each one.
+//	setup   (owner) finds or creates the folder and shares it with the
+//	        second account as Editor.
+//	offer   (second account) finds or creates the file in the folder and
+//	        offers its ownership to the owner (pending owner).
+//	accept  (owner) accepts every pending ownership offer in the folder.
 //	verify  (second account) reports its access to the file, updates its
 //	        content, and tries to move it to the trash, restoring it if that
 //	        succeeds.
@@ -40,9 +45,13 @@ import (
 )
 
 const (
-	scope    = "https://www.googleapis.com/auth/drive"
-	driveAPI = "https://www.googleapis.com/drive/v3"
-	upload   = "https://www.googleapis.com/upload/drive/v3"
+	scope      = "https://www.googleapis.com/auth/drive"
+	driveAPI   = "https://www.googleapis.com/drive/v3"
+	upload     = "https://www.googleapis.com/upload/drive/v3"
+	folderName = "eventlog-ownership-check"
+	folderTag  = "eventlogOwnershipCheck"
+	fileName   = "ownership-check.txt"
+	folderMIME = "application/vnd.google-apps.folder"
 )
 
 type oauthClient struct {
@@ -60,12 +69,27 @@ type permission struct {
 	PendingOwner bool   `json:"pendingOwner"`
 }
 
+type driveFile struct {
+	ID     string `json:"id"`
+	Name   string `json:"name"`
+	Owners []struct {
+		EmailAddress string `json:"emailAddress"`
+	} `json:"owners"`
+}
+
+func (f driveFile) owner() string {
+	if len(f.Owners) == 0 {
+		return ""
+	}
+	return strings.ToLower(f.Owners[0].EmailAddress)
+}
+
 type check struct {
 	client      oauthClient
 	step        string
-	folderID    string
 	owner       string
-	fileID      string
+	member      string
+	folderID    string
 	redirect    string
 	verifier    string
 	state       string
@@ -77,29 +101,28 @@ type check struct {
 
 func main() {
 	clientFile := flag.String("client", "oauth-client.json", "OAuth client JSON (Desktop app) downloaded from Google Cloud")
-	step := flag.String("step", "", "offer, accept, or verify")
-	folderID := flag.String("folder", "", "ID of the folder the owner shared (offer and accept)")
-	owner := flag.String("owner", "", "the owner's Google account email (offer and accept)")
-	fileID := flag.String("file", "", "ID of the file the offer step created (verify)")
+	step := flag.String("step", "", "setup, offer, accept, or verify")
+	owner := flag.String("owner", "", "the owner's Google account email")
+	member := flag.String("member", "", "the second account's email, shared as Editor (setup)")
 	port := flag.Int("port", 8765, "fixed local port the browser returns to after sign-in")
 	flag.Parse()
 	switch *step {
-	case "offer", "accept":
-		if *folderID == "" || *owner == "" {
-			log.Fatalf("-step %s needs -folder and -owner; see README.md", *step)
+	case "setup":
+		if *owner == "" || *member == "" {
+			log.Fatal("-step setup needs -owner and -member; see README.md")
 		}
-	case "verify":
-		if *fileID == "" {
-			log.Fatal("-step verify needs -file; see README.md")
+	case "offer", "accept", "verify":
+		if *owner == "" {
+			log.Fatalf("-step %s needs -owner; see README.md", *step)
 		}
 	default:
-		log.Fatal("-step must be offer, accept, or verify; see README.md")
+		log.Fatal("-step must be setup, offer, accept, or verify; see README.md")
 	}
 	raw, err := os.ReadFile(*clientFile)
 	if err != nil {
 		log.Fatal(err)
 	}
-	c := &check{step: *step, folderID: *folderID, owner: strings.ToLower(*owner), fileID: *fileID, done: make(chan struct{})}
+	c := &check{step: *step, owner: strings.ToLower(*owner), member: strings.ToLower(*member), done: make(chan struct{})}
 	if err := json.Unmarshal(raw, &c.client); err != nil || c.client.Installed.ClientID == "" {
 		log.Fatal("the client file must be a Desktop app OAuth client (it has an \"installed\" section)")
 	}
@@ -184,17 +207,13 @@ func (c *check) callback(w http.ResponseWriter, r *http.Request) {
 	c.accessToken = tokens.AccessToken
 	c.email = strings.ToLower(c.signedInEmail())
 	c.logf("Step %q, signed in as: %s (granted: %s)", c.step, c.email, tokens.Scope)
-	if c.folderID != "" {
-		// Drive calls folders files too, so a missing folder is reported
-		// as "File not found". Look it up first to say so plainly.
-		status, body := c.do(http.MethodGet, driveAPI+"/files/"+url.PathEscape(c.folderID)+"?fields=id,name,mimeType,owners(emailAddress),capabilities(canAddChildren)", nil, "")
-		c.logf("0. Look up the shared folder -> HTTP %d %s", status, compact(body))
-		if status != http.StatusOK {
-			c.logf("   This account cannot see the folder: it is not shared with this account, or the ID is wrong.")
-			return
-		}
+	if !strings.Contains(" "+tokens.Scope+" ", " "+scope+" ") {
+		c.logf("The Drive permission was not granted; sign in again and allow Drive access.")
+		return
 	}
 	switch c.step {
+	case "setup":
+		c.setup()
 	case "offer":
 		c.offer()
 	case "accept":
@@ -204,74 +223,158 @@ func (c *check) callback(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// offer creates a file in the shared folder and offers its ownership to the
-// owner.
-func (c *check) offer() {
-	status, body := c.createFile()
-	c.logf("1. Create a file in the folder -> HTTP %d %s", status, compact(body))
-	var created struct {
-		ID string `json:"id"`
+// findFolder finds the tagged folder owned by the owner, oldest first.
+func (c *check) findFolder() bool {
+	query := url.Values{
+		"q": {fmt.Sprintf("appProperties has { key='%s' and value='root' } and '%s' in owners and mimeType = '%s' and trashed = false",
+			folderTag, c.owner, folderMIME)},
+		"orderBy": {"createdTime"},
+		"fields":  {"files(id,name,owners(emailAddress))"},
 	}
-	if status != http.StatusOK || json.Unmarshal(body, &created) != nil {
-		return
+	status, body := c.do(http.MethodGet, driveAPI+"/files?"+query.Encode(), nil, "")
+	var listing struct {
+		Files []driveFile `json:"files"`
 	}
-	c.fileID = created.ID
-	c.logf("2. Permissions before the offer -> %s", c.describePermissions())
-
-	offer, _ := json.Marshal(map[string]any{"type": "user", "role": "writer", "emailAddress": c.owner, "pendingOwner": true})
-	status, body = c.do(http.MethodPost, driveAPI+"/files/"+url.PathEscape(c.fileID)+"/permissions?fields=id,role,emailAddress,pendingOwner", offer, "application/json")
-	c.logf("3. Offer ownership to %s (create permission, pendingOwner) -> HTTP %d %s", c.owner, status, compact(body))
-	if status != http.StatusOK {
-		if existing := c.findPermission(c.owner); existing != nil {
-			update, _ := json.Marshal(map[string]any{"role": "writer", "pendingOwner": true})
-			status, body = c.do(http.MethodPatch, driveAPI+"/files/"+url.PathEscape(c.fileID)+"/permissions/"+url.PathEscape(existing.ID)+"?fields=id,role,emailAddress,pendingOwner", update, "application/json")
-			c.logf("   Retry by updating the owner's existing permission %s -> HTTP %d %s", existing.ID, status, compact(body))
-		}
+	if status != http.StatusOK || json.Unmarshal(body, &listing) != nil {
+		c.logf("Find the folder -> HTTP %d %s", status, compact(body))
+		return false
 	}
-	c.logf("4. Permissions after the offer -> %s", c.describePermissions())
-	c.logf("File ID for the verify step: %s", c.fileID)
+	if len(listing.Files) == 0 {
+		c.logf("Find the folder -> none tagged and owned by %s", c.owner)
+		return false
+	}
+	c.folderID = listing.Files[0].ID
+	c.logf("Find the folder -> found %q (%s), %d tagged folder(s)", listing.Files[0].Name, c.folderID, len(listing.Files))
+	return true
 }
 
-// accept finds files in the folder with a pending ownership offer to the
-// signed-in account and accepts each one, as an owner's device would at
-// start.
+// findFile finds the check's file by its fixed name in the folder.
+func (c *check) findFile() (driveFile, bool) {
+	query := url.Values{
+		"q":      {fmt.Sprintf("name = '%s' and '%s' in parents and trashed = false", fileName, c.folderID)},
+		"fields": {"files(id,name,owners(emailAddress))"},
+	}
+	status, body := c.do(http.MethodGet, driveAPI+"/files?"+query.Encode(), nil, "")
+	var listing struct {
+		Files []driveFile `json:"files"`
+	}
+	if status != http.StatusOK || json.Unmarshal(body, &listing) != nil {
+		c.logf("Find the file -> HTTP %d %s", status, compact(body))
+		return driveFile{}, false
+	}
+	if len(listing.Files) == 0 {
+		return driveFile{}, false
+	}
+	return listing.Files[0], true
+}
+
+// setup finds or creates the folder as the owner and shares it with the
+// second account as Editor.
+func (c *check) setup() {
+	if c.email != c.owner {
+		c.logf("Sign in as the owner %s for setup; only the owner may create the folder.", c.owner)
+		return
+	}
+	if !c.findFolder() {
+		metadata, _ := json.Marshal(map[string]any{
+			"name":          folderName,
+			"mimeType":      folderMIME,
+			"appProperties": map[string]string{folderTag: "root"},
+		})
+		status, body := c.do(http.MethodPost, driveAPI+"/files?fields=id,name,owners(emailAddress)", metadata, "application/json")
+		c.logf("Create the folder -> HTTP %d %s", status, compact(body))
+		var created driveFile
+		if status != http.StatusOK || json.Unmarshal(body, &created) != nil {
+			return
+		}
+		c.folderID = created.ID
+	}
+	if existing := c.findPermission(c.folderID, c.member); existing != nil {
+		c.logf("Share with %s -> already shared as %s", c.member, existing.Role)
+	} else {
+		share, _ := json.Marshal(map[string]any{"type": "user", "role": "writer", "emailAddress": c.member})
+		status, body := c.do(http.MethodPost, driveAPI+"/files/"+url.PathEscape(c.folderID)+"/permissions?sendNotificationEmail=false&fields=id,role,emailAddress", share, "application/json")
+		c.logf("Share with %s as Editor -> HTTP %d %s", c.member, status, compact(body))
+	}
+	c.logf("Folder permissions -> %s", c.describePermissions(c.folderID))
+}
+
+// offer finds or creates the file as the second account and offers its
+// ownership to the owner.
+func (c *check) offer() {
+	if !c.findFolder() {
+		c.logf("Run the setup step as the owner first, or check the folder is shared with %s.", c.email)
+		return
+	}
+	file, found := c.findFile()
+	if found {
+		c.logf("Find the file -> found %q (%s), owned by %s", file.Name, file.ID, file.owner())
+	} else {
+		status, body := c.createFile()
+		c.logf("Create the file -> HTTP %d %s", status, compact(body))
+		if status != http.StatusOK || json.Unmarshal(body, &file) != nil {
+			return
+		}
+	}
+	if file.owner() == c.owner {
+		c.logf("The file is already owned by the owner; nothing to offer.")
+		return
+	}
+	c.logf("Permissions before the offer -> %s", c.describePermissions(file.ID))
+	if existing := c.findPermission(file.ID, c.owner); existing != nil && existing.PendingOwner {
+		c.logf("Offer ownership to %s -> already offered", c.owner)
+		return
+	}
+	offer, _ := json.Marshal(map[string]any{"type": "user", "role": "writer", "emailAddress": c.owner, "pendingOwner": true})
+	status, body := c.do(http.MethodPost, driveAPI+"/files/"+url.PathEscape(file.ID)+"/permissions?fields=id,role,emailAddress,pendingOwner", offer, "application/json")
+	c.logf("Offer ownership to %s (create permission, pendingOwner) -> HTTP %d %s", c.owner, status, compact(body))
+	if status != http.StatusOK {
+		if existing := c.findPermission(file.ID, c.owner); existing != nil {
+			update, _ := json.Marshal(map[string]any{"role": "writer", "pendingOwner": true})
+			status, body = c.do(http.MethodPatch, driveAPI+"/files/"+url.PathEscape(file.ID)+"/permissions/"+url.PathEscape(existing.ID)+"?fields=id,role,emailAddress,pendingOwner", update, "application/json")
+			c.logf("  Retry by updating the owner's existing permission %s -> HTTP %d %s", existing.ID, status, compact(body))
+		}
+	}
+	c.logf("Permissions after the offer -> %s", c.describePermissions(file.ID))
+}
+
+// accept accepts every pending ownership offer to the owner in the folder, as
+// an owner's device would at start.
 func (c *check) accept() {
 	if c.email != c.owner {
-		c.logf("Note: signed in as %s, not the owner %s; acceptance is expected to fail.", c.email, c.owner)
+		c.logf("Sign in as the owner %s to accept.", c.owner)
+		return
+	}
+	if !c.findFolder() {
+		return
 	}
 	query := url.Values{
 		"q":      {fmt.Sprintf("'%s' in parents and trashed = false", c.folderID)},
 		"fields": {"files(id,name,owners(emailAddress))"},
 	}
 	status, body := c.do(http.MethodGet, driveAPI+"/files?"+query.Encode(), nil, "")
-	c.logf("1. List the folder -> HTTP %d %s", status, compact(body))
 	var listing struct {
-		Files []struct {
-			ID     string `json:"id"`
-			Name   string `json:"name"`
-			Owners []struct {
-				EmailAddress string `json:"emailAddress"`
-			} `json:"owners"`
-		} `json:"files"`
+		Files []driveFile `json:"files"`
 	}
 	if status != http.StatusOK || json.Unmarshal(body, &listing) != nil {
+		c.logf("List the folder -> HTTP %d %s", status, compact(body))
 		return
 	}
 	accepted := 0
 	for _, file := range listing.Files {
-		if len(file.Owners) == 0 || strings.EqualFold(file.Owners[0].EmailAddress, c.email) {
+		if file.owner() == c.email {
+			c.logf("%q is already owned by me", file.Name)
 			continue
 		}
-		c.fileID = file.ID
-		mine := c.findPermission(c.email)
+		mine := c.findPermission(file.ID, c.email)
 		if mine == nil || !mine.PendingOwner {
-			c.logf("2. %q owned by %s: no pending offer to me", file.Name, file.Owners[0].EmailAddress)
+			c.logf("%q owned by %s: no pending offer to me", file.Name, file.owner())
 			continue
 		}
 		update, _ := json.Marshal(map[string]any{"role": "owner"})
 		status, body = c.do(http.MethodPatch, driveAPI+"/files/"+url.PathEscape(file.ID)+"/permissions/"+url.PathEscape(mine.ID)+"?transferOwnership=true&fields=id,role,emailAddress", update, "application/json")
-		c.logf("2. %q owned by %s: accept ownership -> HTTP %d %s", file.Name, file.Owners[0].EmailAddress, status, compact(body))
-		c.logf("   Permissions after acceptance -> %s", c.describePermissions())
+		c.logf("%q owned by %s: accept ownership -> HTTP %d %s", file.Name, file.owner(), status, compact(body))
+		c.logf("  Permissions after acceptance -> %s", c.describePermissions(file.ID))
 		accepted++
 	}
 	c.logf("Accepted %d offer(s).", accepted)
@@ -280,26 +383,41 @@ func (c *check) accept() {
 // verify reports what the second account can still do with the file after
 // the ownership transfer.
 func (c *check) verify() {
-	status, body := c.do(http.MethodGet, driveAPI+"/files/"+url.PathEscape(c.fileID)+
+	if !c.findFolder() {
+		return
+	}
+	file, found := c.findFile()
+	if !found {
+		c.logf("Find the file -> not found; run the offer step first.")
+		return
+	}
+	status, body := c.do(http.MethodGet, driveAPI+"/files/"+url.PathEscape(file.ID)+
 		"?fields=name,owners(emailAddress),capabilities(canEdit,canModifyContent,canTrash,canDelete,canShare)", nil, "")
 	c.logf("1. File owner and my capabilities -> HTTP %d %s", status, compact(body))
 
 	content := []byte("updated by drive-ownership-check as " + c.email + " at " + time.Now().UTC().Format(time.RFC3339) + "\n")
-	status, body = c.do(http.MethodPatch, upload+"/files/"+url.PathEscape(c.fileID)+"?uploadType=media&fields=id,size,owners(emailAddress)", content, "text/plain")
+	status, body = c.do(http.MethodPatch, upload+"/files/"+url.PathEscape(file.ID)+"?uploadType=media&fields=id,size,owners(emailAddress)", content, "text/plain")
 	c.logf("2. Update the file's content -> HTTP %d %s", status, compact(body))
 
 	trash, _ := json.Marshal(map[string]any{"trashed": true})
-	status, body = c.do(http.MethodPatch, driveAPI+"/files/"+url.PathEscape(c.fileID)+"?fields=id,trashed", trash, "application/json")
+	status, body = c.do(http.MethodPatch, driveAPI+"/files/"+url.PathEscape(file.ID)+"?fields=id,trashed", trash, "application/json")
 	c.logf("3. Move the file to the trash -> HTTP %d %s", status, compact(body))
 	if status == http.StatusOK {
 		restore, _ := json.Marshal(map[string]any{"trashed": false})
-		status, body = c.do(http.MethodPatch, driveAPI+"/files/"+url.PathEscape(c.fileID)+"?fields=id,trashed", restore, "application/json")
+		status, body = c.do(http.MethodPatch, driveAPI+"/files/"+url.PathEscape(file.ID)+"?fields=id,trashed", restore, "application/json")
 		c.logf("   Restore it from the trash -> HTTP %d %s", status, compact(body))
 	}
 }
 
-func (c *check) findPermission(email string) *permission {
-	for _, p := range c.permissions() {
+func (c *check) findPermission(fileID, email string) *permission {
+	status, body := c.do(http.MethodGet, driveAPI+"/files/"+url.PathEscape(fileID)+"/permissions?fields=permissions(id,type,role,emailAddress,pendingOwner)", nil, "")
+	var list struct {
+		Permissions []permission `json:"permissions"`
+	}
+	if status != http.StatusOK || json.Unmarshal(body, &list) != nil {
+		return nil
+	}
+	for _, p := range list.Permissions {
 		if strings.EqualFold(p.EmailAddress, email) {
 			found := p
 			return &found
@@ -308,29 +426,15 @@ func (c *check) findPermission(email string) *permission {
 	return nil
 }
 
-func (c *check) permissions() []permission {
-	status, body := c.do(http.MethodGet, driveAPI+"/files/"+url.PathEscape(c.fileID)+"/permissions?fields=permissions(id,type,role,emailAddress,pendingOwner)", nil, "")
-	var list struct {
-		Permissions []permission `json:"permissions"`
-	}
-	if status != http.StatusOK || json.Unmarshal(body, &list) != nil {
-		return nil
-	}
-	return list.Permissions
-}
-
-func (c *check) describePermissions() string {
-	status, body := c.do(http.MethodGet, driveAPI+"/files/"+url.PathEscape(c.fileID)+"?fields=owners(emailAddress),permissions(id,type,role,emailAddress,pendingOwner)", nil, "")
+func (c *check) describePermissions(fileID string) string {
+	status, body := c.do(http.MethodGet, driveAPI+"/files/"+url.PathEscape(fileID)+"?fields=owners(emailAddress),permissions(id,type,role,emailAddress,pendingOwner)", nil, "")
 	return fmt.Sprintf("HTTP %d %s", status, compact(body))
 }
 
 func (c *check) createFile() (int, []byte) {
 	var body bytes.Buffer
 	writer := multipart.NewWriter(&body)
-	metadata, _ := json.Marshal(map[string]any{
-		"name":    fmt.Sprintf("drive-ownership-check-%s.txt", time.Now().UTC().Format("20060102T150405Z")),
-		"parents": []string{c.folderID},
-	})
+	metadata, _ := json.Marshal(map[string]any{"name": fileName, "parents": []string{c.folderID}})
 	part, _ := writer.CreatePart(textproto.MIMEHeader{"Content-Type": {"application/json; charset=UTF-8"}})
 	_, _ = part.Write(metadata)
 	part, _ = writer.CreatePart(textproto.MIMEHeader{"Content-Type": {"text/plain"}})
