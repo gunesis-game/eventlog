@@ -20,7 +20,10 @@ type OSBackend struct {
 
 	mu      sync.Mutex
 	handles map[string]*os.File
-	locks   map[string]*os.File
+	// readOnly marks handles opened only for reading, because the operating
+	// system refused write access.
+	readOnly map[string]bool
+	locks    map[string]*os.File
 }
 
 // NewOSBackend returns a backend rooted at directory, creating it if absent.
@@ -28,19 +31,40 @@ func NewOSBackend(directory string) (*OSBackend, error) {
 	if err := os.MkdirAll(directory, 0o700); err != nil {
 		return nil, fmt.Errorf("create storage directory %q: %w", directory, err)
 	}
-	return &OSBackend{root: directory, handles: make(map[string]*os.File), locks: make(map[string]*os.File)}, nil
+	return &OSBackend{root: directory, handles: make(map[string]*os.File), readOnly: make(map[string]bool), locks: make(map[string]*os.File)}, nil
 }
 
 func (b *OSBackend) native(p string) string {
 	return filepath.Join(b.root, filepath.FromSlash(p))
 }
 
-// handle returns the open handle for an existing file, opening it on first use.
-// It deliberately avoids O_APPEND: Windows disallows truncating such handles.
-func (b *OSBackend) handle(p string) (*os.File, error) {
+// readHandle returns an open handle for reading an existing file, opening it
+// on first use: for writing too when the operating system permits, otherwise
+// for reading only.
+func (b *OSBackend) readHandle(p string) (*os.File, error) {
 	if f, ok := b.handles[p]; ok {
 		return f, nil
 	}
+	f, err := os.OpenFile(b.native(p), os.O_RDWR, 0)
+	if errors.Is(err, fs.ErrPermission) {
+		f, err = os.Open(b.native(p))
+		b.readOnly[p] = err == nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	b.handles[p] = f
+	return f, nil
+}
+
+// writeHandle returns an open handle for writing an existing file, reopening a
+// read-only handle; a refusal is the operating system's fs.ErrPermission. It
+// deliberately avoids O_APPEND: Windows disallows truncating such handles.
+func (b *OSBackend) writeHandle(p string) (*os.File, error) {
+	if f, ok := b.handles[p]; ok && !b.readOnly[p] {
+		return f, nil
+	}
+	b.release(p)
 	f, err := os.OpenFile(b.native(p), os.O_RDWR, 0)
 	if err != nil {
 		return nil, err
@@ -53,6 +77,7 @@ func (b *OSBackend) release(p string) {
 	if f, ok := b.handles[p]; ok {
 		_ = f.Close()
 		delete(b.handles, p)
+		delete(b.readOnly, p)
 	}
 }
 
@@ -78,7 +103,7 @@ func (b *OSBackend) CreateExclusive(p string) error {
 func (b *OSBackend) Read(p string, offset, length int64) ([]byte, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	f, err := b.handle(p)
+	f, err := b.readHandle(p)
 	if err != nil {
 		return nil, err
 	}
@@ -102,7 +127,7 @@ func (b *OSBackend) Read(p string, offset, length int64) ([]byte, error) {
 func (b *OSBackend) Append(p string, data []byte) (int64, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	f, err := b.handle(p)
+	f, err := b.writeHandle(p)
 	if err != nil {
 		return 0, err
 	}
@@ -129,7 +154,7 @@ func (b *OSBackend) Truncate(p string, size int64) error {
 	}
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	f, err := b.handle(p)
+	f, err := b.writeHandle(p)
 	if err != nil {
 		return err
 	}
@@ -139,7 +164,7 @@ func (b *OSBackend) Truncate(p string, size int64) error {
 func (b *OSBackend) Sync(p string) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	f, err := b.handle(p)
+	f, err := b.writeHandle(p)
 	if err != nil {
 		return err
 	}
@@ -214,6 +239,9 @@ func (b *OSBackend) Lock(name string) error {
 		return ErrLocked
 	}
 	f, err := acquireLock(b.native(name))
+	if errors.Is(err, fs.ErrPermission) {
+		return err
+	}
 	if err != nil {
 		return fmt.Errorf("%w: %v", ErrLocked, err)
 	}

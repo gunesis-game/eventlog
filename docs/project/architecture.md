@@ -362,12 +362,21 @@ sends. If the Channel's streams have already closed after a fatal Reader error, 
 rolled back without pausing.
 
 `ChannelError` has `Kind` (an `ErrorKind`: `TransactionRefused`, `TransactionPanicked`, `InvalidState`,
-`CommitFailed`, `ReaderFailed`, `DeliveryFailed`), `Cause` (the consumer's error, the panic value, the
+`CommitFailed`, `ReaderFailed`, `DeliveryFailed`, `WriteNotPermitted`), `Cause` (the consumer's error, the panic value, the
 field problem, or the I/O error, also returned by `Unwrap`), and `Events` (isolated copies of the attempted
 values of each Event the failed transaction changed, or of every Event in the batch for `CommitFailed`). Its
 message names the Channel identity, the kind, the Event types and identities, and the cause. `ReaderFailed`
 and `DeliveryFailed` are fatal for that Channel's Reader: the error is offered to the consumer, then the
 notification and error streams close.
+
+Storage that refuses this device's writes (D-068) reports `fs.ErrPermission` through the file-system
+boundary (HTTP 403). The store then opens read-only: it writes nothing, takes no ownership lock, ignores an
+incomplete trailing transaction instead of truncating it, and keeps a rebuilt manifest or index in memory.
+While writes are refused, every transaction is refused with `WriteNotPermitted` before it runs, under the
+prefix rule, and its `Events` is empty; replay and notifications continue. A permission error during a
+commit reports `CommitFailed` with that cause and makes later transactions `WriteNotPermitted`, until the
+next start. Because refused transactions never run, a device that may not write cannot read live fields
+inside a transaction; it reads them from notifications.
 
 ## Open and recovery flow
 

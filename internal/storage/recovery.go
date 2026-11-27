@@ -23,10 +23,16 @@ var errCorruptStorage = errors.New("corrupt storage")
 // recovery rebuilds the store's state from the storage directory: it
 // validates the manifest, every segment, transaction, and sequence; truncates
 // an incomplete trailing transaction; rebuilds the derived index; and only then
-// cleans orphaned artifacts.
+// cleans orphaned artifacts. A read-only recovery writes nothing: it ignores an
+// incomplete trailing transaction instead of truncating it, and keeps a
+// rebuilt manifest and index in memory only.
 type recovery struct {
-	files        *filesystem.Client
-	validator    *record.Validator
+	files     *filesystem.Client
+	validator *record.Validator
+	readOnly  bool
+	// empty marks fresh storage opened read-only: no manifest or segment
+	// exists, and none may be created.
+	empty        bool
 	index        *index
 	nextSequence uint64
 	manifest     manifest
@@ -41,10 +47,17 @@ func (r *recovery) run() (*recovery, error) {
 		return nil, err
 	}
 	r.manifest = m
+	if r.empty {
+		r.active = &segment{id: 1, path: segmentPath(1)}
+		return r, nil
+	}
 	for i, name := range m.Segments {
 		if err := r.recoverSegment(name, i == len(m.Segments)-1); err != nil {
 			return nil, err
 		}
+	}
+	if r.readOnly {
+		return r, nil
 	}
 	if r.indexRebuilt, err = r.index.persisted(r.manifest.Generation, r.nextSequence-1).reconcile(r.files); err != nil {
 		return nil, err
@@ -71,6 +84,10 @@ func (r *recovery) resolveManifest() (manifest, error) {
 			return manifest{}, fmt.Errorf("%w: manifest is unusable and no segments exist: %v", errCorruptStorage, err)
 		}
 		fresh := manifest{FormatVersion: manifestFormatVersion, Generation: 1, Segments: []string{segmentFileName(1)}, NextSegmentID: 2}
+		if r.readOnly {
+			r.empty = true
+			return fresh, nil
+		}
 		if err := r.files.CreateExclusive(segmentPath(1)); err != nil {
 			return manifest{}, err
 		}
@@ -83,11 +100,17 @@ func (r *recovery) resolveManifest() (manifest, error) {
 	if chainErr := r.checkUnambiguousChain(ids); chainErr != nil {
 		return manifest{}, fmt.Errorf("%w: manifest unusable (%v) and segments are ambiguous: %v", errCorruptStorage, err, chainErr)
 	}
+	if r.readOnly {
+		return rebuilt, nil
+	}
 	return rebuilt, writeManifest(r.files, rebuilt)
 }
 
 func (r *recovery) listSegmentIDs() ([]uint64, error) {
 	entries, err := r.files.List(segmentsDirName)
+	if errors.Is(err, fs.ErrNotExist) && r.readOnly {
+		return nil, nil
+	}
 	if err != nil {
 		return nil, fmt.Errorf("list segments: %w", err)
 	}
@@ -171,6 +194,9 @@ func (r *recovery) recoverSegment(name string, last bool) error {
 }
 
 func (r *recovery) truncate(path string, size int64) error {
+	if r.readOnly {
+		return nil
+	}
 	if err := r.files.Truncate(path, size); err != nil {
 		return err
 	}

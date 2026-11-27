@@ -13,7 +13,8 @@ import (
 )
 
 // Client performs file operations on a Server's storage root. Its errors
-// match the Backend contract: fs.ErrNotExist, fs.ErrExist, and ErrLocked.
+// match the Backend contract: fs.ErrNotExist, fs.ErrExist, fs.ErrPermission,
+// and ErrLocked.
 type Client struct {
 	base  string
 	token string
@@ -63,6 +64,8 @@ func (c *Client) do(method, route, p string, query url.Values, header http.Heade
 		return nil, fmt.Errorf("%s %s: %s: %w", method, p, message, fs.ErrNotExist)
 	case http.StatusPreconditionFailed:
 		return nil, fmt.Errorf("%s %s: %s: %w", method, p, message, fs.ErrExist)
+	case http.StatusForbidden:
+		return nil, fmt.Errorf("%s %s: %s: %w", method, p, message, fs.ErrPermission)
 	case http.StatusConflict:
 		return nil, fmt.Errorf("%s %s: %s: %w", method, p, message, ErrLocked)
 	default:

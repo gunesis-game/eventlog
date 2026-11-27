@@ -29,6 +29,10 @@ const (
 	// DeliveryFailed means notification delivery retries were exhausted. The
 	// Channel's streams close after this error.
 	DeliveryFailed
+	// WriteNotPermitted means the storage does not permit this device to
+	// write, so the transaction was refused without being run. Reading,
+	// replay, and notifications continue.
+	WriteNotPermitted
 )
 
 func (k ErrorKind) String() string {
@@ -45,8 +49,21 @@ func (k ErrorKind) String() string {
 		return "reader failed"
 	case DeliveryFailed:
 		return "delivery failed"
+	case WriteNotPermitted:
+		return "write not permitted"
 	default:
 		return fmt.Sprintf("ErrorKind(%d)", int(k))
+	}
+}
+
+// rejectsQueued reports whether the kind rejects a transaction, which also
+// rejects every transaction sent before the error is received.
+func (k ErrorKind) rejectsQueued() bool {
+	switch k {
+	case TransactionRefused, TransactionPanicked, InvalidState, CommitFailed, WriteNotPermitted:
+		return true
+	default:
+		return false
 	}
 }
 
@@ -79,7 +96,7 @@ func (e *ChannelError) Error() string {
 	if e.Cause != nil {
 		fmt.Fprintf(&b, ": %v", e.Cause)
 	}
-	if e.Kind <= CommitFailed {
+	if e.Kind.rejectsQueued() {
 		b.WriteString("; transactions queued behind it are rejected")
 	}
 	return b.String()

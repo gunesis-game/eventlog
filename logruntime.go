@@ -62,6 +62,9 @@ type occurrenceStore interface {
 	ChannelOccurrence(channelID identity.UUID, position int) (storage.Occurrence, bool, <-chan struct{})
 	ReadOccurrences(channelID identity.UUID, position, limit int) ([]storage.Occurrence, [][]byte, error)
 	ChannelHistoryTypes(channelID identity.UUID) []fieldschema.TypeKey
+	// WriteRefusal returns the storage's permission error while it refuses
+	// this device's writes, and nil while writes are permitted.
+	WriteRefusal() error
 	Close() error
 }
 

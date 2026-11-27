@@ -96,6 +96,8 @@ func writeError(w http.ResponseWriter, err error) {
 		status = http.StatusNotFound
 	case errors.Is(err, fs.ErrExist):
 		status = http.StatusPreconditionFailed
+	case errors.Is(err, fs.ErrPermission):
+		status = http.StatusForbidden
 	case errors.Is(err, ErrLocked):
 		status = http.StatusConflict
 	}

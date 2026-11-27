@@ -139,9 +139,14 @@ func (p *transactionProcessor) run() {
 
 // processBatch applies transactions until the queue is empty or the batch
 // limit is reached, then commits. On a rejection, the accepted prefix is
-// committed and the failure is reported.
+// committed and the failure is reported. While the storage refuses this
+// device's writes, the transaction is refused before it runs.
 func (p *transactionProcessor) processBatch(first func() error) {
 	c := p.channel
+	if refusal := c.rt.store.WriteRefusal(); refusal != nil {
+		p.reject(c.newError(WriteNotPermitted, refusal, nil))
+		return
+	}
 	batch := &transactionBatch{originals: make(map[*liveEvent]fieldschema.Snapshot)}
 	next := first
 	for applied := 1; ; applied++ {

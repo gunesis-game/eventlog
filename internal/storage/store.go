@@ -80,6 +80,13 @@ type Store struct {
 	wake         chan struct{}
 	indexDirty   bool
 	writeFailure error
+	// writeRefusal is the permission error of storage that refuses this
+	// device's writes, found at open or by a later write; nil while writes are
+	// permitted.
+	writeRefusal error
+	// locked records whether this store holds the ownership lock; a store
+	// opened read-only does not.
+	locked       bool
 	indexRebuilt bool
 	// pendingDeletes holds retired segment paths whose removal failed, for
 	// example because another process briefly held them open on Windows.
@@ -113,15 +120,30 @@ func Open(directory string, options Options) (*Store, error) {
 	return s, nil
 }
 
+// open recovers the storage behind files. When the storage refuses a write
+// that opening needs (fs.ErrPermission), it opens again read-only: nothing is
+// written, the ownership lock is not taken, recovery repairs nothing, and every
+// append fails with that permission error.
 func open(files *filesystem.Client, options Options) (*Store, error) {
-	if err := files.MakeDirectory(segmentsDirName); err != nil {
-		return nil, fmt.Errorf("create segments folder: %w", err)
-	}
 	validator, err := record.NewValidator()
 	if err != nil {
 		return nil, err
 	}
+	s, err := openWritable(files, options, validator)
+	if errors.Is(err, fs.ErrPermission) {
+		return openReadOnly(files, options, validator, err)
+	}
+	return s, err
+}
+
+func openWritable(files *filesystem.Client, options Options, validator *record.Validator) (*Store, error) {
+	if err := files.MakeDirectory(segmentsDirName); err != nil {
+		return nil, fmt.Errorf("create segments folder: %w", err)
+	}
 	if err := files.Lock(lockFileName); err != nil {
+		if errors.Is(err, fs.ErrPermission) {
+			return nil, err
+		}
 		return nil, fmt.Errorf("storage is owned by another process: %w", err)
 	}
 	recovered, err := (&recovery{files: files, validator: validator, index: newIndex(), nextSequence: 1}).run()
@@ -129,6 +151,22 @@ func open(files *filesystem.Client, options Options) (*Store, error) {
 		_ = files.Unlock(lockFileName)
 		return nil, err
 	}
+	s := newStore(files, options, validator, recovered)
+	s.locked = true
+	return s, nil
+}
+
+func openReadOnly(files *filesystem.Client, options Options, validator *record.Validator, refusal error) (*Store, error) {
+	recovered, err := (&recovery{files: files, validator: validator, index: newIndex(), nextSequence: 1, readOnly: true}).run()
+	if err != nil {
+		return nil, err
+	}
+	s := newStore(files, options, validator, recovered)
+	s.writeRefusal = refusal
+	return s, nil
+}
+
+func newStore(files *filesystem.Client, options Options, validator *record.Validator, recovered *recovery) *Store {
 	s := &Store{
 		files:        files,
 		validator:    validator,
@@ -144,7 +182,15 @@ func open(files *filesystem.Client, options Options) (*Store, error) {
 		stopped:      make(chan struct{}),
 	}
 	go s.runSyncLoop()
-	return s, nil
+	return s
+}
+
+// WriteRefusal returns the permission error of storage that refuses this
+// device's writes, or nil while writes are permitted.
+func (s *Store) WriteRefusal() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.writeRefusal
 }
 
 // AppendTransaction atomically appends one transaction of a Channel's Event
@@ -157,6 +203,9 @@ func (s *Store) AppendTransaction(channel ChannelWrite, occurrences []Occurrence
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.writeRefusal != nil {
+		return s.writeRefusal
+	}
 	if s.writeFailure != nil {
 		return fmt.Errorf("storage is unwritable after an unrecoverable write failure: %w", s.writeFailure)
 	}
@@ -214,11 +263,20 @@ func (s *Store) AppendTransaction(channel ChannelWrite, occurrences []Occurrence
 
 	if s.active.size > 0 && s.active.size+int64(len(transaction)) > s.options.TargetSegmentSize {
 		if err := s.rotateLocked(); err != nil {
+			if errors.Is(err, fs.ErrPermission) {
+				s.writeRefusal = err
+			}
 			return err
 		}
 	}
 	start := s.active.size
 	size, err := s.files.Append(s.active.path, transaction)
+	if errors.Is(err, fs.ErrPermission) {
+		// Storage refused the write without changing anything; later
+		// appends fail the same way without trying.
+		s.writeRefusal = err
+		return err
+	}
 	if err == nil && size != start+int64(len(transaction)) {
 		err = fmt.Errorf("append to %s ended at %d, want %d", s.active.path, size, start+int64(len(transaction)))
 	}
@@ -455,7 +513,9 @@ func (s *Store) Close() error {
 			_ = s.writeIndexLocked()
 		}
 		s.retryPendingDeletesLocked()
-		err = s.files.Unlock(lockFileName)
+		if s.locked {
+			err = s.files.Unlock(lockFileName)
+		}
 		s.files.Close()
 		if s.server != nil {
 			err = errors.Join(err, s.server.Close())

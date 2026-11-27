@@ -19,7 +19,8 @@ type Entry struct {
 
 // Backend performs file operations on one storage root. Paths are clean,
 // slash-separated, and relative to the root. A missing file is reported with
-// fs.ErrNotExist and an existing one, on exclusive create, with fs.ErrExist.
+// fs.ErrNotExist, an existing one on exclusive create with fs.ErrExist, and an
+// operation the storage does not permit with fs.ErrPermission.
 //
 // Each operation must meet the contract the Server promises clients:
 // CreateExclusive, Replace, and Rename are atomic and durable on success;
