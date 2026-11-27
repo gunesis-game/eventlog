@@ -42,7 +42,7 @@ Published 2026-11-27: `origin/main` at `92881b700b3594b3d927bdc50834d6bd30655cb8
 User rules recorded for this work: no new public package functions (new behaviour goes on the Event/Channel interfaces); refactors remove everything made redundant, with no future-proofing.
 
 ## Current repository checkpoint
-- **Branch:** main; `origin/main` at `2cc37e82899b47fde825ecb01f1a309e972085ef`, with this evidence commit local. Latest implementation commit: `c971fcf` (increment 12.1, refused writes, D-068 and D-072). CI runs 46061988015 and 46061987958 passed for `2cc37e8`: 132 tests on Linux (also under race) and on Windows, none skipped, no warnings.
+- **Branch:** main; `origin/main` at `eed9955775addb6a2487a231d9613fd00c126220`, with this evidence commit local. Latest implementation commit: `eed9955` (increment 12.2, device and log layout). CI runs 46064845455 and 46064845588 passed for it: 139 tests on Linux (also under race) and on Windows, none skipped, no warnings.
 - `internal/storage` performs file operations only through `internal/filesystem` (client, localhost server, OS backend), over one HTTP/2 connection; Readers read occurrences in batches.
 - Code is organized as the public root package plus `internal/identity`, `internal/fieldschema`, `internal/record`, and `internal/storage`; the public API is unchanged (`go doc` identical).
 - The polling change manager is removed. Consumers change state only through transactions.
