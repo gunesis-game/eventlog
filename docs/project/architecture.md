@@ -91,7 +91,11 @@ Dependencies point one way: `identity` ← `fieldschema` ← `record` ← `stora
 
 `internal/storage` performs no operating-system calls. It calls the `internal/filesystem` client, which
 speaks HTTP to a server bound to `127.0.0.1` on a random port and authenticated by a per-process random
-bearer token; the server is started and stopped with the store and is invisible above `internal/storage`.
+bearer token. Client and server speak only HTTP/2 over cleartext TCP with prior knowledge (RFC 9113
+section 3.3), and the client holds at most one connection, so every concurrent request is a stream on a
+single long-lived connection (D-055). That avoids ephemeral-port exhaustion from TIME_WAIT churn and keeps
+descriptor use constant as Channels grow; the deprecated `Upgrade: h2c` mechanism is not used. The
+research behind this choice is in [docs/research/os-connection-limits.md](../research/os-connection-limits.md); the server is started and stopped with the store and is invisible above `internal/storage`.
 Paths are slash-separated and relative to the storage root; the server rejects absolute paths and `..`.
 
 | Operation | Request | Contract |
@@ -491,8 +495,8 @@ implementation/test policy, not public configuration. Single-process ownership u
 released by the operating system when the process exits. The derived
 index is held in memory and persisted to `index.json` at sync points; recovery always revalidates every
 segment and replaces a stored index that does not match. The OS backend keeps one open handle per file and
-closes it before the file is renamed or removed, which Windows requires. The file-system client keeps up to
-64 idle loopback connections so concurrent store goroutines reuse connections instead of reopening them. Every process start replays a Channel's full committed
+closes it before the file is renamed or removed, which Windows requires. The file-system client multiplexes every
+request over one HTTP/2 connection (D-055). Every process start replays a Channel's full committed
 history, because delivery has no acknowledgement.
 
 ## Portability and dependencies
