@@ -553,6 +553,22 @@ browser).
     provider and everything that provider needs. For Google Drive: the log owner's Google account, whose
     Drive holds the master store, the Desktop-app OAuth client created in the owner's free Google Cloud
     project, and the owner's Firebase database URL and web API key (D-061, D-065, D-066).
+  - **Settings file format (D-076):** JSON, the same file on every device:
+
+    ```json
+    {
+      "provider": "google-drive",
+      "owner": "<owner's Google account>",
+      "oauth_client_file": "oauth-client.json",
+      "sign_in_port": 8765
+    }
+    ```
+
+    `oauth_client_file` is the Desktop-app OAuth client file downloaded from Google Cloud, relative to
+    the settings file; the client secret stays in that one file, which is kept out of version control.
+    `sign_in_port` is the loopback port the browser returns to, 8765 when omitted; sign-in fails with a
+    clear error when the port is taken. The Firebase database URL and web API key join the file with
+    change notifications.
   - `DeviceStateDirectory` is a directory on this device only, never shared, holding this device's
     identity, its one-process lock, its provider sign-in token, and the cached folder IDs. It must be on
     persistent storage; losing it makes the machine a new device.
