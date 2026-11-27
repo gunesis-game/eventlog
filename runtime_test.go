@@ -66,6 +66,7 @@ func TestQueuedTransactionsAreGroupCommitted(t *testing.T) {
 	for i := int64(1); i <= 5; i++ {
 		setAmount(event, i)
 	}
+	waitPending(t, rt, channel, 5)
 	release()
 	for i := int64(1); i <= 5; i++ {
 		expectAmount(t, channel, i)
@@ -85,6 +86,7 @@ func TestBatchLimitSplitsCommits(t *testing.T) {
 	for i := int64(1); i <= 5; i++ {
 		setAmount(event, i)
 	}
+	waitPending(t, rt, channel, 5)
 	release()
 	for i := int64(1); i <= 5; i++ {
 		expectAmount(t, channel, i)

@@ -31,6 +31,7 @@ type channelRuntime struct {
 	notifications chan Event
 	errs          chan *ChannelError
 	transactions  chan func() error
+	processor     *transactionProcessor
 
 	mu     sync.Mutex
 	events []*liveEvent

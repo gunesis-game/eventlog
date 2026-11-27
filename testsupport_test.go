@@ -241,3 +241,19 @@ func persistedChannelFields(s *segmentStore, channelID uuid) (string, bool) {
 	channel, ok := s.channels[channelID]
 	return channel.fields, ok
 }
+
+// waitPending waits until intake has moved n sends into the Channel's pending
+// queue, so a released gate sees them all as one batch.
+func waitPending(t *testing.T, rt *logRuntime, channel *Orders, n int) {
+	t.Helper()
+	rt.mu.Lock()
+	processor := rt.channels[channel.id()].processor
+	rt.mu.Unlock()
+	deadline := time.Now().Add(testWait)
+	for len(processor.pending) < n {
+		if time.Now().After(deadline) {
+			t.Fatalf("timed out waiting for %d pending transactions", n)
+		}
+		time.Sleep(time.Millisecond)
+	}
+}
