@@ -637,6 +637,13 @@ D-061 to D-064. The current implementation is single-device and local-only. Rese
   moving the file to the Drive trash, so reads already in progress on other devices can finish; Drive
   empties the trash after 30 days. To verify during
   implementation: that a trashed file in the owner's folder stays readable by ID for other accounts.
+- **Missing history (D-070):** when a file another device's manifest names, or that device's manifest
+  itself, is reported missing (`fs.ErrNotExist`), each affected Channel reports one ChannelError of a new
+  kind `HistoryMissing`, naming the device and the missing sequence range. Occurrences that depend on the
+  missing ones stay held, so causal order is never broken; unrelated occurrences keep flowing. If the files
+  return, for example restored from the trash, a file-change event wakes the Reader and delivery resumes in
+  order. With D-069 this arises only for a file removed before an owner's device accepted it, or removed by
+  the owner. A file of this device's own log that is missing remains `ReaderFailed`.
 - **Recovery:** a device fully recovers and may truncate only its own log; other devices' logs are read
   read-only, and an incomplete trailing transaction there is treated as not yet committed.
 
