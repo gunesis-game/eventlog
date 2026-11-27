@@ -252,12 +252,16 @@ func TestWriteRefusedWhileRunning(t *testing.T) {
 	}
 }
 
-// A directory the operating system does not let this process write opens
-// read-only. Skipped on Windows, whose read-only attribute does not stop
-// creating files in a directory, and for root, whom permissions do not stop.
+// Storage the operating system does not let this process write opens
+// read-only. Every file is made read-only, and on Unix every directory too.
+// Windows keeps its directories writable: there a directory's read-only
+// attribute does not stop creating files in it, and Go's os.Chmod sets only
+// that attribute. Read-only files are enough, because the ownership lock file
+// can then not be opened for writing. Skipped for root, whom permissions do
+// not stop.
 func TestReadOnlyDirectory(t *testing.T) {
-	if runtime.GOOS == "windows" || os.Geteuid() == 0 {
-		t.Skip("directory permissions do not refuse writes here")
+	if os.Geteuid() == 0 {
+		t.Skip("file permissions do not refuse root")
 	}
 	dir := t.TempDir()
 	writer := openTestStore(t, dir, fastStoreOptions())
@@ -273,6 +277,9 @@ func TestReadOnlyDirectory(t *testing.T) {
 	for i := len(paths) - 1; i >= 0; i-- {
 		mode := os.FileMode(0o400)
 		if info, err := os.Stat(paths[i]); err == nil && info.IsDir() {
+			if runtime.GOOS == "windows" {
+				continue
+			}
 			mode = 0o500
 		}
 		if err := os.Chmod(paths[i], mode); err != nil {
