@@ -57,7 +57,7 @@ User rules recorded for this work: no new public package functions (new behaviou
 - The full benchmark catalogue is not implemented.
 
 ## Immediate next action
-1. Plan and implement the multi-device design and the Google Drive backend in reviewable increments.
+1. Implement the multi-device design and web storage increment by increment, as planned in PLAN.md item 12.
 2. Implement the full benchmark catalogue and capture baselines; complete the coding-standard review.
 3. Re-run CI on the final SHA and assess the Implement exit gate.
 
