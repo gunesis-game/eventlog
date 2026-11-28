@@ -33,7 +33,6 @@ func openClient(t *testing.T) (*Client, string) {
 	return client, dir
 }
 
-
 type eventBackend struct {
 	*OSBackend
 	events chan ChangeEvent
