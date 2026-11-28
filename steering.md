@@ -63,6 +63,7 @@ Never assume project-specific facts. Discover them from the repository, its docu
 - **Enforce the approval-to-artifact gate.** An approval is not permission to move to dependent work. Follow the [decision approval-to-artifact gate](docs/dev-life-cycle/README.md#decision-approval-to-artifact-gate) first.
 - **Keep evidence honest.** Never claim that a change, test, build, CI run, review, or deployment succeeded unless it was performed and its result observed.
 - **Control scope.** Do not expand the task or introduce tools, infrastructure, or policy changes without a clear need and appropriate authorization.
+- **Bound governance maintenance.** Governance reviews evaluate the AI's operating rules and workflow—not product-specific requirements, architecture, features, or technical documentation. Review product documents only when a governance rule explicitly depends on them or they must be changed to correct that rule. Close governance maintenance when its scoped changes are published and verified; do not turn it into a product audit or recurring historical-document sweep.
 - **Protect existing work.** Inspect the working tree before editing. Preserve user changes; never overwrite or discard unrelated work.
 - **Keep project guidance accurate.** Documentation must describe actual, verified behavior and remain consistent with implementation.
 
