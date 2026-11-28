@@ -1,11 +1,11 @@
-# Cycle 2 — Documentation context-efficiency review
+# Cycle 2 — Documentation context-efficiency review (cancelled)
 
 ## Identity and status
 - **Cycle ID:** 53e5d274-7a2a-4096-9068-dee0f853d049
 - **Sequence:** 2
 - **Execution order:** 2
 - **Workflow:** standard
-- **Status / phase:** in-progress / assess
+- **Status / phase:** cancelled / define (terminal; phase retained as historical context)
 - **Created:** 2026-11-28T10:06:34Z
 - **Started:** 2026-11-28T10:07:22Z
 
@@ -155,3 +155,12 @@ Cycle initialized and started. Assessment inventory and initial structural analy
 - **Phase exit evidence:** Per-file disposition proposal approved; current authoritative registry and project docs reconciled. Define must now produce the concrete restructuring blueprint, file destinations, content ownership, reference changes, preservation/verification gates, and representative context-load tests. Implementation remains gated on approval of that blueprint.
 - **Next action:** Draft the file-by-file restructuring blueprint and explicit verification plan, then present for approval.
 - **Last updated:** 2026-11-28T10:18:57Z
+
+
+## Cancellation checkpoint — 2026-11-28
+
+- **Registry status:** cancelled; reason recorded in the authoritative cycle registry.
+- **Correction:** this session was intended for governance maintenance. Session intent should have been classified before lifecycle routing, and this work should have used the governance-maintenance exemption. Creating and advancing this standard cycle was a governance-routing error.
+- **History preserved:** the assessment, approved hierarchy/dispositions, and Define checkpoint above remain as historical evidence; they do not authorize continuing this cycle.
+- **Scope boundary:** governance routing corrections may continue under the exemption only while limited to governance files. The broader documentation/context-efficiency restructuring of product specifications is deferred and would require a separately classified operational session and cycle.
+- **Next action:** return to Governance Mode and first define the mandatory session-classification gate for README and steering; do not resume this cancelled cycle.
