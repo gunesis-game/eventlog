@@ -120,6 +120,7 @@ Paths are slash-separated and relative to the storage root; the server rejects a
 | Rename | `POST /files/{path}?op=rename&to={path}` | Atomic; replaces the target; durable on success |
 | Delete | `DELETE /files/{path}` | Missing file is 404 |
 | Acquire / release ownership | `POST /locks/{name}`, `DELETE /locks/{name}` | Held lock is 409; the OS backend's lock is released by the operating system when the process exits |
+| Stream generic file-change hints | `GET /events` (server-sent events) | Optional backend capability; unavailable backends return a generic unavailable signal; events are hints, and storage remains authoritative |
 
 The server enforces these contracts for every backend, so recovery's guarantees (exclusive create, atomic
 replace and rename, truncation, sync before success, offset reads) do not depend on the backend.
@@ -544,8 +545,8 @@ response to D-056 to D-059 and applies D-061 to D-081.
 
 - **Built:** storage that refuses writes (D-068, D-072), the device and log layout on local storage,
   causal metadata in Event records (D-064), reading other devices' logs (D-073), causal delivery with
-  `ConcurrentChange` and `HistoryMissing` reporting (D-070, D-074), live state convergence (D-075), the
-  Google service clients (D-079 to D-081), and the Google services emulator (D-078).
+  `ConcurrentChange` and `HistoryMissing` reporting (D-070, D-074), live state convergence (D-075), the generic file-change SSE transport at the file-system boundary,
+  the Google service clients (D-079 to D-081), and the Google services emulator (D-078).
 - **Not built:** the `Web` storage option and its settings file (D-076), the Drive backend, Firebase
   change notifications, and the `AuthorizationRequired` and `ChangeEventsUnavailable` errors.
 
