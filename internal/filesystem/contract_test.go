@@ -33,6 +33,50 @@ func openClient(t *testing.T) (*Client, string) {
 	return client, dir
 }
 
+
+type eventBackend struct {
+	*OSBackend
+	events chan ChangeEvent
+}
+
+func (b *eventBackend) ChangeEvents(context.Context) (<-chan ChangeEvent, error) {
+	return b.events, nil
+}
+
+func TestChangeEventStream(t *testing.T) {
+	backend, err := NewOSBackend(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	provider := &eventBackend{OSBackend: backend, events: make(chan ChangeEvent, 1)}
+	server, err := Serve(provider)
+	if err != nil {
+		t.Fatal(err)
+	}
+	client := NewClient(server.URL(), server.Token())
+	t.Cleanup(func() {
+		client.Close()
+		_ = server.Close()
+	})
+	stream, err := client.ChangeEvents(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer stream.Close()
+	provider.events <- ChangeEvent{Path: "devices/device/segments/0001", Size: 123}
+	got, err := stream.Next()
+	if err != nil || got != (ChangeEvent{Path: "devices/device/segments/0001", Size: 123}) {
+		t.Fatalf("change event = %+v, %v", got, err)
+	}
+}
+
+func TestChangeEventsUnavailableOnLocalBackend(t *testing.T) {
+	client, _ := openClient(t)
+	if _, err := client.ChangeEvents(context.Background()); !errors.Is(err, ErrChangeEventsUnavailable) {
+		t.Fatalf("local change events = %v, want ErrChangeEventsUnavailable", err)
+	}
+}
+
 func TestCreateAppendReadTruncateSync(t *testing.T) {
 	c, dir := openClient(t)
 	if err := c.MakeDirectory("segments"); err != nil {
