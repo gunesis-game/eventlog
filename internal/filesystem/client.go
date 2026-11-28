@@ -178,75 +178,75 @@ func (c *Client) Unlock(name string) error {
 
  // ChangeEventStream is a live stream of generic file-change hints.
 type ChangeEventStream struct {
- 	body   io.ReadCloser
- 	reader *bufio.Reader
- }
+	body   io.ReadCloser
+	reader *bufio.Reader
+}
 // ChangeEvents opens the backend's server-sent change-event stream.
 // The initial events, if any, are supplied by the backend.
 func (c *Client) ChangeEvents(ctx context.Context) (*ChangeEventStream, error) {
- 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, c.base+"/events", nil)
- 	if err != nil {
- 		return nil, err
- 	}
- 	request.Header.Set("Authorization", "Bearer "+c.token)
- 	response, err := c.http.Do(request)
- 	if err != nil {
- 		return nil, fmt.Errorf("file-system change-event request: %w", err)
- 	}
- 	if response.StatusCode != http.StatusOK {
- 		defer response.Body.Close()
- 		message, _ := io.ReadAll(response.Body)
- 		if response.StatusCode == http.StatusNotImplemented || response.StatusCode == http.StatusServiceUnavailable {
- 			return nil, fmt.Errorf("%s: %w", strings.TrimSpace(string(message)), ErrChangeEventsUnavailable)
- 		}
- 		return nil, fmt.Errorf("file-system change-event stream: %s (%d)", strings.TrimSpace(string(message)), response.StatusCode)
- 	}
- 	return &ChangeEventStream{body: response.Body, reader: bufio.NewReader(response.Body)}, nil
- }
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, c.base+"/events", nil)
+	if err != nil {
+		return nil, err
+	}
+	request.Header.Set("Authorization", "Bearer "+c.token)
+	response, err := c.http.Do(request)
+	if err != nil {
+		return nil, fmt.Errorf("file-system change-event request: %w", err)
+	}
+	if response.StatusCode != http.StatusOK {
+		defer response.Body.Close()
+		message, _ := io.ReadAll(response.Body)
+		if response.StatusCode == http.StatusNotImplemented || response.StatusCode == http.StatusServiceUnavailable {
+			return nil, fmt.Errorf("%s: %w", strings.TrimSpace(string(message)), ErrChangeEventsUnavailable)
+		}
+		return nil, fmt.Errorf("file-system change-event stream: %s (%d)", strings.TrimSpace(string(message)), response.StatusCode)
+	}
+	return &ChangeEventStream{body: response.Body, reader: bufio.NewReader(response.Body)}, nil
+}
 // Next returns the next change hint, or io.EOF when the stream ends.
 func (s *ChangeEventStream) Next() (ChangeEvent, error) {
- 	for {
- 		name := ""
- 		var data strings.Builder
- 		for {
- 			line, err := s.reader.ReadString('\n')
- 			if err != nil {
- 				return ChangeEvent{}, err
- 			}
- 			line = strings.TrimRight(line, "\r\n")
- 			if line == "" {
- 				break
- 			}
- 			if value, ok := strings.CutPrefix(line, "event:"); ok {
- 				name = strings.TrimSpace(value)
- 			}
- 			if value, ok := strings.CutPrefix(line, "data:"); ok {
- 				if data.Len() > 0 {
- 					data.WriteByte('\n')
- 				}
- 				data.WriteString(strings.TrimSpace(value))
- 			}
- 		}
- 		if name != "change" {
- 			continue
- 		}
- 		var event ChangeEvent
- 		if err := json.Unmarshal([]byte(data.String()), &event); err != nil {
- 			return ChangeEvent{}, fmt.Errorf("decode file-system change event: %w", err)
- 		}
- 		if _, err := cleanPath(event.Path); err != nil || event.Path == "" {
- 			return ChangeEvent{}, fmt.Errorf("invalid file-system change-event path %q", event.Path)
- 		}
- 		if event.Size < 0 {
- 			return ChangeEvent{}, fmt.Errorf("invalid file-system change-event size %d", event.Size)
- 		}
- 		return event, nil
- 	}
- }
+	for {
+		name := ""
+		var data strings.Builder
+		for {
+			line, err := s.reader.ReadString('\n')
+			if err != nil {
+				return ChangeEvent{}, err
+			}
+			line = strings.TrimRight(line, "\r\n")
+			if line == "" {
+				break
+			}
+			if value, ok := strings.CutPrefix(line, "event:"); ok {
+				name = strings.TrimSpace(value)
+			}
+			if value, ok := strings.CutPrefix(line, "data:"); ok {
+				if data.Len() > 0 {
+					data.WriteByte('\n')
+				}
+				data.WriteString(strings.TrimSpace(value))
+			}
+		}
+		if name != "change" {
+			continue
+		}
+		var event ChangeEvent
+		if err := json.Unmarshal([]byte(data.String()), &event); err != nil {
+			return ChangeEvent{}, fmt.Errorf("decode file-system change event: %w", err)
+		}
+		if _, err := cleanPath(event.Path); err != nil || event.Path == "" {
+			return ChangeEvent{}, fmt.Errorf("invalid file-system change-event path %q", event.Path)
+		}
+		if event.Size < 0 {
+			return ChangeEvent{}, fmt.Errorf("invalid file-system change-event size %d", event.Size)
+		}
+		return event, nil
+	}
+}
 // Close closes the change-event stream.
 func (s *ChangeEventStream) Close() error {
- 	return s.body.Close()
- }
+	return s.body.Close()
+}
 
 // Close releases idle connections, including those of clients sharing them
 // through Sub.
