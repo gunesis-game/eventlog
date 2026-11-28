@@ -4,7 +4,7 @@
 - **Cycle ID:** 4c7c4fb1-6724-4bb0-b98e-b4f5ac3f9182
 - **Sequence / execution order:** 1 / 1
 - **Workflow:** standard
-- **Registry status / phase:** in-progress / implement
+- **Registry status / phase:** paused / implement
 - **Checkpoint date:** 2026-11-27
 
 ## Objective
@@ -65,3 +65,11 @@ User rules recorded for this work: no new public package functions (new behaviou
 
 ## Uncommitted or unpushed work
 None besides this checkpoint commit.
+
+
+## Preemption checkpoint — 2026-11-28T10:06:20Z
+
+- This implementation cycle is intentionally paused to prioritize the user's ordinary task: review and restructure repository Markdown documentation for efficient AI context loading.
+- Exact checkpoint revision before documentation work: `9996f247817772d6e2fedcfe14f04e46857df647` (from the existing verified handoff; verify current main when resuming).
+- Progress, implementation status, CI evidence, outstanding increments, and risks above remain unchanged. Phase remains `implement`; execution order remains 1.
+- Resume condition: after documentation review completes or is paused, reconcile this plan/handoff against current specifications, code, and exact main revision before continuing.
