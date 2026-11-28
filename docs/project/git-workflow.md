@@ -28,7 +28,7 @@ This document is the project-specific implementation of the [Git Workflow Standa
 - GitHub Actions is the CI execution environment; a successful write or workflow trigger is not proof that checks passed.
 - Current workflow files:
   - [Go verification](../../.github/workflows/go.yml) runs formatting (Linux), tests (Linux and Windows), race tests (Linux), build, and vet on pushes to `main` and manual dispatch. Its startup cleanup job applies the shared run-retention policy.
-  - [Workflow history cleanup](../../.github/workflows/cleanup-workflow-history.yml) is manual-dispatch only. It cleans its own workflow history and optionally applies cleanup to a specified historical workflow/run when both inputs are supplied.
+  - [Workflow history cleanup](../../.github/workflows/cleanup-workflow-history.yml) is manual-dispatch only. It cleans its own workflow history and, when both inputs are supplied, applies the per-workflow retention policy to the selected workflow. The supplied run ID is used as a current-run/retention-slot placeholder if that run is not found in the fetched list; it is not a request to delete that specific run.
 - No separate steering-validation workflow is present in the current tree. No `workflow_run` trigger is configured for automatic cleanup of a completed source workflow.
 - Go verification is configured in `.github/workflows/go.yml`; do not describe project Go verification as absent.
 - The one-time initialization workflow is not retained in this repository because initialization is complete. Its historical Actions runs are still subject to the same four-run retention rule; use the cleanup workflow's manual historical-target inputs when cleaning a retired workflow.
