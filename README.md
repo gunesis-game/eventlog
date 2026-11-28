@@ -4,6 +4,20 @@ eventlog is an embedded, disk-backed, append-only event log for Go. Applications
 
 This README is written for AI agents and new contributors. It says where each kind of truth lives. Everything that applies to a change, whether planned, in progress, or just landed, is in [Making changes](#making-changes).
 
+## Source Freshness and Repository Truth
+
+AI agents MUST NOT rely on cached, stale, or potentially outdated sources when determining the current state of this repository.
+
+- Search-engine results, cached pages, stale GitHub views, previously retrieved file contents, prior conversation context, and remembered repository state are not authoritative sources of current repository truth.
+- Before relying on a file, verify that it exists in the current `main` branch and retrieve its current contents.
+- Before relying on repository documentation, verify it against the current repository state. Do not assume a previously retrieved version is still valid.
+- When working from a local clone, fetch the latest `main` and verify the working tree and commit before using repository contents as authoritative.
+- When using remote sources, verify their association with the current `main` commit whenever possible. Prefer sources tied to a verified commit over mutable URLs or cached views.
+- If source freshness or commit identity cannot be verified, treat the information as unverified. Do not use it to make implementation decisions, infer current requirements, or claim that a file or rule exists.
+- If current repository truth cannot be established, stop and explicitly report the limitation rather than silently falling back to stale information.
+
+The current repository state takes precedence over all prior knowledge of the repository, including AI context, memory, earlier sessions, and cached source material.
+
 ## Current state
 
 - **Built:** the public API (`Config`, `PrepareLog`, field selectors, transactions, notifications, `ChannelError`), local storage, recovery, compaction, and multi-device operation on local storage (causal delivery, conflicts, convergence, storage that refuses writes). Also built: the Google service clients and the in-process Google services emulator.
