@@ -82,9 +82,9 @@ The current repository contains substantial Markdown documents, including large 
 
 ## Persisted phase checkpoint
 - **Current phase:** assess
-- **Phase exit evidence:** complete inventory, document-by-document analysis, and proposed hierarchy/dispositions presented to user; no structural changes before approval.
-- **Next action:** inventory Markdown paths, sizes, and cross-reference relationships.
-- **Last updated:** 2026-11-28T10:07:22Z
+- **Phase exit evidence:** complete inventory and overlap analysis; the hierarchy proposal is approved, but file-by-file dispositions remain to be presented.
+- **Next action:** complete the file-by-file disposition matrix and identify affected canonical owners/links.
+- **Last updated:** 2026-11-28T10:14:13Z
 
 ## Progress
 Cycle initialized and started. Assessment inventory and initial structural analysis completed; disposition proposal is prepared for user review.
@@ -132,4 +132,11 @@ Cycle initialized and started. Assessment inventory and initial structural analy
 - BACKGROUND: research/history, not instruction or specification.
 
 ### Remaining assessment / approval boundary
-- These are initial findings and proposed dispositions, not approved changes. No documentation restructuring has been made. Next: confirm this hierarchy and proceed to Define with file-by-file keep/split/merge/relocate/retire proposals, or revise the draft before defining work.
+- These are initial findings and approved hierarchy, not approved per-file dispositions or structural changes. No documentation restructuring has been made. Next: complete a file-by-file keep/split/merge/relocate/retire disposition proposal and present it for approval before implementation.
+
+
+## Approval checkpoint — 2026-11-28T10:14:13Z
+
+- User approved the proposed documentation hierarchy and the core principle that references are navigational, not recursive instructions to load content; conditions determine whether a target document is read.
+- Approval applies to hierarchy/reference semantics only. Per-file keep/split/merge/relocate/retire dispositions are not yet approved; no structural edits are authorized yet.
+- Cycle remains in `assess` because the required file-by-file disposition analysis is outstanding.
