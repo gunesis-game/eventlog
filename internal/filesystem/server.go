@@ -231,7 +231,6 @@ func (s *Server) removeFile(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-
 func (s *Server) changeEvents(w http.ResponseWriter, r *http.Request) {
 	source, ok := s.backend.(ChangeEventSource)
 	if !ok {
