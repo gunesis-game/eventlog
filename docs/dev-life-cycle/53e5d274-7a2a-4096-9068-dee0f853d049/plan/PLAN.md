@@ -140,3 +140,18 @@ Cycle initialized and started. Assessment inventory and initial structural analy
 - User approved the proposed documentation hierarchy and the core principle that references are navigational, not recursive instructions to load content; conditions determine whether a target document is read.
 - Approval applies to hierarchy/reference semantics only. Per-file keep/split/merge/relocate/retire dispositions are not yet approved; no structural edits are authorized yet.
 - Cycle remains in `assess` because the required file-by-file disposition analysis is outstanding.
+
+
+## Approval checkpoint — 2026-11-28T10:18:57Z
+
+- User approved the complete per-file disposition proposal presented during Assess. Approval authorizes moving to Define to develop the concrete restructuring plan; it does **not** authorize executing structural edits yet.
+- Approved direction: shorten/reroute entry docs; split lifecycle and architecture into conditional standalone topic leaves; clarify ownership among requirements, acceptance, testing, performance/benchmarks, decisions, standards, and research; preserve critical detail and historical records; avoid recursive link loading.
+- No project Markdown restructuring has been performed.
+
+
+## Define phase checkpoint — 2026-11-28T10:18:57Z
+
+- **Current phase:** define
+- **Phase exit evidence:** Per-file disposition proposal approved; current authoritative registry and project docs reconciled. Define must now produce the concrete restructuring blueprint, file destinations, content ownership, reference changes, preservation/verification gates, and representative context-load tests. Implementation remains gated on approval of that blueprint.
+- **Next action:** Draft the file-by-file restructuring blueprint and explicit verification plan, then present for approval.
+- **Last updated:** 2026-11-28T10:18:57Z
