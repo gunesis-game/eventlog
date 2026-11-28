@@ -1,22 +1,14 @@
 # Git Workflow Standard
 
+## Main only
+
+**This repository uses one branch: `main`. There are no other branches, ever.** All work, by people and agents alike, is committed directly to `main`. Do not create, push, check out, or propose any other branch. Do not open pull requests and do not create merge commits. This rule is D-043 in the [decision register](../project/decisions.md) and holds in every document; nothing in this or any other document permits an exception.
+
+If a protection or a tool blocks a direct commit to `main`, stop and report it. Do not work around it with a branch or a pull request.
+
 ## Purpose
 
-This standard defines the minimum repository collaboration and evidence workflow for AI-assisted and human development. The [project policy](#project-policy) at the end records the choices this repository has made.
-
-## Define the repository workflow
-
-Before implementation begins, the project must explicitly decide and document:
-
-- Branch and integration model (for example, direct commits to a protected main branch or topic branches integrated through pull requests).
-- Required review, approval, status checks, branch protections, and merge policy.
-- Commit granularity, message conventions, signing requirements, and authorship expectations.
-- How conflicts, failed checks, rollback, and recovery are handled.
-- CI workflows, triggers, suite selection, and required gates.
-- How exact commit SHAs connect source changes to verification evidence.
-
-The selected model must respect repository permissions and protections. Never bypass branch protection, required review, security controls, or failing checks.
-
+This standard defines the repository collaboration and evidence workflow for AI-assisted and human development. The [project policy](#project-policy) at the end records this repository's remaining choices. Never bypass protections, security controls, or failing checks.
 ## Repository interaction
 
 When GitHub MCP is available for the repository, agents use it to inspect repository state, read and write files, publish commits, and retrieve commit, workflow-run, job, log, and artifact evidence. Do not substitute assumptions, chat recollection, or an unverified local view for repository state. If the connector is unavailable or lacks permission, report the limitation; do not claim the protocol was followed.
@@ -30,7 +22,7 @@ For each meaningful implementation iteration:
 1. Select one small, coherent change and understand its dependencies.
 2. Add or update focused tests and documentation as appropriate.
 3. Implement and inspect the diff for scope, correctness, compatibility, and accidental changes.
-4. Commit and publish using the approved workflow.
+4. Commit to `main` and push.
 5. Identify the CI workflows for the exact commit SHA and wait for completion where possible.
 6. Inspect statuses and the relevant jobs, steps, logs, test reports, and artifacts.
 7. Diagnose failures, correct the cause, and repeat against the new revision before proceeding.
@@ -44,6 +36,13 @@ Do not accumulate known failures and continue as though feedback were green. A c
 - Distinguish success, failure, skipped, cancelled, not triggered, inaccessible, and not run. A missing or incomplete required result is not a pass.
 - Preserve links or identifiers for runs, jobs, logs, reports, and artifacts where available.
 - Never claim that tests, CI, review, publication, or deployment succeeded unless the result was observed.
+- Label every reported result with one status, naming the commit:
+  - **CI verified at `<sha>`:** the required CI run for that exact commit completed and passed.
+  - **Local only at `<sha>`:** the commands passed on a named local platform; no CI run for that commit was observed. Say "working tree" if the changes were uncommitted.
+  - **CI pending at `<sha>`:** pushed, and the run has not finished.
+  - **Failed at `<sha>`:** a required check failed; name it.
+  - **Not verified:** nothing was run.
+- A result for one commit is never evidence for another. When citing a recorded result, give its status and commit, and say that later commits are not covered.
 
 ## Workflow-run retention and scheduling
 
@@ -54,15 +53,20 @@ Do not accumulate known failures and continue as though feedback were green. A c
 - Never delete an active run. Each active run, including the current one, reserves one of the four slots until it completes.
 - A retired workflow's remaining runs are cleaned through the manual inputs of `Workflow history cleanup` (a workflow ID plus any of its run IDs).
 
-## Adaptation and exceptions
+## Exceptions
 
-A project may choose a different branching or review model if it is explicit, approved, and compatible with repository controls. An exception to this standard states its scope, rationale, risk, and compensating controls. Changes to branch policy, required checks, or evidence requirements are material decisions.
+An exception to this standard states its scope, rationale, risk, and compensating controls and needs an approved decision. The [main-only rule](#main-only) has no exceptions.
 
 ## Project policy
 
 Approved as D-043 in the [decision register](../project/decisions.md).
 
-- **Main only.** All changes are committed directly to `main`. No other branches, pull requests, or merge commits. If protections block a direct-main operation, stop and report it rather than working around it.
+- **Main only.** See [Main only](#main-only).
 - **Commits.** One coherent change per commit, with a concise message describing it. Do not force-push, rewrite shared history, or amend published commits; roll back with a new corrective commit.
-- **Not yet verified.** Repository branch-protection and ruleset settings, and signing or authorship requirements, have not been checked. Do not assume they are absent or enabled.
+- **Repository protection (verified 2026-11-28 through the public GitHub API at commit `4544468`).** One active ruleset, "default branch" (ID 28287256), applies to every branch name:
+  - `creation`, `deletion`, and `non_fast_forward` block creating branches, deleting branches, and force-pushes. These enforce the [main-only rule](#main-only).
+  - `update` blocks every push, including to `main`, except by accounts on the ruleset's bypass list. Direct commits to `main` are made by bypass actors. An agent whose push is refused stops and reports it.
+  - `pull_request` requires a pull request to change a branch. This contradicts the main-only rule and has no effect, because branches cannot be created. It is a known mismatch in the settings, not a permitted workflow.
+  - CI checks cannot block a direct push; they run after it lands. Verification before committing is the committer's responsibility ([Implementation and verification loop](#implementation-and-verification-loop)).
+- **Not yet verified.** Who is on the bypass list (reading it needs repository admin access). Signed commits are not required by the ruleset, and current commits are unsigned; no signing or authorship requirement has been decided.
 - **CI.** The workflows and their triggers are listed in [commands.md](../project/commands.md#ci).

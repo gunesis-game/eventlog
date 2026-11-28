@@ -23,19 +23,21 @@
 
 | Workflow | Trigger | What it runs |
 |---|---|---|
-| [Go verification](../../.github/workflows/go.yml) | Push to `main`, manual dispatch | Linux and Windows jobs with Go `1.27.4`: gofmt (Linux), tests through `scripts/go-test-verbose.sh`, race tests (Linux), build, vet. A separate job applies [workflow-run retention](../standards/git-workflow.md#workflow-run-retention-and-scheduling) |
+| [Go verification](../../.github/workflows/go.yml) | Push to `main` (the only branch; see [Main only](../standards/git-workflow.md#main-only)), manual dispatch | Linux and Windows jobs with Go `1.27.4`: gofmt (Linux), tests through `scripts/go-test-verbose.sh`, race tests (Linux), build, vet. A separate job applies [workflow-run retention](../standards/git-workflow.md#workflow-run-retention-and-scheduling) |
 | [Workflow history cleanup](../../.github/workflows/cleanup-workflow-history.yml) | Manual dispatch only | Applies retention to its own history and, when both inputs are given, to the named workflow. The run ID input stands in for the current run if it is not in the fetched list; it is not a request to delete that run |
 
 There is no benchmark workflow, no scheduled workflow, and no `workflow_run` trigger. Each test step's counts and skipped tests appear as a notice on the run's summary page and as check-run annotations, readable without the job log. Do not claim CI results until the run for the exact commit SHA has been inspected.
 
 ## Observed results
 
-On 2026-11-27, on windows/amd64 with Go 1.27.4 (local machine), against the working tree committed as the HTTP/2 transport (D-055) with batched Reader reads:
+Statuses follow [Evidence integrity](../standards/git-workflow.md#evidence-integrity). No later commit, including the current `main`, has recorded results.
+
+**Local only (windows/amd64, Go 1.27.4), working tree before the HTTP/2 transport commit (D-055) with batched Reader reads, 2026-11-27.** No commit SHA was recorded:
 
 - `go test -count=2 -cpu 1,4 ./...`, `go test -count=1 ./...`, `go test -race -count=1 ./...`, `go vet ./...`, `gofmt -l .`, and the benchmark smoke set passed in every package.
 - `GOOS=linux go vet ./...` and Linux test-binary builds of every package passed (cross-compiled; not executed on Linux locally).
 - `go doc -all .` output is unchanged, so the public API is unchanged.
 
-CI: commit `9996f247817772d6e2fedcfe14f04e46857df647` (the Google services emulator) passed Go verification run 46081913499 on `ubuntu-latest` (gofmt; tests: passed 202, failed 0, skipped 0; race tests: passed 202, failed 0, skipped 0; build, vet) and `windows-latest` (tests: passed 202, failed 0, skipped 0; build, vet; gofmt and race skipped by design), with no warning annotations. Later commits have not been recorded here.
+**CI verified at `9996f247817772d6e2fedcfe14f04e46857df647`** (the Google services emulator): Go verification run 46081913499 passed on `ubuntu-latest` (gofmt; tests: passed 202, failed 0, skipped 0; race tests: passed 202, failed 0, skipped 0; build, vet) and `windows-latest` (tests: passed 202, failed 0, skipped 0; build, vet; gofmt and race skipped by design), with no warning annotations.
 
 Update this document when commands, prerequisites, suite locations, or CI triggers change. Do not claim tests or checks that were not actually run.
