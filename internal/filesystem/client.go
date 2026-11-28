@@ -177,14 +177,13 @@ func (c *Client) Unlock(name string) error {
 
 
  // ChangeEventStream is a live stream of generic file-change hints.
- type ChangeEventStream struct {
+type ChangeEventStream struct {
  	body   io.ReadCloser
  	reader *bufio.Reader
  }
-
- // ChangeEvents opens the backend's server-sent change-event stream.
- // The initial events, if any, are supplied by the backend.
- func (c *Client) ChangeEvents(ctx context.Context) (*ChangeEventStream, error) {
+// ChangeEvents opens the backend's server-sent change-event stream.
+// The initial events, if any, are supplied by the backend.
+func (c *Client) ChangeEvents(ctx context.Context) (*ChangeEventStream, error) {
  	request, err := http.NewRequestWithContext(ctx, http.MethodGet, c.base+"/events", nil)
  	if err != nil {
  		return nil, err
@@ -204,18 +203,17 @@ func (c *Client) Unlock(name string) error {
  	}
  	return &ChangeEventStream{body: response.Body, reader: bufio.NewReader(response.Body)}, nil
  }
-
- // Next returns the next change hint, or io.EOF when the stream ends.
- func (s *ChangeEventStream) Next() (ChangeEvent, error) {
+// Next returns the next change hint, or io.EOF when the stream ends.
+func (s *ChangeEventStream) Next() (ChangeEvent, error) {
  	for {
  		name := ""
  		var data strings.Builder
  		for {
- 			line, err := s.reader.ReadString('\\n')
+ 			line, err := s.reader.ReadString('\n')
  			if err != nil {
  				return ChangeEvent{}, err
  			}
- 			line = strings.TrimRight(line, "\\r\\n")
+ 			line = strings.TrimRight(line, "\r\n")
  			if line == "" {
  				break
  			}
@@ -224,7 +222,7 @@ func (c *Client) Unlock(name string) error {
  			}
  			if value, ok := strings.CutPrefix(line, "data:"); ok {
  				if data.Len() > 0 {
- 					data.WriteByte('\\n')
+ 					data.WriteByte('\n')
  				}
  				data.WriteString(strings.TrimSpace(value))
  			}
@@ -245,9 +243,8 @@ func (c *Client) Unlock(name string) error {
  		return event, nil
  	}
  }
-
- // Close closes the change-event stream.
- func (s *ChangeEventStream) Close() error {
+// Close closes the change-event stream.
+func (s *ChangeEventStream) Close() error {
  	return s.body.Close()
  }
 
