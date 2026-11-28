@@ -164,3 +164,8 @@ Cycle initialized and started. Assessment inventory and initial structural analy
 - **History preserved:** the assessment, approved hierarchy/dispositions, and Define checkpoint above remain as historical evidence; they do not authorize continuing this cycle.
 - **Scope boundary:** governance routing corrections may continue under the exemption only while limited to governance files. The broader documentation/context-efficiency restructuring of product specifications is deferred and would require a separately classified operational session and cycle.
 - **Next action:** return to Governance Mode and first define the mandatory session-classification gate for README and steering; do not resume this cancelled cycle.
+
+
+## Post-cancellation governance checkpoint — Gate 0 implemented
+
+The cancelled cycle's historical next action to establish session-mode classification at entry points has now been fulfilled through Governance Mode, outside this cancelled cycle. Gate 0 was added and fetch-back verified in `README.md`, `steering.md`, and `docs/dev-life-cycle/README.md` (commits `1a403d881e74f93ee4ed9ddacda50ab1d435da2d`, `0e3d18b46801d0bf7a6553ab102570527050d05`, and `8d3f238418643a400166f63f0b67103c237d301c`). This does not resume Cycle 2 or authorize the deferred documentation restructure. Earlier phase checkpoints remain historical; cancelled status remains terminal.
