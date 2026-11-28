@@ -2,6 +2,8 @@ package googletest
 
 import (
 	"encoding/json"
+	"errors"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -9,6 +11,9 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/gunesis-game/eventlog/internal/firebase"
+	"github.com/gunesis-game/eventlog/internal/googleauth"
 )
 
 const (
@@ -22,120 +27,121 @@ const (
 func TestGoogleIDTokenWithOpenIDScope(t *testing.T) {
 	e := startEmulator(t, t.TempDir(), Options{})
 	e.AddTestUser(owner)
-	claims := claimsOf(t, googleIDToken(t, e, owner))
+	claims := claimsOf(t, signIn(t, e, owner, allScopes...).IDToken)
 	clientID, _ := e.Client()
 	if claims["email"] != owner || claims["aud"] != clientID || claims["iss"] != "https://accounts.google.com" || claims["sub"] == "" {
 		t.Fatalf("claims = %v", claims)
 	}
-	e.SignIn(owner)
-	redirect := authorize(t, e, driveScope, "")
-	if _, body := tokenRequest(t, e, url.Values{"grant_type": {"authorization_code"}, "code": {redirect.Get("code")}, "redirect_uri": {loopback}}); body["id_token"] != nil {
-		t.Fatalf("an ID token without the openid scope: %v", body)
+	if token := signIn(t, e, owner, googleauth.ScopeDrive); token.IDToken != "" {
+		t.Fatal("an ID token without the openid scope")
 	}
 }
 
-// D-066: a Google ID token is exchanged for a Firebase token in the owner's
-// project, which records the account on its first exchange with a stable
-// user ID; a wrong API key, a tampered token, or an expired one is refused.
+func firebaseCode(err error) string {
+	var authErr *firebase.AuthError
+	if errors.As(err, &authErr) {
+		return authErr.Code()
+	}
+	return ""
+}
+
+// D-066: a Google ID token is exchanged for a Firebase session in the
+// owner's project, which records the account on its first exchange with a
+// stable user ID; a wrong API key, a tampered token, or an expired one is
+// refused.
 func TestFirebaseExchangesGoogleSignIn(t *testing.T) {
 	clock := newTestClock()
 	e := startEmulator(t, t.TempDir(), Options{Now: clock.Now})
 	e.AddTestUser(editor)
 	_, apiKey := e.Firebase()
-	idToken := googleIDToken(t, e, editor)
-	status, body := exchange(t, e, apiKey, idToken)
-	expectStatus(t, "exchange", status, http.StatusOK, body)
-	if body["providerId"] != "google.com" || body["email"] != editor || body["expiresIn"] != "3600" || body["refreshToken"] == nil || body["localId"] == "" {
-		t.Fatalf("exchange = %v", body)
+	auth := firebase.NewAuth(http.DefaultClient, apiKey, e.URL(), e.URL())
+	idToken := signIn(t, e, editor, allScopes...).IDToken
+	session, err := auth.SignInWithGoogle(ctx, idToken)
+	if err != nil {
+		t.Fatal(err)
 	}
-	claims := claimsOf(t, body["idToken"].(string))
-	if claims["user_id"] != body["localId"] || claims["email"] != editor {
+	if session.UID == "" || session.Email != editor || session.RefreshToken == "" || time.Until(session.Expiry) < 59*time.Minute {
+		t.Fatalf("session = %+v", session)
+	}
+	if claims := claimsOf(t, session.IDToken); claims["user_id"] != session.UID || claims["email"] != editor {
 		t.Fatalf("Firebase claims = %v", claims)
 	}
-	if again := firebaseSignIn(t, e, editor); again.uid != body["localId"] {
-		t.Fatal("the user ID changed on a second exchange")
+	if again, err := auth.SignInWithGoogle(ctx, idToken); err != nil || again.UID != session.UID {
+		t.Fatalf("second exchange = %+v, %v", again, err)
 	}
-
-	if status, body := exchange(t, e, "wrong-key", idToken); status != http.StatusBadRequest || !strings.Contains(errorMessage(body), "API key not valid") {
-		t.Fatalf("wrong key = %d %v", status, body)
+	wrongKey := firebase.NewAuth(http.DefaultClient, "wrong-key", e.URL(), e.URL())
+	if _, err := wrongKey.SignInWithGoogle(ctx, idToken); !strings.Contains(err.Error(), "API key not valid") {
+		t.Fatalf("wrong key = %v", err)
 	}
-	if status, body := exchange(t, e, apiKey, idToken[:len(idToken)-2]+"xx"); status != http.StatusBadRequest || !strings.HasPrefix(errorMessage(body), "INVALID_IDP_RESPONSE") {
-		t.Fatalf("tampered token = %d %v", status, body)
+	if _, err := auth.SignInWithGoogle(ctx, idToken[:len(idToken)-2]+"xx"); firebaseCode(err) != "INVALID_IDP_RESPONSE" {
+		t.Fatalf("tampered token = %v", err)
 	}
 	clock.Advance(time.Hour)
-	if status, body := exchange(t, e, apiKey, idToken); status != http.StatusBadRequest || !strings.HasPrefix(errorMessage(body), "INVALID_IDP_RESPONSE") {
-		t.Fatalf("expired token = %d %v", status, body)
+	if _, err := auth.SignInWithGoogle(ctx, idToken); firebaseCode(err) != "INVALID_IDP_RESPONSE" {
+		t.Fatalf("expired token = %v", err)
 	}
-}
-
-func errorMessage(body map[string]any) string {
-	e, _ := body["error"].(map[string]any)
-	message, _ := e["message"].(string)
-	return message
 }
 
 // A Firebase ID token lasts an hour, after which the database refuses it;
-// the refresh token, which does not expire, gets a new one.
+// the refresh token, which does not expire, gets a new one. An unknown or
+// missing refresh token is refused with its code, and a request with
+// another grant type, which no correct client sends, too.
 func TestFirebaseTokenRefresh(t *testing.T) {
 	clock := newTestClock()
 	e := startEmulator(t, t.TempDir(), Options{Now: clock.Now})
 	e.AddTestUser(owner)
 	e.InstallRules(owner)
-	user := firebaseSignIn(t, e, owner)
-	db := newDatabase(t, e, user)
+	auth, session := firebaseAs(t, e, owner)
+	db := databaseOf(e)
 	clock.Advance(time.Hour)
-	if status, body := db.call("GET", members, nil); status != http.StatusUnauthorized || !jsonEqual(body, map[string]any{"error": "Auth token is expired"}) {
-		t.Fatalf("expired token = %d %v", status, body)
+	var value any
+	err := db.Get(ctx, members, session.IDToken, &value)
+	var dbErr *firebase.DatabaseError
+	if !errors.As(err, &dbErr) || dbErr.Status != http.StatusUnauthorized || dbErr.Message != "Auth token is expired" {
+		t.Fatalf("expired token = %v", err)
 	}
 	clock.Advance(30 * 24 * time.Hour)
+	renewed, err := auth.Refresh(ctx, session)
+	if err != nil || renewed.UID != session.UID || renewed.RefreshToken != session.RefreshToken {
+		t.Fatalf("refresh = %+v, %v", renewed, err)
+	}
+	if err := db.Get(ctx, members, renewed.IDToken, &value); err != nil {
+		t.Fatalf("with the refreshed token: %v", err)
+	}
+	if _, err := auth.Refresh(ctx, firebase.Session{RefreshToken: "unknown"}); firebaseCode(err) != "INVALID_REFRESH_TOKEN" {
+		t.Fatalf("unknown refresh token = %v", err)
+	}
+	if _, err := auth.Refresh(ctx, firebase.Session{}); firebaseCode(err) != "MISSING_REFRESH_TOKEN" {
+		t.Fatalf("missing refresh token = %v", err)
+	}
 	_, apiKey := e.Firebase()
-	refresh := func(form url.Values) (int, map[string]any) {
-		response, err := http.PostForm(e.URL()+"/v1/token?key="+apiKey, form)
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer response.Body.Close()
-		var body map[string]any
-		_ = json.NewDecoder(response.Body).Decode(&body)
-		return response.StatusCode, body
+	response, err := http.PostForm(e.URL()+"/v1/token?key="+apiKey, url.Values{"grant_type": {"password"}, "refresh_token": {session.RefreshToken}})
+	if err != nil {
+		t.Fatal(err)
 	}
-	status, body := refresh(url.Values{"grant_type": {"refresh_token"}, "refresh_token": {user.refresh}})
-	if status != http.StatusOK || body["user_id"] != user.uid || body["token_type"] != "Bearer" || body["expires_in"] != "3600" || body["refresh_token"] != user.refresh {
-		t.Fatalf("refresh = %d %v", status, body)
-	}
-	db.token = body["id_token"].(string)
-	if status, _ := db.call("GET", members, nil); status != http.StatusOK {
-		t.Fatalf("with the refreshed token: %d", status)
-	}
-	for form, want := range map[string]string{
-		"grant_type=refresh_token&refresh_token=unknown": "INVALID_REFRESH_TOKEN",
-		"grant_type=refresh_token":                       "MISSING_REFRESH_TOKEN",
-		"grant_type=password&refresh_token=x":            "INVALID_GRANT_TYPE",
-	} {
-		values, _ := url.ParseQuery(form)
-		if status, body := refresh(values); status != http.StatusBadRequest || errorMessage(body) != want {
-			t.Fatalf("%s = %d %v, want %s", form, status, body, want)
-		}
+	_ = response.Body.Close()
+	if response.StatusCode != http.StatusBadRequest {
+		t.Fatalf("another grant type = %d", response.StatusCode)
 	}
 }
 
 // boardUsers sets up the owner's database with the rules installed and a
 // members list naming an editor as writer and a viewer as reader, and
-// returns their database clients and a stranger's.
-func boardUsers(t *testing.T, e *Emulator) (ownerDB, editorDB, viewerDB, strangerDB *database, editorUID string) {
+// returns their sessions and a stranger's.
+func boardUsers(t *testing.T, e *Emulator) (ownerSession, editorSession, viewerSession, strangerSession firebase.Session) {
 	t.Helper()
-	for _, account := range []string{owner, editor, viewer, "stranger@example.com"} {
+	for _, account := range []string{owner, editor, viewer, stranger} {
 		e.AddTestUser(account)
 	}
 	e.InstallRules(owner)
-	ownerDB = newDatabase(t, e, firebaseSignIn(t, e, owner))
-	editorUser := firebaseSignIn(t, e, editor)
-	editorDB = newDatabase(t, e, editorUser)
-	viewerDB = newDatabase(t, e, firebaseSignIn(t, e, viewer))
-	strangerDB = newDatabase(t, e, firebaseSignIn(t, e, "stranger@example.com"))
-	status, body := ownerDB.call("PUT", members, map[string]any{emailKey(owner): "writer", emailKey(editor): "writer", emailKey(viewer): "reader"})
-	expectStatus(t, "write the members list", status, http.StatusOK, body)
-	return ownerDB, editorDB, viewerDB, strangerDB, editorUser.uid
+	_, ownerSession = firebaseAs(t, e, owner)
+	_, editorSession = firebaseAs(t, e, editor)
+	_, viewerSession = firebaseAs(t, e, viewer)
+	_, strangerSession = firebaseAs(t, e, stranger)
+	if err := databaseOf(e).Put(ctx, members, ownerSession.IDToken, map[string]string{emailKey(owner): "writer", emailKey(editor): "writer", emailKey(viewer): "reader"}); err != nil {
+		t.Fatal(err)
+	}
+	return
 }
 
 // Until the owner installs the rules, the database refuses every request,
@@ -143,13 +149,16 @@ func boardUsers(t *testing.T, e *Emulator) (ownerDB, editorDB, viewerDB, strange
 func TestDatabaseIsLockedUntilRulesAreInstalled(t *testing.T) {
 	e := startEmulator(t, t.TempDir(), Options{})
 	e.AddTestUser(owner)
-	db := newDatabase(t, e, firebaseSignIn(t, e, owner))
-	if status, body := db.call("PUT", members, map[string]any{"a": "writer"}); status != http.StatusUnauthorized || !jsonEqual(body, map[string]any{"error": "Permission denied"}) {
-		t.Fatalf("before the rules = %d %v", status, body)
+	_, session := firebaseAs(t, e, owner)
+	db := databaseOf(e)
+	err := db.Put(ctx, members, session.IDToken, map[string]string{"a": "writer"})
+	var dbErr *firebase.DatabaseError
+	if !errors.As(err, &dbErr) || dbErr.Status != http.StatusUnauthorized || dbErr.Message != "Permission denied" {
+		t.Fatalf("before the rules = %v", err)
 	}
 	e.InstallRules(owner)
-	if status, body := db.call("PUT", members, map[string]any{"a": "writer"}); status != http.StatusOK {
-		t.Fatalf("after the rules = %d %v", status, body)
+	if err := db.Put(ctx, members, session.IDToken, map[string]string{"a": "writer"}); err != nil {
+		t.Fatalf("after the rules = %v", err)
 	}
 }
 
@@ -160,40 +169,47 @@ func TestDatabaseIsLockedUntilRulesAreInstalled(t *testing.T) {
 // unauthenticated request.
 func TestSecurityRules(t *testing.T) {
 	e := startEmulator(t, t.TempDir(), Options{})
-	ownerDB, editorDB, viewerDB, strangerDB, editorUID := boardUsers(t, e)
-	anonymous := &database{t: t, url: ownerDB.url}
+	ownerS, editorS, viewerS, strangerS := boardUsers(t, e)
+	db := databaseOf(e)
 	entry := map[string]any{"path": "devices/d1/segments/segment-1", "size": 10}
-	strangerKey := emailKey("stranger@example.com")
+	strangerKey := emailKey(stranger)
+	requests := "eventlog/" + logID + "/requests"
 	for _, c := range []struct {
-		name   string
-		db     *database
-		method string
-		path   string
-		body   any
-		allow  bool
+		name  string
+		token string
+		write bool
+		path  string
+		value any
+		allow bool
 	}{
-		{"editor writes its board entry", editorDB, "PUT", board + "/" + editorUID + "/d1", entry, true},
-		{"editor writes under another user ID", editorDB, "PUT", board + "/someone-else/d1", entry, false},
-		{"editor writes the whole board", editorDB, "PUT", board, map[string]any{}, false},
-		{"viewer writes the board", viewerDB, "PUT", board + "/" + editorUID + "/d2", entry, false},
-		{"viewer reads the board", viewerDB, "GET", board, nil, true},
-		{"editor reads the board", editorDB, "GET", board, nil, true},
-		{"owner reads the board", ownerDB, "GET", board, nil, true},
-		{"stranger reads the board", strangerDB, "GET", board, nil, false},
-		{"stranger writes its request", strangerDB, "PUT", "eventlog/" + logID + "/requests/" + strangerKey, true, true},
-		{"stranger writes another request", strangerDB, "PUT", "eventlog/" + logID + "/requests/" + emailKey(viewer), true, false},
-		{"stranger reads requests", strangerDB, "GET", "eventlog/" + logID + "/requests", nil, false},
-		{"owner reads requests", ownerDB, "GET", "eventlog/" + logID + "/requests", nil, true},
-		{"editor writes the members list", editorDB, "PATCH", members, map[string]any{strangerKey: "writer"}, false},
-		{"viewer reads its own entry", viewerDB, "GET", members + "/" + emailKey(viewer), nil, true},
-		{"viewer reads another entry", viewerDB, "GET", members + "/" + emailKey(editor), nil, false},
-		{"viewer reads the members list", viewerDB, "GET", members, nil, false},
-		{"anyone reads the root", ownerDB, "GET", "", nil, false},
-		{"unauthenticated reads the board", anonymous, "GET", board, nil, false},
+		{"editor writes its board entry", editorS.IDToken, true, board + "/" + editorS.UID + "/d1", entry, true},
+		{"editor writes under another user ID", editorS.IDToken, true, board + "/someone-else/d1", entry, false},
+		{"editor writes the whole board", editorS.IDToken, true, board, map[string]any{"x": 1}, false},
+		{"viewer writes the board", viewerS.IDToken, true, board + "/" + viewerS.UID + "/d2", entry, false},
+		{"viewer reads the board", viewerS.IDToken, false, board, nil, true},
+		{"editor reads the board", editorS.IDToken, false, board, nil, true},
+		{"owner reads the board", ownerS.IDToken, false, board, nil, true},
+		{"stranger reads the board", strangerS.IDToken, false, board, nil, false},
+		{"stranger writes its request", strangerS.IDToken, true, requests + "/" + strangerKey, true, true},
+		{"stranger writes another request", strangerS.IDToken, true, requests + "/" + emailKey(viewer), true, false},
+		{"stranger reads requests", strangerS.IDToken, false, requests, nil, false},
+		{"owner reads requests", ownerS.IDToken, false, requests, nil, true},
+		{"editor writes the members list", editorS.IDToken, true, members + "/" + strangerKey, "writer", false},
+		{"viewer reads its own entry", viewerS.IDToken, false, members + "/" + emailKey(viewer), nil, true},
+		{"viewer reads another entry", viewerS.IDToken, false, members + "/" + emailKey(editor), nil, false},
+		{"viewer reads the members list", viewerS.IDToken, false, members, nil, false},
+		{"anyone reads the root", ownerS.IDToken, false, "", nil, false},
+		{"unauthenticated reads the board", "", false, board, nil, false},
 	} {
-		status, body := c.db.call(c.method, c.path, c.body)
-		if allowed := status == http.StatusOK; allowed != c.allow {
-			t.Errorf("%s: %d %v, want allowed %v", c.name, status, body, c.allow)
+		var err error
+		if c.write {
+			err = db.Put(ctx, c.path, c.token, c.value)
+		} else {
+			var value any
+			err = db.Get(ctx, c.path, c.token, &value)
+		}
+		if allowed := err == nil; allowed != c.allow {
+			t.Errorf("%s: %v, want allowed %v", c.name, err, c.allow)
 		}
 	}
 	if role := e.Database(members + "/" + strangerKey); role != nil {
@@ -201,56 +217,143 @@ func TestSecurityRules(t *testing.T) {
 	}
 }
 
-// REST writes: PUT returns what was written, PATCH merges children and
-// accepts paths as keys, DELETE removes, empty objects vanish, and
-// print=silent answers 204.
-func TestDatabaseRESTWrites(t *testing.T) {
+// Writes: PATCH merges children and accepts paths as keys, DELETE removes,
+// empty objects vanish; malformed JSON, which no correct client sends, is
+// refused.
+func TestDatabaseWrites(t *testing.T) {
 	e := startEmulator(t, t.TempDir(), Options{})
-	ownerDB, _, _, _, _ := boardUsers(t, e)
-	path := "eventlog/" + logID + "/members"
-	if status, body := ownerDB.call("PATCH", path, map[string]any{"a": "writer", "b/c": "nested"}); status != http.StatusOK || !jsonEqual(body, map[string]any{"a": "writer", "b/c": "nested"}) {
-		t.Fatalf("patch = %d %v", status, body)
+	ownerS, _, _, _ := boardUsers(t, e)
+	db := databaseOf(e)
+	if err := db.Patch(ctx, members, ownerS.IDToken, map[string]any{"a": "writer", "b/c": "nested"}); err != nil {
+		t.Fatal(err)
 	}
-	got := e.Database(path).(map[string]any)
-	if got["a"] != "writer" || !jsonEqual(got["b"], map[string]any{"c": "nested"}) || got[emailKey(owner)] != "writer" {
+	got := e.Database(members).(map[string]any)
+	if got["a"] != "writer" || jsonOf(got["b"]) != `{"c":"nested"}` || got[emailKey(owner)] != "writer" {
 		t.Fatalf("after patch = %v", got)
 	}
-	if status, body := ownerDB.call("DELETE", path+"/b/c", nil); status != http.StatusOK || body != nil {
-		t.Fatalf("delete = %d %v", status, body)
+	if err := db.Delete(ctx, members+"/b/c", ownerS.IDToken); err != nil {
+		t.Fatal(err)
 	}
-	if e.Database(path+"/b") != nil {
+	if e.Database(members+"/b") != nil {
 		t.Fatal("an empty object was kept")
 	}
-	request, _ := http.NewRequest("PUT", ownerDB.address(path+"/a", url.Values{"print": {"silent"}}), strings.NewReader(`"reader"`))
+	databaseURL, _ := e.Firebase()
+	request, _ := http.NewRequest("PUT", databaseURL+"/"+members+".json?auth="+ownerS.IDToken, strings.NewReader("{broken"))
 	response, err := http.DefaultClient.Do(request)
 	if err != nil {
 		t.Fatal(err)
 	}
-	_ = response.Body.Close()
-	if response.StatusCode != http.StatusNoContent || e.Database(path+"/a") != "reader" {
-		t.Fatalf("silent put = %d, value %v", response.StatusCode, e.Database(path+"/a"))
-	}
-	request, _ = http.NewRequest("PUT", ownerDB.address(path, nil), strings.NewReader("{broken"))
-	response, _ = http.DefaultClient.Do(request)
 	_ = response.Body.Close()
 	if response.StatusCode != http.StatusBadRequest {
 		t.Fatalf("malformed JSON = %d", response.StatusCode)
 	}
 }
 
-// D-063: a stream is redirected once, starts with the location's whole
-// value, then sends a put for each changed value and a patch for each
-// PATCH, with paths relative to the location; writes that change nothing,
-// or elsewhere, send nothing; a write above the location sends its new
-// value; keep-alive comes while idle.
-func TestStreamEvents(t *testing.T) {
-	e := startEmulator(t, t.TempDir(), Options{KeepAlive: 30 * time.Millisecond})
-	ownerDB, editorDB, viewerDB, _, editorUID := boardUsers(t, e)
-	entry := board + "/" + editorUID + "/d1"
-	editorDB.call("PUT", entry, map[string]any{"path": "a", "size": 1})
+// nextEvent waits for a stream's next event.
+func nextEvent(t *testing.T, s *firebase.Stream) firebase.Event {
+	t.Helper()
+	type result struct {
+		ev  firebase.Event
+		err error
+	}
+	done := make(chan result, 1)
+	go func() {
+		ev, err := s.Next()
+		done <- result{ev, err}
+	}()
+	select {
+	case r := <-done:
+		if r.err != nil {
+			t.Fatalf("stream: %v", r.err)
+		}
+		return r.ev
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for an event")
+		return firebase.Event{}
+	}
+}
 
-	request, _ := http.NewRequest("GET", viewerDB.address(board, nil), nil)
+func expectEvent(t *testing.T, s *firebase.Stream, kind, path, data string) {
+	t.Helper()
+	if ev := nextEvent(t, s); ev.Type != kind || ev.Path != path || string(ev.Data) != data {
+		t.Fatalf("event %s %s %s, want %s %s %s", ev.Type, ev.Path, ev.Data, kind, path, data)
+	}
+}
+
+// expectEnded checks the stream has ended.
+func expectEnded(t *testing.T, s *firebase.Stream) {
+	t.Helper()
+	done := make(chan error, 1)
+	go func() {
+		_, err := s.Next()
+		done <- err
+	}()
+	select {
+	case err := <-done:
+		if err == nil {
+			t.Fatal("the stream did not end")
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("the stream did not end")
+	}
+}
+
+func openStream(t *testing.T, e *Emulator, path, token string) *firebase.Stream {
+	t.Helper()
+	s, err := databaseOf(e).Stream(ctx, path, token)
+	if err != nil {
+		t.Fatalf("stream %s: %v", path, err)
+	}
+	t.Cleanup(func() { _ = s.Close() })
+	return s
+}
+
+// D-063: a stream starts with the location's whole value, then carries a
+// put for each changed value and a patch for each PATCH, with paths
+// relative to the location; writes that change nothing, or elsewhere, send
+// nothing; a write above the location sends its new value.
+func TestStreamEvents(t *testing.T) {
+	e := startEmulator(t, t.TempDir(), Options{})
+	ownerS, editorS, viewerS, _ := boardUsers(t, e)
+	db := databaseOf(e)
+	entry := board + "/" + editorS.UID + "/d1"
+	if err := db.Put(ctx, entry, editorS.IDToken, map[string]any{"path": "a", "size": 1}); err != nil {
+		t.Fatal(err)
+	}
+	s := openStream(t, e, board, viewerS.IDToken)
+	expectEvent(t, s, firebase.Put, "/", `{"`+editorS.UID+`":{"d1":{"path":"a","size":1}}}`)
+	if err := db.Put(ctx, entry+"/size", editorS.IDToken, 2); err != nil {
+		t.Fatal(err)
+	}
+	expectEvent(t, s, firebase.Put, "/"+editorS.UID+"/d1/size", "2")
+	if err := db.Patch(ctx, entry, editorS.IDToken, map[string]any{"path": "b", "size": 3}); err != nil {
+		t.Fatal(err)
+	}
+	expectEvent(t, s, firebase.Patch, "/"+editorS.UID+"/d1", `{"path":"b","size":3}`)
+	_ = db.Put(ctx, entry+"/size", editorS.IDToken, 3)
+	_ = db.Put(ctx, "eventlog/other-log/members", ownerS.IDToken, map[string]string{"x": "writer"})
+	if err := db.Delete(ctx, entry, editorS.IDToken); err != nil {
+		t.Fatal(err)
+	}
+	expectEvent(t, s, firebase.Put, "/"+editorS.UID+"/d1", "null")
+
+	own := openStream(t, e, members+"/"+emailKey(viewer), viewerS.IDToken)
+	expectEvent(t, own, firebase.Put, "/", `"reader"`)
+	if err := db.Put(ctx, members, ownerS.IDToken, map[string]string{emailKey(owner): "writer", emailKey(viewer): "writer"}); err != nil {
+		t.Fatal(err)
+	}
+	expectEvent(t, own, firebase.Put, "/", `"writer"`)
+}
+
+// A stream is redirected once to the server holding the data; the client
+// follows it, so this is checked with a raw request that does not.
+func TestStreamIsRedirected(t *testing.T) {
+	e := startEmulator(t, t.TempDir(), Options{})
+	_, _, viewerS, _ := boardUsers(t, e)
+	databaseURL, _ := e.Firebase()
+	request, _ := http.NewRequest("GET", databaseURL+"/"+board+".json?auth="+viewerS.IDToken, nil)
 	request.Header.Set("Accept", "text/event-stream")
+	noRedirects := &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
 	response, err := noRedirects.Do(request)
 	if err != nil {
 		t.Fatal(err)
@@ -259,62 +362,57 @@ func TestStreamEvents(t *testing.T) {
 	if response.StatusCode != http.StatusTemporaryRedirect || !strings.Contains(response.Header.Get("Location"), "ns=") {
 		t.Fatalf("first stream request = %d %q", response.StatusCode, response.Header.Get("Location"))
 	}
+}
 
-	_, s := viewerDB.stream(board)
-	s.expectEvent("put", "/", map[string]any{editorUID: map[string]any{"d1": map[string]any{"path": "a", "size": 1}}})
-	editorDB.call("PUT", entry+"/size", 2)
-	s.expectEvent("put", "/"+editorUID+"/d1/size", 2)
-	editorDB.call("PATCH", entry, map[string]any{"path": "b", "size": 3})
-	s.expectEvent("patch", "/"+editorUID+"/d1", map[string]any{"path": "b", "size": 3})
-	editorDB.call("PUT", entry+"/size", 3)
-	ownerDB.call("PUT", "eventlog/other-log/members", map[string]any{"x": "writer"})
-	s.expectQuiet()
-	editorDB.call("DELETE", entry, nil)
-	s.expectEvent("put", "/"+editorUID+"/d1", nil)
-
-	select {
-	case ev := <-s.events:
-		if ev.name != "keep-alive" || ev.data != nil {
-			t.Fatalf("idle event = %v", ev)
-		}
-	case <-time.After(time.Second):
-		t.Fatal("no keep-alive while idle")
+// An idle stream gets keep-alive, which the client skips; it shows in the
+// streamed bytes.
+func TestStreamKeepAlive(t *testing.T) {
+	e := startEmulator(t, t.TempDir(), Options{KeepAlive: 20 * time.Millisecond})
+	_, _, viewerS, _ := boardUsers(t, e)
+	s := openStream(t, e, board, viewerS.IDToken)
+	nextEvent(t, s)
+	before := e.Stats()[viewer]["rtdb.stream"].ResponseBytes
+	time.Sleep(150 * time.Millisecond)
+	if grown := e.Stats()[viewer]["rtdb.stream"].ResponseBytes - before; grown < int64(len("event: keep-alive\ndata: null\n\n")) {
+		t.Fatalf("streamed %d bytes while idle", grown)
 	}
-
-	_, whole := ownerDB.stream(members + "/" + emailKey(viewer))
-	whole.expectEvent("put", "/", "reader")
-	ownerDB.call("PUT", members, map[string]any{emailKey(owner): "writer", emailKey(viewer): "writer"})
-	whole.expectEvent("put", "/", "writer")
 }
 
 // When the rules stop allowing a stream's read, as when the owner removes
 // the account from the members list, the stream sends cancel and ends.
 func TestStreamCancelledWhenAccessIsRemoved(t *testing.T) {
 	e := startEmulator(t, t.TempDir(), Options{})
-	ownerDB, _, viewerDB, _, _ := boardUsers(t, e)
-	_, s := viewerDB.stream(board)
-	s.next()
-	ownerDB.call("DELETE", members+"/"+emailKey(viewer), nil)
-	s.expectEnd("cancel")
-	if status, _ := viewerDB.stream(board); status != http.StatusUnauthorized {
-		t.Fatalf("reopening = %d, want refused", status)
+	ownerS, _, viewerS, _ := boardUsers(t, e)
+	s := openStream(t, e, board, viewerS.IDToken)
+	nextEvent(t, s)
+	if err := databaseOf(e).Delete(ctx, members+"/"+emailKey(viewer), ownerS.IDToken); err != nil {
+		t.Fatal(err)
 	}
+	if ev := nextEvent(t, s); ev.Type != firebase.Cancel {
+		t.Fatalf("after removal = %+v", ev)
+	}
+	if _, err := s.Next(); !errors.Is(err, io.EOF) {
+		t.Fatalf("after cancel = %v", err)
+	}
+	_, err := databaseOf(e).Stream(ctx, board, viewerS.IDToken)
+	expectDatabaseError(t, "reopening", err, http.StatusUnauthorized)
 }
 
-// When a stream's sign-in expires, it sends auth_revoked and ends; the
-// device reconnects with a refreshed token.
+// When a stream's sign-in expires, it sends auth_revoked and ends.
 func TestStreamAuthRevokedWhenTokenExpires(t *testing.T) {
 	clock := newTestClock()
 	e := startEmulator(t, t.TempDir(), Options{Now: clock.Now, KeepAlive: 20 * time.Millisecond})
-	_, _, viewerDB, _, _ := boardUsers(t, e)
-	_, s := viewerDB.stream(board)
-	s.next()
+	_, _, viewerS, _ := boardUsers(t, e)
+	s := openStream(t, e, board, viewerS.IDToken)
+	nextEvent(t, s)
 	clock.Advance(time.Hour)
-	ev := s.next()
-	if ev.name != "auth_revoked" || ev.data != "credential is no longer valid" {
-		t.Fatalf("after expiry = %v", ev)
+	ev := nextEvent(t, s)
+	var reason string
+	_ = json.Unmarshal(ev.Data, &reason)
+	if ev.Type != firebase.AuthRevoked || reason != "credential is no longer valid" {
+		t.Fatalf("after expiry = %+v", ev)
 	}
-	s.expectEnd("")
+	expectEnded(t, s)
 }
 
 // A dropped connection ends the stream without an event; reconnecting
@@ -322,14 +420,16 @@ func TestStreamAuthRevokedWhenTokenExpires(t *testing.T) {
 // included.
 func TestDroppedStreamsReconnect(t *testing.T) {
 	e := startEmulator(t, t.TempDir(), Options{})
-	_, editorDB, viewerDB, _, editorUID := boardUsers(t, e)
-	_, s := viewerDB.stream(board)
-	s.next()
+	_, editorS, viewerS, _ := boardUsers(t, e)
+	s := openStream(t, e, board, viewerS.IDToken)
+	nextEvent(t, s)
 	e.DropStreams()
-	s.expectEnd("")
-	editorDB.call("PUT", board+"/"+editorUID+"/d1", map[string]any{"size": 5})
-	_, again := viewerDB.stream(board)
-	again.expectEvent("put", "/", map[string]any{editorUID: map[string]any{"d1": map[string]any{"size": 5}}})
+	expectEnded(t, s)
+	if err := databaseOf(e).Put(ctx, board+"/"+editorS.UID+"/d1", editorS.IDToken, map[string]int{"size": 5}); err != nil {
+		t.Fatal(err)
+	}
+	again := openStream(t, e, board, viewerS.IDToken)
+	expectEvent(t, again, firebase.Put, "/", `{"`+editorS.UID+`":{"d1":{"size":5}}}`)
 }
 
 // The free plan allows 100 connections at once; beyond that a connection is
@@ -339,23 +439,26 @@ func TestConnectionLimit(t *testing.T) {
 		t.Fatalf("default limit = %d, want the free plan's 100", e.options.MaxConnections)
 	}
 	e := startEmulator(t, t.TempDir(), Options{MaxConnections: 3})
-	ownerDB, _, viewerDB, _, _ := boardUsers(t, e)
-	var streams []*eventStream
+	ownerS, _, viewerS, _ := boardUsers(t, e)
+	var streams []*firebase.Stream
 	for i := 0; i < 3; i++ {
-		_, s := viewerDB.stream(board)
-		s.next()
+		s := openStream(t, e, board, viewerS.IDToken)
+		nextEvent(t, s)
 		streams = append(streams, s)
 	}
-	if status, body := ownerDB.call("GET", board, nil); status != http.StatusServiceUnavailable || body == nil {
-		t.Fatalf("a request over the limit = %d %v", status, body)
+	var value any
+	err := databaseOf(e).Get(ctx, board, ownerS.IDToken, &value)
+	var dbErr *firebase.DatabaseError
+	if !errors.As(err, &dbErr) || !dbErr.Unavailable() {
+		t.Fatalf("a request over the limit = %v", err)
 	}
-	streams[0].close()
+	_ = streams[0].Close()
 	deadline := time.Now().Add(5 * time.Second)
 	for e.OpenStreams() > 2 && time.Now().Before(deadline) {
 		time.Sleep(5 * time.Millisecond)
 	}
-	if status, _ := ownerDB.call("GET", board, nil); status != http.StatusOK {
-		t.Fatalf("after a stream closed = %d", status)
+	if err := databaseOf(e).Get(ctx, board, ownerS.IDToken, &value); err != nil {
+		t.Fatalf("after a stream closed = %v", err)
 	}
 }
 
@@ -363,20 +466,19 @@ func TestConnectionLimit(t *testing.T) {
 // streams are dropped and requests refused until it is switched on.
 func TestDatabaseSwitchedOff(t *testing.T) {
 	e := startEmulator(t, t.TempDir(), Options{})
-	ownerDB, _, viewerDB, _, _ := boardUsers(t, e)
-	_, s := viewerDB.stream(board)
-	s.next()
+	ownerS, _, viewerS, _ := boardUsers(t, e)
+	s := openStream(t, e, board, viewerS.IDToken)
+	nextEvent(t, s)
 	e.SwitchOffDatabase()
-	s.expectEnd("")
-	if status, _ := ownerDB.call("GET", board, nil); status != http.StatusServiceUnavailable {
-		t.Fatalf("while off = %d", status)
-	}
-	if status, _ := viewerDB.stream(board); status != http.StatusServiceUnavailable {
-		t.Fatalf("stream while off = %d", status)
-	}
+	expectEnded(t, s)
+	var value any
+	err := databaseOf(e).Get(ctx, board, ownerS.IDToken, &value)
+	expectDatabaseError(t, "while off", err, http.StatusServiceUnavailable)
+	_, err = databaseOf(e).Stream(ctx, board, viewerS.IDToken)
+	expectDatabaseError(t, "stream while off", err, http.StatusServiceUnavailable)
 	e.SwitchOnDatabase()
-	if status, _ := ownerDB.call("GET", board, nil); status != http.StatusOK {
-		t.Fatalf("after switching on = %d", status)
+	if err := databaseOf(e).Get(ctx, board, ownerS.IDToken, &value); err != nil {
+		t.Fatalf("after switching on = %v", err)
 	}
 }
 
@@ -384,18 +486,19 @@ func TestDatabaseSwitchedOff(t *testing.T) {
 // a stream's bytes while it is still open.
 func TestDatabaseCallsAreCounted(t *testing.T) {
 	e := startEmulator(t, t.TempDir(), Options{})
-	_, editorDB, viewerDB, _, editorUID := boardUsers(t, e)
+	_, editorS, viewerS, _ := boardUsers(t, e)
 	e.ResetStats()
-	_, s := viewerDB.stream(board)
-	s.next()
-	editorDB.call("PUT", board+"/"+editorUID+"/d1", map[string]any{"size": 1})
-	s.next()
+	s := openStream(t, e, board, viewerS.IDToken)
+	nextEvent(t, s)
+	if err := databaseOf(e).Put(ctx, board+"/"+editorS.UID+"/d1", editorS.IDToken, map[string]int{"size": 1}); err != nil {
+		t.Fatal(err)
+	}
+	nextEvent(t, s)
 	stats := e.Stats()
 	if writes := stats[editor]["rtdb.put"]; writes.Requests != 1 || writes.RequestBytes == 0 {
 		t.Fatalf("editor writes = %+v", writes)
 	}
-	streamed := stats[viewer]["rtdb.stream"]
-	if streamed.Requests != 1 || streamed.ResponseBytes == 0 {
+	if streamed := stats[viewer]["rtdb.stream"]; streamed.Requests != 1 || streamed.ResponseBytes == 0 {
 		t.Fatalf("viewer stream while open = %+v", streamed)
 	}
 }
@@ -405,8 +508,10 @@ func TestDatabaseCallsAreCounted(t *testing.T) {
 func TestDatabaseSurvivesRestart(t *testing.T) {
 	dir := t.TempDir()
 	e := startEmulator(t, dir, Options{})
-	_, editorDB, viewerDB, _, editorUID := boardUsers(t, e)
-	editorDB.call("PUT", board+"/"+editorUID+"/d1", map[string]any{"size": 7})
+	_, editorS, viewerS, _ := boardUsers(t, e)
+	if err := databaseOf(e).Put(ctx, board+"/"+editorS.UID+"/d1", editorS.IDToken, map[string]int{"size": 7}); err != nil {
+		t.Fatal(err)
+	}
 	raw, err := os.ReadFile(filepath.Join(dir, databaseFileName))
 	if err != nil || !strings.Contains(string(raw), `"size":7`) {
 		t.Fatalf("database on disk = %s, %v", raw, err)
@@ -415,8 +520,8 @@ func TestDatabaseSurvivesRestart(t *testing.T) {
 		t.Fatal(err)
 	}
 	restarted := startEmulator(t, dir, Options{})
-	viewerDB.url, _ = restarted.Firebase()
-	if status, body := viewerDB.call("GET", board+"/"+editorUID+"/d1/size", nil); status != http.StatusOK || body != float64(7) {
-		t.Fatalf("after restart = %d %v", status, body)
+	var size int
+	if err := databaseOf(restarted).Get(ctx, board+"/"+editorS.UID+"/d1/size", viewerS.IDToken, &size); err != nil || size != 7 {
+		t.Fatalf("after restart = %d, %v", size, err)
 	}
 }

@@ -15,9 +15,8 @@ import (
 )
 
 const (
-	defaultPageSize = 100
-	maxPageSize     = 1000
-	timeLayout      = "2006-01-02T15:04:05.000Z"
+	maxPageSize = 1000
+	timeLayout  = "2006-01-02T15:04:05.000Z"
 )
 
 // fileMetadata is the writable metadata of a create or update request.
@@ -110,12 +109,15 @@ func (e *Emulator) listFiles(w http.ResponseWriter, r *http.Request, c *call) {
 		driveError(w, http.StatusBadRequest, "invalidParameter", "Invalid field selection: "+err.Error())
 		return
 	}
-	pageSize := defaultPageSize
+	// Without pageSize a My Drive listing is whole; a larger size than the
+	// maximum is cut to it.
+	pageSize := -1
 	if raw := q.Get("pageSize"); raw != "" {
-		if pageSize, err = strconv.Atoi(raw); err != nil || pageSize < 1 || pageSize > maxPageSize {
+		if pageSize, err = strconv.Atoi(raw); err != nil || pageSize < 1 {
 			driveError(w, http.StatusBadRequest, "invalid", "Invalid Value: pageSize")
 			return
 		}
+		pageSize = min(pageSize, e.options.MaxPageSize)
 	}
 	start := 0
 	if token := q.Get("pageToken"); token != "" {
@@ -152,6 +154,9 @@ func (e *Emulator) listFiles(w http.ResponseWriter, r *http.Request, c *call) {
 		}
 		return strings.Compare(a.ID, b.ID)
 	})
+	if pageSize < 0 {
+		pageSize = len(found)
+	}
 	files := []any{}
 	for i := start; i < len(found) && i < start+pageSize; i++ {
 		files = append(files, e.resourceLocked(found[i], c.account))

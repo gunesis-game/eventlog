@@ -10,6 +10,7 @@ import (
 	"io/fs"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -50,6 +51,10 @@ type Options struct {
 	// KeepAlive is how often an idle stream sends keep-alive, and checks that
 	// its sign-in and read access still hold; 30 seconds when zero.
 	KeepAlive time.Duration
+	// MaxPageSize is the most files one listing page holds, to which a
+	// larger pageSize is cut; Drive's 1000 when zero. Tests set it lower to
+	// make listings span pages.
+	MaxPageSize int
 }
 
 // Emulator is a running emulator of Google's OAuth and Drive services.
@@ -165,6 +170,9 @@ func New(dir string, options Options) (*Emulator, error) {
 	if options.KeepAlive == 0 {
 		options.KeepAlive = defaultKeepAlive
 	}
+	if options.MaxPageSize == 0 {
+		options.MaxPageSize = maxPageSize
+	}
 	if err := os.MkdirAll(filepath.Join(dir, contentDirName), 0o755); err != nil {
 		return nil, err
 	}
@@ -201,6 +209,49 @@ func (e *Emulator) Client() (id, secret string) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	return e.state.Client.ID, e.state.Client.Secret
+}
+
+// WriteClientFile writes the emulator's OAuth client as the client file
+// Google Cloud downloads for a Desktop app, with the emulator's sign-in and
+// token addresses in place of Google's, which is all that differs.
+func (e *Emulator) WriteClientFile(path string) error {
+	e.mu.Lock()
+	client := map[string]any{"installed": map[string]any{
+		"client_id":                   e.state.Client.ID,
+		"project_id":                  e.state.Firebase.ProjectID,
+		"auth_uri":                    e.URL() + "/o/oauth2/v2/auth",
+		"token_uri":                   e.URL() + "/token",
+		"auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+		"client_secret":               e.state.Client.Secret,
+		"redirect_uris":               []string{"http://localhost"},
+	}}
+	e.mu.Unlock()
+	raw, err := json.MarshalIndent(client, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, raw, 0o600)
+}
+
+// Browse plays the person at the browser: it opens an authorization URL as
+// the given account, consenting, and returns the query of the loopback
+// redirect Google would send the browser to, holding the code or the error.
+func (e *Emulator) Browse(authURL, email string) (url.Values, error) {
+	e.SignIn(email)
+	browser := &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	response, err := browser.Get(authURL)
+	if err != nil {
+		return nil, err
+	}
+	_ = response.Body.Close()
+	if response.StatusCode != http.StatusFound {
+		return nil, fmt.Errorf("authorization page answered %d", response.StatusCode)
+	}
+	location, err := url.Parse(response.Header.Get("Location"))
+	if err != nil {
+		return nil, err
+	}
+	return location.Query(), nil
 }
 
 // AddTestUser adds a Google account listed as a test user of the app, which

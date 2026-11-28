@@ -1,48 +1,28 @@
 package googletest
 
 import (
+	"bytes"
+	"fmt"
 	"net/http"
-	"net/url"
 	"slices"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/gunesis-game/eventlog/internal/drive"
 )
 
-// sharedFolder sets up an owner's folder shared with an editor and a viewer,
-// each signed in, and returns their clients and the folder's ID.
-func sharedFolder(t *testing.T, e *Emulator) (ownerDrive, editorDrive, viewerDrive *driveClient, folder string) {
-	t.Helper()
-	for _, account := range []string{owner, editor, viewer} {
-		e.AddTestUser(account)
-	}
-	ownerDrive, _ = signIn(t, e, owner, driveScope)
-	editorDrive, _ = signIn(t, e, editor, driveScope)
-	viewerDrive, _ = signIn(t, e, viewer, driveScope)
-	folder = ownerDrive.createFolder("eventlog", "", map[string]string{"eventlog": "root"})
-	if err := e.Share(folder, editor, roleWriter); err != nil {
-		t.Fatal(err)
-	}
-	if err := e.Share(folder, viewer, roleReader); err != nil {
-		t.Fatal(err)
-	}
-	return ownerDrive, editorDrive, viewerDrive, folder
-}
-
-// The creating account owns a file; Drive reports its size as a string and
-// the owner's email address, and only the requested fields.
+// The creating account owns a file, with its size and parent.
 func TestCreatorOwnsFiles(t *testing.T) {
 	e := startEmulator(t, t.TempDir(), Options{})
 	_, editorDrive, _, folder := sharedFolder(t, e)
-	id := editorDrive.mustUpload("segment-1", folder, []byte("hello"))
-	status, body := editorDrive.call("GET", "/drive/v3/files/"+id+"?fields=id,name,size,parents,ownedByMe,owners(emailAddress)", nil)
-	expectStatus(t, "get", status, http.StatusOK, body)
-	owners := body["owners"].([]any)
-	if body["size"] != "5" || body["ownedByMe"] != true || body["parents"].([]any)[0] != folder || len(owners) != 1 || owners[0].(map[string]any)["emailAddress"] != editor || len(body) != 6 {
-		t.Fatalf("metadata = %v", body)
+	id := mustCreate(t, editorDrive, "segment-1", folder, []byte("hello"))
+	f, err := editorDrive.Get(ctx, id)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if _, plain := editorDrive.call("GET", "/drive/v3/files/"+id, nil); len(plain) != 4 || plain["kind"] != "drive#file" {
-		t.Fatalf("default fields = %v", plain)
+	if f.Size != 5 || f.Parents[0] != folder || len(f.Owners) != 1 || f.Owners[0].EmailAddress != editor || !f.Capabilities.CanTrash {
+		t.Fatalf("metadata = %+v", f)
 	}
 }
 
@@ -51,17 +31,17 @@ func TestCreatorOwnsFiles(t *testing.T) {
 func TestUnsharedFolderIsNotFound(t *testing.T) {
 	e := startEmulator(t, t.TempDir(), Options{})
 	ownerDrive, _, _, folder := sharedFolder(t, e)
-	file := ownerDrive.mustUpload("log.json", folder, []byte("{}"))
-	e.AddTestUser("stranger@example.com")
-	stranger, _ := signIn(t, e, "stranger@example.com", driveScope)
+	file := mustCreate(t, ownerDrive, "log.json", folder, []byte("{}"))
+	e.AddTestUser(stranger)
+	strangerDrive := driveAs(t, e, stranger)
 	for _, id := range []string{folder, file} {
-		status, body := stranger.call("GET", "/drive/v3/files/"+id, nil)
-		expectRefused(t, "get "+id, status, body, http.StatusNotFound, "notFound")
+		_, err := strangerDrive.Get(ctx, id)
+		expectDriveError(t, "get "+id, err, http.StatusNotFound, drive.ReasonNotFound)
 	}
-	status, body := stranger.upload("intruder", folder, []byte("x"))
-	expectRefused(t, "create in the folder", status, body, http.StatusNotFound, "notFound")
-	if names := stranger.list(q("'%s' in parents", folder)); len(names) != 0 {
-		t.Fatalf("stranger lists %v", names)
+	_, err := strangerDrive.Create(ctx, "intruder", folder, []byte("x"))
+	expectDriveError(t, "create in the folder", err, http.StatusNotFound, drive.ReasonNotFound)
+	if files, err := strangerDrive.List(ctx, fmt.Sprintf("'%s' in parents", folder), ""); err != nil || len(files) != 0 {
+		t.Fatalf("stranger lists %v, %v", names(files), err)
 	}
 }
 
@@ -69,103 +49,113 @@ func TestUnsharedFolderIsNotFound(t *testing.T) {
 func TestViewerIsRefusedWrites(t *testing.T) {
 	e := startEmulator(t, t.TempDir(), Options{})
 	ownerDrive, _, viewerDrive, folder := sharedFolder(t, e)
-	file := ownerDrive.mustUpload("log.json", folder, []byte("{}"))
-	if status, content := viewerDrive.read(file, ""); status != http.StatusOK || string(content) != "{}" {
-		t.Fatalf("viewer read = %d %q", status, content)
+	file := mustCreate(t, ownerDrive, "log.json", folder, []byte("{}"))
+	if content, err := viewerDrive.Download(ctx, file, 0, -1); err != nil || string(content) != "{}" {
+		t.Fatalf("viewer read = %q, %v", content, err)
 	}
-	status, body := viewerDrive.upload("mine", folder, []byte("x"))
-	expectRefused(t, "viewer create", status, body, http.StatusForbidden, "insufficientFilePermissions")
-	status, body = viewerDrive.replaceContent(file, []byte("changed"))
-	expectRefused(t, "viewer upload", status, body, http.StatusForbidden, "insufficientFilePermissions")
-	status, body = viewerDrive.call("PATCH", "/drive/v3/files/"+file, map[string]any{"name": "renamed"})
-	expectRefused(t, "viewer rename", status, body, http.StatusForbidden, "insufficientFilePermissions")
-	if _, content := ownerDrive.read(file, ""); string(content) != "{}" {
+	_, err := viewerDrive.Create(ctx, "mine", folder, []byte("x"))
+	expectDriveError(t, "viewer create", err, http.StatusForbidden, drive.ReasonInsufficientFilePermissions)
+	_, err = viewerDrive.UpdateContent(ctx, file, []byte("changed"))
+	expectDriveError(t, "viewer upload", err, http.StatusForbidden, drive.ReasonInsufficientFilePermissions)
+	renamed := "renamed"
+	_, err = viewerDrive.Update(ctx, file, drive.Changes{Name: &renamed})
+	expectDriveError(t, "viewer rename", err, http.StatusForbidden, drive.ReasonInsufficientFilePermissions)
+	if content, _ := ownerDrive.Download(ctx, file, 0, -1); string(content) != "{}" {
 		t.Fatalf("content changed to %q", content)
 	}
 }
 
-// Roles are inherited from the folder: an Editor reads and changes the
-// owner's files in it, and the folder's owner holds writer on files the
-// Editor creates there.
+// Roles are inherited from the folder: an Editor changes the owner's files
+// in it, and the folder's owner holds writer on files the Editor creates
+// there.
 func TestRolesAreInheritedFromTheFolder(t *testing.T) {
 	e := startEmulator(t, t.TempDir(), Options{})
 	ownerDrive, editorDrive, viewerDrive, folder := sharedFolder(t, e)
-	devices := ownerDrive.createFolder("devices", folder, nil)
-	ownerFile := ownerDrive.mustUpload("manifest.json", devices, []byte("owner"))
-	editorFile := editorDrive.mustUpload("segment-1", devices, []byte("editor"))
-	if status, _ := editorDrive.replaceContent(ownerFile, []byte("edited")); status != http.StatusOK {
-		t.Fatalf("editor upload to the owner's file: %d", status)
+	devices, err := ownerDrive.CreateFolder(ctx, "devices", folder, nil)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if status, _ := ownerDrive.replaceContent(editorFile, []byte("by owner")); status != http.StatusOK {
-		t.Fatalf("owner upload to the editor's file: %d", status)
+	ownerFile := mustCreate(t, ownerDrive, "manifest.json", devices.ID, []byte("owner"))
+	editorFile := mustCreate(t, editorDrive, "segment-1", devices.ID, []byte("editor"))
+	if _, err := editorDrive.UpdateContent(ctx, ownerFile, []byte("edited")); err != nil {
+		t.Fatalf("editor upload to the owner's file: %v", err)
 	}
-	if _, content := viewerDrive.read(editorFile, ""); string(content) != "by owner" {
+	if _, err := ownerDrive.UpdateContent(ctx, editorFile, []byte("by owner")); err != nil {
+		t.Fatalf("owner upload to the editor's file: %v", err)
+	}
+	if content, _ := viewerDrive.Download(ctx, editorFile, 0, -1); string(content) != "by owner" {
 		t.Fatalf("viewer reads %q", content)
 	}
-	if names := viewerDrive.list(q("'%s' in parents", devices)); !slices.Equal(names, []string{"manifest.json", "segment-1"}) {
-		t.Fatalf("viewer lists %v", names)
+	files, err := viewerDrive.List(ctx, fmt.Sprintf("'%s' in parents", devices.ID), "createdTime")
+	if err != nil || !slices.Equal(names(files), []string{"manifest.json", "segment-1"}) {
+		t.Fatalf("viewer lists %v, %v", names(files), err)
 	}
 }
 
-// Reads take a byte range: a range past the end is cut to the end, and a
-// range starting past it is refused with 416.
+// Reads take a byte range: a range past the end is cut to the end, and one
+// starting past it is refused with 416; a folder has no content.
 func TestRangedReads(t *testing.T) {
 	e := startEmulator(t, t.TempDir(), Options{})
 	ownerDrive, _, _, folder := sharedFolder(t, e)
-	file := ownerDrive.mustUpload("segment-1", folder, []byte("0123456789"))
+	file := mustCreate(t, ownerDrive, "segment-1", folder, []byte("0123456789"))
 	for _, c := range []struct {
-		header string
-		status int
-		want   string
-	}{
-		{"", http.StatusOK, "0123456789"},
-		{"bytes=2-4", http.StatusPartialContent, "234"},
-		{"bytes=7-", http.StatusPartialContent, "789"},
-		{"bytes=8-100", http.StatusPartialContent, "89"},
-	} {
-		if status, content := ownerDrive.read(file, c.header); status != c.status || string(content) != c.want {
-			t.Fatalf("range %q = %d %q, want %d %q", c.header, status, content, c.status, c.want)
+		offset, length int64
+		want           string
+	}{{0, -1, "0123456789"}, {2, 3, "234"}, {7, -1, "789"}, {8, 100, "89"}} {
+		if content, err := ownerDrive.Download(ctx, file, c.offset, c.length); err != nil || string(content) != c.want {
+			t.Fatalf("range %d+%d = %q, %v, want %q", c.offset, c.length, content, err, c.want)
 		}
 	}
-	status, _, _ := ownerDrive.do("GET", "/drive/v3/files/"+file+"?alt=media", nil, http.Header{"Range": {"bytes=10-"}})
-	expectStatus(t, "range past the end", status, http.StatusRequestedRangeNotSatisfiable, nil)
-	status, body := ownerDrive.call("GET", "/drive/v3/files/"+folder+"?alt=media", nil)
-	expectRefused(t, "download a folder", status, body, http.StatusForbidden, "fileNotDownloadable")
+	_, err := ownerDrive.Download(ctx, file, 10, -1)
+	expectDriveError(t, "range past the end", err, http.StatusRequestedRangeNotSatisfiable, "requestedRangeNotSatisfiable")
+	_, err = ownerDrive.Download(ctx, folder, 0, -1)
+	expectDriveError(t, "download a folder", err, http.StatusForbidden, "fileNotDownloadable")
 }
 
 // Content is always uploaded whole: an upload replaces all of it.
 func TestUploadsReplaceTheWholeContent(t *testing.T) {
 	e := startEmulator(t, t.TempDir(), Options{})
 	_, editorDrive, _, folder := sharedFolder(t, e)
-	file := editorDrive.mustUpload("segment-1", folder, []byte("first line\n"))
-	status, body := editorDrive.replaceContent(file, []byte("first line\nsecond line\n"))
-	expectStatus(t, "upload", status, http.StatusOK, body)
-	if _, content := editorDrive.read(file, ""); string(content) != "first line\nsecond line\n" {
+	file := mustCreate(t, editorDrive, "segment-1", folder, []byte("first line\n"))
+	if _, err := editorDrive.UpdateContent(ctx, file, []byte("first line\nsecond line\n")); err != nil {
+		t.Fatal(err)
+	}
+	if content, _ := editorDrive.Download(ctx, file, 0, -1); string(content) != "first line\nsecond line\n" {
 		t.Fatalf("content = %q", content)
 	}
-	editorDrive.replaceContent(file, []byte("short"))
-	if _, content := editorDrive.read(file, ""); string(content) != "short" {
-		t.Fatalf("content after a shorter upload = %q", content)
-	}
-	if _, meta := editorDrive.call("GET", "/drive/v3/files/"+file+"?fields=size", nil); meta["size"] != "5" {
-		t.Fatalf("size = %v", meta)
+	f, err := editorDrive.UpdateContent(ctx, file, []byte("short"))
+	if content, _ := editorDrive.Download(ctx, file, 0, -1); err != nil || string(content) != "short" || f.Size != 5 {
+		t.Fatalf("after a shorter upload = %q, size %d, %v", content, f.Size, err)
 	}
 }
 
 // A file is renamed and moved with addParents and removeParents; writing
-// parents directly is refused.
+// parents directly, which no correct client does, is refused.
 func TestRenameAndMove(t *testing.T) {
 	e := startEmulator(t, t.TempDir(), Options{})
 	_, editorDrive, _, folder := sharedFolder(t, e)
-	other := editorDrive.createFolder("compaction", folder, nil)
-	file := editorDrive.mustUpload("segment-1.tmp", folder, []byte("x"))
-	status, body := editorDrive.call("PATCH", "/drive/v3/files/"+file+"?"+url.Values{"addParents": {other}, "removeParents": {folder}, "fields": {"name,parents"}}.Encode(), map[string]any{"name": "segment-1"})
-	expectStatus(t, "move", status, http.StatusOK, body)
-	if body["name"] != "segment-1" || body["parents"].([]any)[0] != other {
-		t.Fatalf("after move = %v", body)
+	other, err := editorDrive.CreateFolder(ctx, "compaction", folder, nil)
+	if err != nil {
+		t.Fatal(err)
 	}
-	status, body = editorDrive.call("PATCH", "/drive/v3/files/"+file, map[string]any{"parents": []string{folder}})
-	expectRefused(t, "write parents", status, body, http.StatusForbidden, "parentsNotWritable")
+	file := mustCreate(t, editorDrive, "segment-1.tmp", folder, []byte("x"))
+	name := "segment-1"
+	f, err := editorDrive.Update(ctx, file, drive.Changes{Name: &name, AddParents: []string{other.ID}, RemoveParents: []string{folder}})
+	if err != nil || f.Name != "segment-1" || !slices.Equal(f.Parents, []string{other.ID}) {
+		t.Fatalf("after move = %+v, %v", f, err)
+	}
+	token := signIn(t, e, editor, "https://www.googleapis.com/auth/drive").AccessToken
+	request, _ := http.NewRequest("PATCH", e.URL()+"/drive/v3/files/"+file, strings.NewReader(`{"parents":["`+folder+`"]}`))
+	request.Header.Set("Authorization", "Bearer "+token)
+	request.Header.Set("Content-Type", "application/json")
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = response.Body.Close()
+	if response.StatusCode != http.StatusForbidden {
+		t.Fatalf("writing parents = %d", response.StatusCode)
+	}
 }
 
 // Trashed files stay readable by ID and are listed unless the query asks
@@ -173,25 +163,32 @@ func TestRenameAndMove(t *testing.T) {
 func TestTrashedFilesStayReadableByID(t *testing.T) {
 	e := startEmulator(t, t.TempDir(), Options{})
 	ownerDrive, editorDrive, _, folder := sharedFolder(t, e)
-	file := editorDrive.mustUpload("segment-1", folder, []byte("old"))
-	ownerFile := ownerDrive.mustUpload("log.json", folder, []byte("{}"))
-	status, body := editorDrive.call("PATCH", "/drive/v3/files/"+ownerFile, map[string]any{"trashed": true})
-	expectRefused(t, "editor trashes the owner's file", status, body, http.StatusForbidden, "insufficientFilePermissions")
-	status, body = editorDrive.call("PATCH", "/drive/v3/files/"+file+"?fields=trashed", map[string]any{"trashed": true})
-	if status != http.StatusOK || body["trashed"] != true {
-		t.Fatalf("trash = %d %v", status, body)
+	file := mustCreate(t, editorDrive, "segment-1", folder, []byte("old"))
+	ownerFile := mustCreate(t, ownerDrive, "log.json", folder, []byte("{}"))
+	trash := true
+	_, err := editorDrive.Update(ctx, ownerFile, drive.Changes{Trashed: &trash})
+	expectDriveError(t, "editor trashes the owner's file", err, http.StatusForbidden, drive.ReasonInsufficientFilePermissions)
+	if f, err := editorDrive.Update(ctx, file, drive.Changes{Trashed: &trash}); err != nil || !f.Trashed {
+		t.Fatalf("trash = %+v, %v", f, err)
 	}
-	if status, content := ownerDrive.read(file, ""); status != http.StatusOK || string(content) != "old" {
-		t.Fatalf("read a trashed file = %d %q", status, content)
+	if content, err := ownerDrive.Download(ctx, file, 0, -1); err != nil || string(content) != "old" {
+		t.Fatalf("read a trashed file = %q, %v", content, err)
 	}
-	if names := ownerDrive.list(q("'%s' in parents", folder)); !slices.Contains(names, "segment-1") {
-		t.Fatalf("listing without trashed = false: %v", names)
+	listed := func(q string) []string {
+		files, err := ownerDrive.List(ctx, q, "createdTime")
+		if err != nil {
+			t.Fatal(err)
+		}
+		return names(files)
 	}
-	if names := ownerDrive.list(q("'%s' in parents and trashed = false", folder)); !slices.Equal(names, []string{"log.json"}) {
-		t.Fatalf("listing with trashed = false: %v", names)
+	if got := listed(fmt.Sprintf("'%s' in parents", folder)); !slices.Contains(got, "segment-1") {
+		t.Fatalf("listing without trashed = false: %v", got)
 	}
-	if names := ownerDrive.list("trashed = true"); !slices.Equal(names, []string{"segment-1"}) {
-		t.Fatalf("listing trashed files: %v", names)
+	if got := listed(fmt.Sprintf("'%s' in parents and trashed = false", folder)); !slices.Equal(got, []string{"log.json"}) {
+		t.Fatalf("listing with trashed = false: %v", got)
+	}
+	if got := listed("trashed = true"); !slices.Equal(got, []string{"segment-1"}) {
+		t.Fatalf("listing trashed files: %v", got)
 	}
 }
 
@@ -203,62 +200,59 @@ func TestFolderFoundByTagAndOwner(t *testing.T) {
 	e := startEmulator(t, t.TempDir(), Options{Now: clock.Now})
 	ownerDrive, editorDrive, _, folder := sharedFolder(t, e)
 	clock.Advance(time.Minute)
-	ownerDrive.createFolder("eventlog", "", map[string]string{"eventlog": "root"})
-	impostor := editorDrive.createFolder("eventlog", "", map[string]string{"eventlog": "root"})
-	if err := e.Share(impostor, owner, roleWriter); err != nil {
+	if _, err := ownerDrive.CreateFolder(ctx, "eventlog", "root", map[string]string{"eventlog": "root"}); err != nil {
 		t.Fatal(err)
 	}
-	search := url.Values{
-		"q":       {q("appProperties has { key='eventlog' and value='root' } and '%s' in owners and trashed = false", strings.ToUpper(owner))},
-		"orderBy": {"createdTime"},
-		"fields":  {"files(id,owners(emailAddress))"},
-	}.Encode()
-	status, body := editorDrive.call("GET", "/drive/v3/files?"+search, nil)
-	expectStatus(t, "search", status, http.StatusOK, body)
-	files := body["files"].([]any)
-	if len(files) != 1 || files[0].(map[string]any)["id"] != folder {
-		t.Fatalf("editor finds %v, want only the shared folder %s", files, folder)
+	impostor, err := editorDrive.CreateFolder(ctx, "eventlog", "root", map[string]string{"eventlog": "root"})
+	if err != nil {
+		t.Fatal(err)
 	}
-	_, body = ownerDrive.call("GET", "/drive/v3/files?"+search, nil)
-	if files := body["files"].([]any); len(files) != 2 || files[0].(map[string]any)["id"] != folder {
-		t.Fatalf("owner finds %v, oldest first", files)
+	if err := e.Share(impostor.ID, owner, roleWriter); err != nil {
+		t.Fatal(err)
+	}
+	search := fmt.Sprintf("appProperties has { key='eventlog' and value='root' } and '%s' in owners and trashed = false", strings.ToUpper(owner))
+	found, err := editorDrive.List(ctx, search, "createdTime")
+	if err != nil || len(found) != 1 || found[0].ID != folder {
+		t.Fatalf("editor finds %v, %v; want only the shared folder", found, err)
+	}
+	found, err = ownerDrive.List(ctx, search, "createdTime")
+	if err != nil || len(found) != 2 || found[0].ID != folder {
+		t.Fatalf("owner finds %v, %v; want both, oldest first", found, err)
 	}
 }
 
-// Listings come a page at a time, and unsupported queries and fields are
-// refused.
+// A listing larger than the page size spans pages, which the client
+// follows; an unsupported query is refused.
 func TestListingPagesAndRefusals(t *testing.T) {
-	e := startEmulator(t, t.TempDir(), Options{})
+	e := startEmulator(t, t.TempDir(), Options{MaxPageSize: 2})
 	ownerDrive, _, _, folder := sharedFolder(t, e)
 	for i := 0; i < 5; i++ {
-		ownerDrive.mustUpload(q("file-%d", i), folder, nil)
+		mustCreate(t, ownerDrive, fmt.Sprintf("file-%d", i), folder, nil)
 	}
-	var names []string
-	token := ""
-	for pages := 0; ; pages++ {
-		query := url.Values{"q": {q("'%s' in parents", folder)}, "pageSize": {"2"}, "fields": {"nextPageToken,files(name)"}}
-		if token != "" {
-			query.Set("pageToken", token)
-		}
-		_, body := ownerDrive.call("GET", "/drive/v3/files?"+query.Encode(), nil)
-		for _, f := range body["files"].([]any) {
-			names = append(names, f.(map[string]any)["name"].(string))
-		}
-		token, _ = body["nextPageToken"].(string)
-		if token == "" {
-			if pages != 2 {
-				t.Fatalf("%d pages", pages+1)
-			}
-			break
-		}
+	e.ResetStats()
+	files, err := ownerDrive.List(ctx, fmt.Sprintf("'%s' in parents", folder), "createdTime")
+	if err != nil || !slices.Equal(names(files), []string{"file-0", "file-1", "file-2", "file-3", "file-4"}) {
+		t.Fatalf("pages = %v, %v", names(files), err)
 	}
-	if !slices.Equal(names, []string{"file-0", "file-1", "file-2", "file-3", "file-4"}) {
-		t.Fatalf("pages = %v", names)
+	if pages := e.Stats()[owner]["drive.files.list"].Requests; pages != 3 {
+		t.Fatalf("listing took %d pages, want 3", pages)
 	}
 	for _, query := range []string{"name contains 'file'", "fullText contains 'x'", "name = 'x' or name = 'y'", "name = 'unterminated"} {
-		status, body := ownerDrive.call("GET", "/drive/v3/files?"+url.Values{"q": {query}}.Encode(), nil)
-		expectRefused(t, query, status, body, http.StatusBadRequest, "invalid")
+		_, err := ownerDrive.List(ctx, query, "")
+		expectDriveError(t, query, err, http.StatusBadRequest, "invalid")
 	}
-	status, body := ownerDrive.call("GET", "/drive/v3/files?fields=files(id", nil)
-	expectRefused(t, "bad fields", status, body, http.StatusBadRequest, "invalidParameter")
+}
+
+// Content larger than a simple upload allows is refused by the client
+// before it is sent.
+func TestLargeContentNeedsResumableUpload(t *testing.T) {
+	e := startEmulator(t, t.TempDir(), Options{})
+	ownerDrive, _, _, folder := sharedFolder(t, e)
+	e.ResetStats()
+	if _, err := ownerDrive.Create(ctx, "big", folder, bytes.Repeat([]byte("x"), drive.MaxSimpleUpload+1)); err != drive.ErrTooLarge {
+		t.Fatalf("large create = %v", err)
+	}
+	if calls := e.Stats()[owner]; len(calls) != 0 {
+		t.Fatalf("calls made = %v", calls)
+	}
 }

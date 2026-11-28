@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 	"time"
 )
@@ -12,12 +13,13 @@ import (
 // authCode is an authorization code issued by the browser step, exchanged
 // once for tokens.
 type authCode struct {
-	Account     string    `json:"account"`
-	Scope       string    `json:"scope"`
-	RedirectURI string    `json:"redirect_uri"`
-	Challenge   string    `json:"challenge"`
-	Offline     bool      `json:"offline"`
-	Issued      time.Time `json:"issued"`
+	Account     string `json:"account"`
+	Scope       string `json:"scope"`
+	RedirectURI string `json:"redirect_uri"`
+	Challenge   string `json:"challenge"`
+	// Method is the PKCE method, plain or S256.
+	Method string    `json:"method"`
+	Issued time.Time `json:"issued"`
 }
 
 // refreshToken is a long-lived token, valid until seven days after consent
@@ -48,7 +50,7 @@ func (e *Emulator) authorize(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	redirect, err := url.Parse(q.Get("redirect_uri"))
-	if err != nil || redirect.Scheme != "http" || (redirect.Hostname() != "127.0.0.1" && redirect.Hostname() != "localhost") {
+	if err != nil || redirect.Scheme != "http" || !slices.Contains([]string{"127.0.0.1", "::1", "localhost"}, redirect.Hostname()) {
 		http.Error(w, "Error 400: invalid_request: redirect_uri must be a loopback address", http.StatusBadRequest)
 		return
 	}
@@ -56,7 +58,11 @@ func (e *Emulator) authorize(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Error 400: invalid_request", http.StatusBadRequest)
 		return
 	}
-	if q.Get("code_challenge") != "" && q.Get("code_challenge_method") != "S256" {
+	method := q.Get("code_challenge_method")
+	if method == "" {
+		method = "plain"
+	}
+	if method != "plain" && method != "S256" {
 		http.Error(w, "Error 400: invalid_request: code_challenge_method", http.StatusBadRequest)
 		return
 	}
@@ -74,7 +80,7 @@ func (e *Emulator) authorize(w http.ResponseWriter, r *http.Request) {
 		values.Set("error", "access_denied")
 	} else {
 		code := "4/" + newID()
-		e.state.Codes[code] = &authCode{Account: e.signingIn, Scope: q.Get("scope"), RedirectURI: q.Get("redirect_uri"), Challenge: q.Get("code_challenge"), Offline: q.Get("access_type") == "offline", Issued: e.options.Now()}
+		e.state.Codes[code] = &authCode{Account: e.signingIn, Scope: q.Get("scope"), RedirectURI: q.Get("redirect_uri"), Challenge: q.Get("code_challenge"), Method: method, Issued: e.options.Now()}
 		e.saveLocked()
 		values.Set("code", code)
 		values.Set("scope", q.Get("scope"))
@@ -92,7 +98,8 @@ func (e *Emulator) token(w http.ResponseWriter, r *http.Request) {
 	}
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	if r.PostForm.Get("client_id") != e.state.Client.ID || r.PostForm.Get("client_secret") != e.state.Client.Secret {
+	// The client secret is optional for installed apps, but checked when sent.
+	if secret := r.PostForm.Get("client_secret"); r.PostForm.Get("client_id") != e.state.Client.ID || secret != "" && secret != e.state.Client.Secret {
 		oauthError(w, http.StatusUnauthorized, "invalid_client", "Unauthorized")
 		return
 	}
@@ -111,7 +118,7 @@ func (e *Emulator) token(w http.ResponseWriter, r *http.Request) {
 			oauthError(w, http.StatusBadRequest, "redirect_uri_mismatch", "Bad Request")
 			return
 		}
-		if code.Challenge != "" && challengeOf(r.PostForm.Get("code_verifier")) != code.Challenge {
+		if code.Challenge != "" && pkceChallenge(code.Method, r.PostForm.Get("code_verifier")) != code.Challenge {
 			e.saveLocked()
 			oauthError(w, http.StatusBadRequest, "invalid_grant", "Invalid code verifier.")
 			return
@@ -120,7 +127,8 @@ func (e *Emulator) token(w http.ResponseWriter, r *http.Request) {
 		if hasScope(code.Scope, "openid") {
 			response["id_token"] = e.googleIDTokenLocked(code.Account, now)
 		}
-		if code.Offline {
+		// Refresh tokens are always returned for installed applications.
+		{
 			refresh := "1//" + newID()
 			e.state.Refresh[refresh] = &refreshToken{Account: code.Account, Scope: code.Scope, Consent: now}
 			response["refresh_token"] = refresh
@@ -149,6 +157,14 @@ func (e *Emulator) issueAccessLocked(account, scope string, now time.Time) map[s
 	token := "ya29." + newID() + newID()
 	e.state.Access[token] = &accessToken{Account: account, Scope: scope, Expires: now.Add(accessTokenLife)}
 	return map[string]any{"access_token": token, "expires_in": int(accessTokenLife.Seconds()) - 1, "scope": scope, "token_type": "Bearer"}
+}
+
+// pkceChallenge derives a PKCE challenge from a verifier by method.
+func pkceChallenge(method, verifier string) string {
+	if method == "plain" {
+		return verifier
+	}
+	return challengeOf(verifier)
 }
 
 func challengeOf(verifier string) string {

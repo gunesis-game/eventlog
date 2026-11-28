@@ -74,9 +74,14 @@
 // metadata, accounts, and tokens in a metadata file beside them, and the
 // Realtime Database's data in a JSON file of its own, so large
 // files are stored as they would be, an emulator restarted over the same
-// folder keeps its contents, and a failing test leaves inspectable files. It
-// uses the Go standard library directly, not eventlog's internal/filesystem,
-// so the yardstick shares no code with what it measures.
+// folder keeps its contents, and a failing test leaves inspectable files. Its
+// own code uses the Go standard library only, so the yardstick shares no code
+// with what it measures. Its tests make every request a correct client makes
+// through eventlog's service clients (internal/googleauth, internal/drive,
+// internal/firebase), which are written from Google's contracts rather than
+// the emulator's; where the two differ, the emulator is corrected (D-081).
+// WriteClientFile and Browse give tests the client file and the browser
+// step.
 //
 // It counts requests and bytes per account and per call, a stream's bytes
 // while it is open, so benchmarks can report Google calls, board writes,
