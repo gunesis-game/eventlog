@@ -61,3 +61,12 @@
 ## Continuation instructions
 - Verify registry and current main before proceeding.
 - Finish assessment and present hierarchy/dispositions for approval before edits.
+
+
+## Assessment checkpoint — 2026-11-28T10:09:41Z
+
+- Completed recursive Git tree inventory: 31 Markdown files, including project entry/governance, project specifications and strategies, generic standards, research, lifecycle protocol/templates, and cycle history/current records.
+- Captured size/headings/internal references for all active project documents, standards, research documents, lifecycle templates, and current implementation plan/handoff.
+- Initial overlap findings: steering vs lifecycle operating procedure; architecture vs requirements/decisions/acceptance; acceptance vs testing strategy; benchmark strategy vs performance strategy; project standards companions vs generic standards; decision provenance vs specification content; active vs historical cycle context.
+- Draft hierarchy and reference-label semantics are recorded in the plan. No substantive documentation files were modified. Assessment is ready for user approval/revision before Define.
+- Exact main checkpoint: 
