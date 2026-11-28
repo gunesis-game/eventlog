@@ -273,7 +273,24 @@ A decision is `Recorded` only when its canonical artifact is present on the shar
 
 ## Verification feedback loop
 
-Use the project's approved `docs/project/git-workflow.md`, `testing-strategy.md`, and `performance-strategy.md`. The generic standards, including coding, testing, performance engineering, and Git workflow, are all in `docs/standards/`; use the [standards index](../standards/README.md) as the canonical catalogue and consult [docs/standards/coding.md](../standards/coding.md), [docs/standards/testing.md](../standards/testing.md), [docs/standards/performance-engineering.md](../standards/performance-engineering.md), and [docs/standards/git-workflow.md](../standards/git-workflow.md). GitHub MCP is the required agent interface for repository inspection, file changes, publication, fetch-back, and CI evidence retrieval whenever available; GitHub Actions is an execution environment, not the repository interaction protocol. Follow the repository's approved branch and integration model and never bypass protections.
+Load the project-approved `docs/project/git-workflow.md`, `testing-strategy.md`, and `performance-strategy.md` as applicable to the task. The generic engineering standards are catalogued in [docs/standards/README.md](../standards/README.md); consult the standards that apply to the changed area, using the task-routing table below rather than routinely loading all standards. Applicable standards remain mandatory—the routing table limits context loading, not compliance. Load additional documents when cross-cutting impact, risk, unfamiliar interfaces, security implications, or verification needs require them.
+
+### Task-based document routing
+
+| Task type | Required context |
+|---|---|
+| Requirements or user-visible behavior | Requirements, relevant decisions, affected acceptance criteria |
+| Architecture or interface changes | Architecture, relevant requirements, applicable decisions |
+| Implementation or bug fixes | Relevant requirements and architecture, coding standard, applicable project strategy |
+| Tests or test infrastructure | Testing standard, testing strategy, relevant requirements, affected implementation |
+| Performance work | Performance engineering standard, performance strategy, relevant architecture and workloads |
+| Git, CI, or workflow changes | Git workflow standard, project Git policy, affected workflow/configuration |
+| Documentation-only changes | Documents being edited, owning specification, and directly affected references |
+| Cross-cutting changes | All relevant standards and strategies for the affected areas |
+
+Combine rows when work spans multiple categories. The standards index remains the canonical catalogue; applicable standards and project strategies must be followed in full.
+
+GitHub MCP is the required agent interface for repository inspection, file changes, publication, fetch-back, and CI evidence retrieval whenever available; GitHub Actions is an execution environment, not the repository interaction protocol. Follow the repository's approved branch and integration model and never bypass protections.
 
 For each meaningful implementation iteration, select focused tests from the architecture-to-test map: changed component tests, directly affected dependants, and relevant interface/contract tests. Expand to affected integration and end-to-end tests when boundaries or cross-component behavior change. Shared foundations, public interfaces, and cross-cutting changes require tests for all affected downstream consumers. Select by architectural impact, not file paths alone. If impact is uncertain, broaden the selection.
 
