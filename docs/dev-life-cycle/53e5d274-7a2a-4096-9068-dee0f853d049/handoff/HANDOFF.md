@@ -70,3 +70,11 @@
 - Initial overlap findings: steering vs lifecycle operating procedure; architecture vs requirements/decisions/acceptance; acceptance vs testing strategy; benchmark strategy vs performance strategy; project standards companions vs generic standards; decision provenance vs specification content; active vs historical cycle context.
 - Draft hierarchy and reference-label semantics are recorded in the plan. No substantive documentation files were modified. Assessment is ready for user approval/revision before Define.
 - Exact main checkpoint: 
+
+
+## Approval checkpoint — 2026-11-28T10:14:13Z
+
+- Hierarchy and non-recursive conditional reference semantics approved by user.
+- Approval is limited to hierarchy/reference-loading principles; per-file dispositions and structural edits still require review/approval.
+- Current phase remains `assess`; next step is complete and present per-file dispositions.
+- Cycle registry remains in `assess`; no phase transition yet.
