@@ -175,7 +175,6 @@ func (c *Client) Unlock(name string) error {
 	return err
 }
 
-
 // ChangeEventStream is a live stream of generic file-change hints.
 type ChangeEventStream struct {
 	body   io.ReadCloser
