@@ -8,7 +8,7 @@
       "execution_order": 1,
       "workflow": "standard",
       "description": "Define eventlog's initial product requirements and core design decisions before implementation.",
-      "status": "in-progress",
+      "status": "paused",
       "created_at": "2026-11-22T16:00:00+02:00",
       "started_at": "2026-11-22T16:00:00+02:00",
       "completed_at": null,
