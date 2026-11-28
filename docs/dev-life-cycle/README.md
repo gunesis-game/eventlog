@@ -304,11 +304,18 @@ For micro cycles, run the single focused verification check that proves the stat
 
 If verification fails after a commit to main, do not leave the unverified revision as the assumed good state: diagnose, fix forward with a new reviewed commit, or use a documented/repository-approved revert/rollback procedure. Never force-push or rewrite history; clearly disclose the exposure window and rollback result. If local tooling is unavailable, use remote CI as the execution environment when available. If CI is absent, broken, not triggered, or inaccessible, investigate repair or another project-approved verification route. Report checks truthfully; never infer success from another revision or incomplete run.
 
-## Documentation audit policy
+## Documentation review requirements
 
-Every standard cycle considers documentation in its plan, updates relevant focused docs during implementation, and performs a final consistency audit before completion. Every micro cycle confirms that its cosmetic-only change does not alter meaning and records that review in its outcome. Promote only durable, approved decisions into long-lived project documentation; do not turn cycle notes into permanent doctrine.
+Documentation review is **task-scoped and impact-driven**, not a scheduled historical audit.
 
-At least once every three completed implementation cycles (standard and micro count; governance-only changes do not count), or sooner after a major architecture/contract change, perform a dedicated historical documentation audit. The audit is a lifecycle gate within the selected cycle, not a separate cycle. Review completed standard plans and handoffs and micro-cycle registry outcomes since the previous audit boundary alongside current implementation and maintained docs. Consolidate durable decisions, resolve contradictions, remove stale guidance, and check links and terminology. Record the reviewed execution-order range and outcome; only then advance the registry watermark.
+- For every standard cycle, identify the documents directly affected by the task. Update those documents as needed and, before completion, check their consistency with the changed behavior, owning specification, and directly affected references.
+- For micro cycles, confirm the cosmetic edit does not change meaning and record that focused check in the registry outcome.
+- Review product documentation only as required to implement or verify the current product task. Do not audit unrelated product requirements, architecture, feature documentation, or implementation areas merely because they are present or historically completed.
+- Governance Mode reviews only AI operating governance (session routing, steering authority, lifecycle rules, gates, context loading, verification, evidence, and recovery). Product-specific documentation is excluded unless a governance rule directly relies on it or a targeted edit is necessary to fix that rule.
+- Historical plans, handoffs, and registry outcomes are not subject to recurring audit sweeps. Read them only when the active task or state reconciliation needs them; treat them as evidence, not instructions.
+- A broader historical documentation audit is performed only when the user explicitly requests one or when a concrete cross-document contradiction or risk makes it necessary. Keep it bounded to the identified issue, record the scope and outcome in the active task checkpoint, and stop once that issue is resolved. No cycle-count cadence or audit watermark is required.
+
+Do not convert audit findings into unrelated work. Route any product-specific issue discovered during governance maintenance or an unrelated documentation review to a separate Operational task; do not act on it as part of the current review.
 
 ## Completion
 
