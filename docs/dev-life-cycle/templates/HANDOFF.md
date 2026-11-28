@@ -58,7 +58,6 @@ A triggered workflow, commit response, skipped check, or result for another SHA 
 
 - **Updated:** <Relevant docs updated>
 - **Still required:** <Remaining doc work>
-- **Audit boundary:** <If this cycle performs historical documentation consolidation>
 
 ## Remaining-work reconciliation
 
