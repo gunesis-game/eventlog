@@ -268,7 +268,7 @@ func (s *Server) changeEvents(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				return
 			}
-			if _, err := fmt.Fprintf(w, "event: change\\ndata: %s\\n\\n", data); err != nil {
+			if _, err := fmt.Fprintf(w, "event: change\ndata: %s\n\n", data); err != nil {
 				return
 			}
 			flusher.Flush()
