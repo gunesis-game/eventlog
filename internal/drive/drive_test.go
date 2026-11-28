@@ -107,30 +107,30 @@ func TestFileCalls(t *testing.T) {
 }
 
 // A file moved to the owner's trash remains readable by another account
- // that has access through the shared parent folder.
- func TestTrashedFileRemainsReadableBySharedEditor(t *testing.T) {
- 	e := emulator(t)
- 	ownerDrive, editorDrive := signedIn(t, e, owner), signedIn(t, e, editor)
- 	folder, err := ownerDrive.CreateFolder(ctx, "eventlog", "root", nil)
- 	if err != nil {
- 		t.Fatal(err)
- 	}
- 	if _, err := ownerDrive.Share(ctx, folder.ID, editor, "writer"); err != nil {
- 		t.Fatal(err)
- 	}
- 	f, err := ownerDrive.Create(ctx, "old-segment", folder.ID, []byte("committed history"))
- 	if err != nil {
- 		t.Fatal(err)
- 	}
- 	trashed := true
- 	if _, err := ownerDrive.Update(ctx, f.ID, drive.Changes{Trashed: &trashed}); err != nil {
- 		t.Fatal(err)
- 	}
- 	got, err := editorDrive.Download(ctx, f.ID, 0, -1)
- 	if err != nil || string(got) != "committed history" {
- 		t.Fatalf("shared editor read of trashed file = %q, %v", got, err)
- 	}
- }
+// that has access through the shared parent folder.
+func TestTrashedFileRemainsReadableBySharedEditor(t *testing.T) {
+	e := emulator(t)
+	ownerDrive, editorDrive := signedIn(t, e, owner), signedIn(t, e, editor)
+	folder, err := ownerDrive.CreateFolder(ctx, "eventlog", "root", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ownerDrive.Share(ctx, folder.ID, editor, "writer"); err != nil {
+		t.Fatal(err)
+	}
+	f, err := ownerDrive.Create(ctx, "old-segment", folder.ID, []byte("committed history"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	trashed := true
+	if _, err := ownerDrive.Update(ctx, f.ID, drive.Changes{Trashed: &trashed}); err != nil {
+		t.Fatal(err)
+	}
+	got, err := editorDrive.Download(ctx, f.ID, 0, -1)
+	if err != nil || string(got) != "committed history" {
+		t.Fatalf("shared editor read of trashed file = %q, %v", got, err)
+	}
+}
 
 // List follows every page and keeps the requested order.
 func TestListFollowsPages(t *testing.T) {
