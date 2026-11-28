@@ -1,11 +1,6 @@
 name: Workflow history cleanup
 
 on:
-  workflow_run:
-    workflows:
-      - Steering state validation
-    types:
-      - completed
   workflow_dispatch:
     inputs:
       target_workflow_id:
@@ -34,14 +29,6 @@ jobs:
       - name: Retain this cleanup workflow's own history
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: python3 scripts/cleanup-workflow-runs.py
-
-      - name: Apply retention to the completed validation workflow
-        if: github.event_name == 'workflow_run'
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TARGET_WORKFLOW_ID: ${{ github.event.workflow_run.workflow_id }}
-          TARGET_RUN_ID: ${{ github.event.workflow_run.id }}
         run: python3 scripts/cleanup-workflow-runs.py
 
       - name: Validate optional historical cleanup target
