@@ -59,7 +59,6 @@ func (c *Client) do(method, route, p string, query url.Values, header http.Heade
 		request.Header[name] = values
 	}
 	request.Header.Set("Authorization", "Bearer "+c.token)
-	request.Header.Set("Accept", "text/event-stream")
 	response, err := c.http.Do(request)
 	if err != nil {
 		return nil, fmt.Errorf("file-system request %s %s: %w", method, p, err)
@@ -191,6 +190,7 @@ func (c *Client) ChangeEvents(ctx context.Context) (*ChangeEventStream, error) {
 		return nil, err
 	}
 	request.Header.Set("Authorization", "Bearer "+c.token)
+	request.Header.Set("Accept", "text/event-stream")
 	response, err := c.http.Do(request)
 	if err != nil {
 		return nil, fmt.Errorf("file-system change-event request: %w", err)
