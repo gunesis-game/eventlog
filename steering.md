@@ -1,5 +1,17 @@
 # Steering
 
+## 0. Session-mode classification (Gate 0)
+
+**Classify the session's intent and scope before reading lifecycle state, selecting/creating/resuming a cycle, or beginning substantive work.** Do not treat operational lifecycle rules as universally applicable to governance-maintenance sessions.
+
+- **Governance Mode:** Work whose objective is to create, review, amend, repair, or improve repository governance/AI operating rules: steering, lifecycle, governance validators/workflows, generic engineering standards, project-strategy or decision-ledger templates, template release/adoption rules, and governance context-routing instructions. Use the narrow governance-maintenance exemption. Do not create, select, resume, or advance an operational cycle while work remains within this scope.
+- **Operational Mode:** Ordinary product work, including product requirements, architecture, behavior, features, defects, implementation, tests, and substantive product documentation. The development-cycle mechanism is mandatory; reconcile persisted state before substantive work.
+- **Classification is based on the session objective and scope, not simply the file being edited.** Editing a requirements/architecture document as part of governance-routing repair does not itself change the mode; actually changing product requirements or architecture as project work is Operational.
+- **Mixed or uncertain scope:** Clarify or split before proceeding. Governance Mode must stop before taking on operational work, identify the scope crossing, and route that work through Operational Mode. The exemption must never be silently broadened.
+- Load only the documents needed for the classified mode and task. A link is a conditional reference, not a recursive instruction to load all linked documents.
+
+README.md establishes this first gate. This section is authoritative for the mode distinction and its scope boundary.
+
 ## 1. Purpose and authority
 This file establishes the repository's governing development principles. Its north star is:
 
@@ -15,9 +27,9 @@ The detailed lifecycle rules, registry contract, standard and micro cycle workfl
 
 Apply these rules alongside the project's established requirements. Project-specific requirements and constraints must be established from project evidence. Never invent project-specific facts or silently import another project's commands, paths, architecture, platforms, dependencies, or quality requirements.
 
-## 1A. Non-bypassable operating gate
+## 1A. Non-bypassable operational gate (Operational Mode only)
 
-The written lifecycle is an execution control, not optional guidance. Apply it before ordinary project work and after every user approval:
+The written lifecycle is an execution control, not optional guidance in Operational Mode. Apply it before ordinary project work and after every user approval:
 
 1. Before ordinary work, follow the lifecycle start/resume protocol. Do not conduct substantive untracked design, implementation, or investigation outside an active persisted cycle.
 2. Read the active cycle handoff as a progress checkpoint and read `docs/project/decisions.md` for durable decisions. Chat history or memory is not a substitute for persisted state.
