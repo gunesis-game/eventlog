@@ -603,6 +603,11 @@ browser).
   token it exchanges (D-080). Each knows only its service's API, not eventlog's storage. The Drive backend behind
   the file-system boundary composes them, and each client is tested on its own against the emulator.
   These are provider packages: no core package imports them.
+- **Official contracts (D-081):** the clients are written from Google's official API documentation, never
+  from the emulator, and their tests point them at the emulator by changing only service addresses; where
+  the emulator differs from an official contract, the emulator is corrected. The emulator's own tests use
+  these clients for every request a correct client makes, and raw HTTP only for deliberately invalid ones.
+  The emulator's own code stays standard library only.
 
 ### Google Drive provider
 
