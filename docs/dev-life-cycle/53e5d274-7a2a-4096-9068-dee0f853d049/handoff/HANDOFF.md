@@ -78,3 +78,17 @@
 - Approval is limited to hierarchy/reference-loading principles; per-file dispositions and structural edits still require review/approval.
 - Current phase remains `assess`; next step is complete and present per-file dispositions.
 - Cycle registry remains in `assess`; no phase transition yet.
+
+
+## Approval checkpoint — 2026-11-28T10:18:57Z
+
+- User approved the file-by-file disposition proposal. This authorizes the phase transition from Assess to Define and drafting the concrete restructuring plan; it does not authorize structural implementation.
+- Approved direction: shorter entry routing; conditional standalone lifecycle/architecture leaves; canonical content ownership among specs, standards, research, decisions, acceptance/testing/performance; preserve detailed material and cycle history; no recursive read-all link semantics.
+- No project documentation restructuring has yet occurred.
+
+## Define checkpoint — 2026-11-28T10:18:57Z
+
+- **Registry phase:** define (verified in fetched registry)
+- **Plan:** updated and fetched back; see cycle plan's approval and Define checkpoint.
+- **Current repository revision:** plan checkpoint commit `1a62b62160af50ba2bd82c189b065c5d5d0fc85`
+- **Next action:** produce a concrete restructuring blueprint: exact file paths (new and retained), content ownership and moves, entry/task routing, links to conditionally loaded leaves, preservation strategy, and validation/context-path tests. Present it for approval before editing project docs.
