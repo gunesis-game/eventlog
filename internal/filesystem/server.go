@@ -43,6 +43,7 @@ func Serve(backend Backend) (*Server, error) {
 	mux.HandleFunc("POST /files/{path...}", s.changeFile)
 	mux.HandleFunc("DELETE /files/{path...}", s.removeFile)
 	mux.HandleFunc("GET /dirs/{path...}", s.listDirectory)
+	mux.HandleFunc("GET /events", s.changeEvents)
 	mux.HandleFunc("PUT /dirs/{path...}", s.makeDirectory)
 	mux.HandleFunc("POST /locks/{name...}", s.lock)
 	mux.HandleFunc("DELETE /locks/{name...}", s.unlock)
@@ -227,6 +228,51 @@ func (s *Server) respond(w http.ResponseWriter, err error) {
 func (s *Server) removeFile(w http.ResponseWriter, r *http.Request) {
 	if p, ok := requestPath(w, r, "path"); ok {
 		s.respond(w, s.backend.Remove(p))
+	}
+}
+
+
+func (s *Server) changeEvents(w http.ResponseWriter, r *http.Request) {
+	source, ok := s.backend.(ChangeEventSource)
+	if !ok {
+		http.Error(w, ErrChangeEventsUnavailable.Error(), http.StatusNotImplemented)
+		return
+	}
+	events, err := source.ChangeEvents(r.Context())
+	if err != nil {
+		status := http.StatusServiceUnavailable
+		if errors.Is(err, ErrChangeEventsUnavailable) {
+			status = http.StatusNotImplemented
+		}
+		http.Error(w, err.Error(), status)
+		return
+	}
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		http.Error(w, "streaming is not supported", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.WriteHeader(http.StatusOK)
+	flusher.Flush()
+	for {
+		select {
+		case <-r.Context().Done():
+			return
+		case event, open := <-events:
+			if !open {
+				return
+			}
+			data, err := json.Marshal(event)
+			if err != nil {
+				return
+			}
+			if _, err := fmt.Fprintf(w, "event: change\\ndata: %s\\n\\n", data); err != nil {
+				return
+			}
+			flusher.Flush()
+		}
 	}
 }
 
