@@ -25,7 +25,7 @@
       "execution_order": 2,
       "workflow": "standard",
       "description": "Review and restructure repository Markdown documentation into a context-efficient, non-recursive hierarchy with clear standalone document boundaries and conditional leaf references.",
-      "status": "in-progress",
+      "status": "cancelled",
       "created_at": "2026-11-28T10:06:34Z",
       "started_at": "2026-11-28T10:07:22Z",
       "completed_at": null,
@@ -34,7 +34,7 @@
       "acceptance_criteria": null,
       "verification_evidence": null,
       "outcome": null,
-      "status_reason": null
+      "status_reason": "Created by an incorrect session-mode classification. The session's intended scope was governance maintenance and should have used the governance-maintenance exemption; the cycle is cancelled without deleting its history."
     }
   ]
 }
