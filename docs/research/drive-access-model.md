@@ -43,6 +43,17 @@ Findings:
 - Editors keep `canShare` by default; the owner can turn this off on the folder.
 - Drive reports email addresses with their original capitals (`MarchuanV@...`), so comparisons must ignore case.
 
+
+## Trashed-file read access (2026-11-28)
+
+The Google Drive API v3 documentation explicitly states that only the owner may move a file to the trash, but other users who already have access can continue to access that file in the owner's trash until it is permanently deleted. This supports the compaction protocol: replacing segments can be moved to trash without interrupting another device that is already reading one by file ID.
+
+Sources:
+- [Google Drive API v3 files resource](https://developers.google.com/workspace/drive/api/reference/rest/v3/files): the `trashed` field description states that other users can still access the file in the owner's trash.
+- [Google Drive API: Trash or delete files and folders](https://developers.google.com/workspace/drive/api/guides/delete): confirms the same behavior and distinguishes trashing from permanent deletion.
+
+The emulator regression test `TestTrashedFileRemainsReadableBySharedEditor` covers this cross-account behavior. The emulator test verifies our model; the Google API documentation is the source for the real service contract.
+
 ## Prior project: pulsyflux-queue
 
 The owner's earlier project, `gunesis-game/pulsyflux-queue` (a browser-only job queue in an owner's Drive folder), used the same multi-account model and reached the same conclusion:
