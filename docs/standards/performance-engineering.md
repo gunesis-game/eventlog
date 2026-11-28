@@ -2,9 +2,9 @@
 
 ## Purpose and authority
 
-This standard defines a repeatable approach to performance requirements, measurement, benchmarking, analysis, and regression detection. It applies to every derived project. The project-specific strategy at `docs/project/performance-strategy.md` defines applicable workloads, metrics, environments, baselines, targets, commands, and automation.
+This standard defines a repeatable approach to performance requirements, measurement, benchmarking, analysis, and regression detection. The project-specific [performance strategy](../project/performance-strategy.md) defines applicable workloads, metrics, environments, baselines, targets, commands, and automation.
 
-Performance engineering begins during Define. Benchmarks are designed around meaningful workloads and acceptance needs, not added only after optimization work.
+Performance engineering begins with the requirements. Benchmarks are designed around meaningful workloads and acceptance needs, not added only after optimization work.
 
 ## Applicability
 
@@ -48,10 +48,8 @@ A target or threshold must not be introduced, changed, or removed silently. Trea
 - Avoid shared mutable state and uncontrolled background activity where possible.
 - Use adequate repetitions and report variability.
 - Separate correctness tests from performance measurements; benchmark results do not prove functional correctness.
-- Do not use hard performance thresholds as CI gates under this template policy. CI benchmark results are informational and must not fail a workflow based on a performance threshold.
-- Manual or separately operated performance evaluations may compare results with approved targets, but a threshold must not become a CI gate without an explicit governance-policy change.
-- Avoid hard performance gates where measurements are noisy or defensible targets have not been established.
-- When a performance gate is used, define its statistical/variance policy, tolerance, environment, and failure response.
+- Do not use performance thresholds as CI gates. CI benchmark results are informational and must not fail a workflow on a performance value. Making a threshold a CI gate requires an explicit, recorded policy change that defines its variance policy, tolerance, environment, and failure response.
+- Manual performance evaluations may compare results with approved targets.
 - Preserve enough metadata and output to reproduce and interpret results.
 
 ## Regression analysis
@@ -66,4 +64,4 @@ The project strategy defines retention and artifact policy. Retain enough data t
 
 ## Project strategy and exceptions
 
-Before implementation begins, Define must approve `docs/project/performance-strategy.md`. It records applicability, workloads, metrics, baselines, targets (or explicit absence), environments, commands, CI/manual execution policy, reporting, retention, and regression handling. A project may use informational benchmarks without hard thresholds when justified. Changes to targets, gates, workloads, or retention are material decisions requiring approval and durable recording.
+Before implementation begins, the project performance strategy must be approved. It records applicability, workloads, metrics, baselines, targets (or explicit absence), environments, commands, CI/manual execution policy, reporting, retention, and regression handling. A project may use informational benchmarks without hard thresholds when justified. Changes to targets, gates, workloads, or retention are material decisions requiring approval and durable recording.

@@ -1,10 +1,10 @@
 # Acceptance test strategy
 
-**Status:** Acceptance structure approved during Define. Executable tests for these scenarios exist; their locations are mapped in [testing-strategy.md](testing-strategy.md#suite-locations), and observed results are recorded in [commands.md](commands.md). This document defines criteria, not evidence.
+**Status:** Approved. Executable tests for these scenarios exist; their locations are mapped in [testing-strategy.md](testing-strategy.md#suite-locations), and observed results are recorded in [commands.md](commands.md). This document defines criteria, not evidence. Layers 1 to 9 are built; Layer 10 (web storage) is approved but not built, so its scenarios have no tests yet.
 
 This document defines the bottom-up acceptance-test layers and their observable pass conditions. Tests proceed from the lowest storage boundary upward. Each layer verifies its own contract without depending on higher-level components; higher layers build on the guarantees established below them. A small end-to-end suite verifies integration across layers but does not replace lower-layer tests.
 
-The acceptance suite establishes correctness and recovery behavior. Benchmark workloads and the measurement protocol are specified separately in [benchmarks.md](benchmarks.md) and have been approved. Numeric product performance and memory targets remain deferred until representative baselines exist and require separate approval; they are not correctness acceptance criteria.
+The acceptance suite establishes correctness and recovery behavior. Performance is measured separately ([benchmarks.md](benchmarks.md)); numeric performance and memory targets are not acceptance criteria.
 
 ## Layer 1 — Disk and storage
 
@@ -174,6 +174,56 @@ Tests verify that consumers can use the library through its approved public API 
 
 End-to-end tests use actual consumer-defined Event and Channel types, not only internal test types.
 
+## Layer 9 — Multi-device operation and storage that refuses writes
+
+Tests verify the multi-device requirements (D-056 to D-075) on local storage, with several devices sharing one storage directory. They build on Layers 1 to 8. Each scenario names the tests that cover it.
+
+| ID | Scenario | Pass condition | Covered by |
+|---|---|---|---|
+| MD-01 | Device and log identity | A device generates its identity once and writes only under `devices/{deviceID}/`; `log.json` is created once and every device uses the same log identity. | `TestLayoutCreatesIdentitiesOnce` |
+| MD-02 | Corrupt or lost identity | Unreadable `device.json` or `log.json` fails closed and is never regenerated over an existing file; lost device state makes a new device with a new folder. | `TestCorruptIdentityFailsClosed`, `TestLostDeviceStateMakesANewDevice` |
+| MD-03 | Causal metadata | Every Event record carries the writing device, the Channel's version vector, and a clock reading; they survive restart. | `TestEventsCarryCausalMetadata`, `TestCausalStateSurvivesRestart` |
+| MD-04 | Inconsistent own causal metadata | Recovery of the device's own log fails closed when an occurrence names another device, skips or repeats a count, or has a clock reading not after the previous one. | `TestRecoveryRejectsInconsistentCausalMetadata` |
+| MD-05 | Monotonic clock | Clock readings strictly increase even when the wall clock steps back, and continue after the last reading on restart. | `TestClockIsMonotonic`, `TestClockContinuesAfterLastReading`, `TestClockObserve` |
+| MD-06 | Causal delivery | If a device had delivered occurrence X before writing Y, every device delivers X before Y; Y is not reported as a conflict. | `TestOtherDevicesOccurrencesAreDelivered` |
+| MD-07 | Concurrent changes | Changes to one logical Event made on two devices without knowledge of each other are all kept and delivered, and each device reports one `ConcurrentChange` naming both occurrences, the current state first. Nothing is rejected or paused. | `TestConcurrentChangesConverge` |
+| MD-08 | Deterministic convergence | Every device, including a new one and a restarted one, settles on the same current state and replays the occurrences in the same order. | `TestConcurrentChangesConverge`, `TestConcurrentChangesConvergeLiveInstances` |
+| MD-09 | Remote changes reach live instances | Another device's commit sets the local live Event and Channel to the converged state, without persisting anything; local transactions start from it. | `TestLiveInstancesTakeOtherDevicesChanges` |
+| MD-10 | Own deliveries never roll back live state | Delivery of this device's own older occurrence never replaces a later local change. | `TestOwnDeliveriesKeepLaterLocalChanges` |
+| MD-11 | Live state after restart | After a restart, live instances hold the persisted current state instead of constructor values, whether prepared before or after replay reaches them. | `TestLiveInstancesTakePersistedStateAfterRestart` |
+| MD-12 | Identity never rewritten | Applying the converged state never writes an identity field and never races with identity reads. | `TestConvergedStateNeverWritesIdentity`, `TestConvergedStateNeverRacesWithIdentityReads` |
+| MD-13 | Reading other devices' logs | Other devices' logs are read without repair; an incomplete trailing transaction there is not yet committed; a refresh reads only new bytes. | `TestDevicesReadEachOthersLogs`, `TestOtherDeviceIncompleteTransactionIsNotCommitted`, `TestRefreshReadsOnlyNewBytes` |
+| MD-14 | Positions across compaction | Positions in another device's log stay valid after that device compacts. | `TestOtherDevicePositionsSurviveCompaction` |
+| MD-15 | Damaged log of another device | This device still opens; the other log's valid prefix is kept and the rest is missing history. This device's own log still fails closed. | `TestOtherDeviceDamageKeepsReadablePrefix` |
+| MD-16 | Missing history | Occurrences depending on missing history are held, never skipped; `HistoryMissing` is reported once per affected Channel naming the device; unrelated occurrences keep flowing; delivery resumes in order when the history returns. | `TestDependentsWaitForMissingHistory` |
+| MD-17 | Delivered counts | Delivered occurrences of other devices are counted in this device's later version vectors. | `TestDeliveredOccurrencesAreCounted` |
+| WP-01 | Storage refuses writes at start | The store opens read-only: it writes nothing, takes no lock, leaves an incomplete trailing transaction in place, and still reads other devices' logs. | `TestReadOnlyStorageOpensForReading`, `TestReadOnlyStorageLeavesIncompleteTransaction`, `TestReadOnlyFreshStorageIsEmpty`, `TestReadOnlyDeviceReadsOtherDevices`, `TestReadOnlyDirectory` |
+| WP-02 | Transactions on refused storage | A transaction that changes nothing is accepted; one that changes an Event is rolled back and refused with `WriteNotPermitted` carrying the attempted Events, under the prefix rule. Replay and notifications continue. | `TestStorageRefusingWritesRefusesChanges` |
+| WP-03 | Writes refused while running | The failing commit reports `CommitFailed` with the permission cause; later changes are refused with `WriteNotPermitted` until the next start. | `TestWriteRefusedWhileRunningSwitchesToWriteNotPermitted`, `TestWriteRefusedWhileRunning` |
+| WP-04 | Permission crosses the file-system boundary | A permission error from the backend reaches `internal/storage` as `fs.ErrPermission`. | `TestPermissionErrorCrossesTheBoundary`, `TestOSBackendReadOnlyFile` |
+
+## Layer 10 — Web storage (approved, not built)
+
+Tests verify `Web` storage with the Google Drive provider (D-061 to D-081) against the in-process Google services emulator. No automated test calls real Google services. These scenarios are the acceptance criteria for the unbuilt parts listed in [architecture.md](architecture.md#multi-device-operation).
+
+| ID | Scenario | Pass condition |
+|---|---|---|
+| WS-01 | Configure web storage | `WithStorage(Web{SettingsFile, DeviceStateDirectory})` is accepted; a missing or invalid settings file, an unknown provider, or a taken sign-in port fails with a clear error. |
+| WS-02 | First sign-in | Without a valid sign-in, `PrepareLog` returns `*AuthorizationRequired` with a URL and a `Completed` channel; after sign-in completes, calling `PrepareLog` again succeeds. |
+| WS-03 | Expired sign-in while running | Each Channel reports one `AuthorizationRequired`; transactions sent while signed out are rejected with that kind under the prefix rule; Readers resume by themselves after sign-in. |
+| WS-04 | Folder not shared | A device whose account cannot see the owner's folder is rejected at start with a "not shared" error; only the owner's devices may create the folder. |
+| WS-05 | Viewer | A Viewer's device behaves as storage that refuses writes (WP-01 to WP-03) and creates no device folder and no board entry. |
+| WS-06 | Folder and duplicate names | The `eventlog` folder is found by tag and owner, with IDs cached; when two devices create the same name, every device uses the oldest and one log identity. |
+| WS-07 | Ownership handover | A file a non-owner device creates is offered to the owner and accepted by an owner's device on a change event or at start; afterwards the writer can still write it but cannot trash or delete it. |
+| WS-08 | Cross-device change notification | A commit on one device wakes the affected Channel Readers on other online devices without polling. |
+| WS-09 | Change events unavailable | When Firebase is unavailable or over the free-plan limits, devices keep committing, each Channel reports one `ChangeEventsUnavailable`, and other devices' changes are seen at the next start. |
+| WS-10 | Sharing by group, domain, or link | Such an account keeps Drive access but gets `ChangeEventsUnavailable` with a cause asking for sharing by email address. |
+| WS-11 | Board access follows sharing | The members list is synced from Drive permissions by owner devices; writers write only their own board entries, readers only read, others are refused. |
+| WS-12 | Compaction on Drive | Replaced segments move to the Drive trash, and reads already in progress on other devices finish. |
+| WS-13 | Provider isolation | The core tests pass unchanged against the local backend, and no core package imports a provider package. |
+| WS-14 | Emulator independence | Service clients are tested against the emulator by changing only service addresses, and the emulator imports only the standard library. |
+
+The service clients and emulator already exist, so WS-14 is partly covered now (`TestEmulatorImportsOnlyTheStandardLibrary` and the client tests in `internal/googleauth`, `internal/drive`, and `internal/firebase`).
 ## Test execution and evidence
 
 - Implement and run tests from Layer 1 upward. A higher layer must not be used to mask a failure in a lower layer.
@@ -181,8 +231,4 @@ End-to-end tests use actual consumer-defined Event and Channel types, not only i
 - Repeat recovery after interruption to establish that recovery is stable and idempotent.
 - Run the platform-specific storage and integration cases on both supported operating systems: Linux and Windows.
 - Keep test-only fault injection and process termination controls out of the public API.
-- Record test commands, platform, outcomes, and relevant failure evidence when implementation begins. This document defines acceptance criteria; it is not evidence that tests have run.
-
-## Post-implementation performance evidence
-
-The acceptance scenarios and benchmark workload/measurement specifications are agreed. Representative performance and memory baselines can only be established after an implementation exists. Any numeric product targets or thresholds proposed from those baselines require separate justification and approval; they are not currently approved acceptance criteria.
+- Record test commands, platform, outcomes, and relevant failure evidence in [commands.md](commands.md).

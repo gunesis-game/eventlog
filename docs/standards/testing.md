@@ -2,9 +2,9 @@
 
 ## Purpose and authority
 
-This standard defines the minimum engineering expectations for designing, selecting, executing, and evidencing tests. It applies to every derived project. The project-specific test strategy at `docs/project/testing-strategy.md` defines the actual suites, commands, architecture-to-test relationships, environments, and gates.
+This standard defines the minimum engineering expectations for designing, selecting, executing, and evidencing tests. The project-specific [testing strategy](../project/testing-strategy.md) defines the actual suites, commands, architecture-to-test relationships, environments, and gates.
 
-Testing is a design and engineering activity, not a final phase added after implementation. Test design begins during Define and evolves with the implementation.
+Testing is a design and engineering activity, not a final phase added after implementation. Test design begins with the requirements and evolves with the implementation.
 
 ## Core principles
 
@@ -48,7 +48,7 @@ The project strategy must define explicit feedback tiers, their triggers, suites
 
 - **Fast feedback:** changed component, directly affected dependants, and relevant interface/contract tests. Run on each meaningful implementation iteration.
 - **Integration feedback:** affected component boundaries and important end-to-end paths. Run when boundary or cross-component impact warrants it and at defined integration checkpoints.
-- **Full verification:** all required test levels, supported platform checks, regression suites, and other required quality checks. This is mandatory before implementation exit and transition from Implement to Verify.
+- **Full verification:** all required test levels, supported platform checks, regression suites, and other required quality checks. This is mandatory before a change is considered complete.
 
 A green fast-feedback result does not replace integration checks or full verification. A skipped, cancelled, missing, or still-running required check is not a pass. Failed required feedback blocks progression until diagnosed and resolved or explicitly handled through an approved exception.
 
@@ -74,6 +74,6 @@ For CI, inspect the actual run and relevant jobs, steps, logs, and artifacts. Co
 
 ## Project strategy and exceptions
 
-Before implementation begins, Define must approve `docs/project/testing-strategy.md`. It records the project's architecture-to-test map, suite definitions, tiers, triggers, commands, environments, CI workflows, required gates, and justified exclusions. If the project has no meaningful applicability for a test level, document why rather than silently omitting it.
+Before implementation begins, the project testing strategy must be approved. It records the project's architecture-to-test map, suite definitions, tiers, triggers, commands, environments, CI workflows, required gates, and justified exclusions. If the project has no meaningful applicability for a test level, document why rather than silently omitting it.
 
 Changes to required coverage, suite selection, or blocking gates are material quality-policy decisions and must be approved and recorded through the project's decision process.

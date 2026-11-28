@@ -160,22 +160,20 @@ from replay into live tailing. It is not tied to an event-sourcing framework or 
   domain-specific behavior.
 
 ## Acceptance expectations
-- Public API and consumer responsibilities are unambiguous and compile-valid once Define is approved.
+- Public API and consumer responsibilities are unambiguous and compile-valid.
 - Invalid configuration, fields, identities, and records fail without partial persistence.
 - Committed occurrences replay in order and transition to live tailing without gaps or duplicates.
 - Channel isolation and Event identity/occurrence semantics hold across updates and recovery.
 - Crash/interruption recovery, derived metadata rebuild, and compaction preserve committed history.
 - Notifications meet ordering, losslessness, non-blocking persistence, and honest delivery guarantees.
-- The bottom-up scenarios and pass conditions in [acceptance.md](acceptance.md) establish the required
-  correctness, recovery, integration, and platform-parity evidence. The approved workloads in [benchmarks.md](benchmarks.md) must establish representative performance/memory baselines; any numeric product acceptance targets must be separately justified and approved before implementation is considered complete.
+- The scenarios and pass conditions in [acceptance.md](acceptance.md) establish the required correctness,
+  recovery, integration, and platform-parity evidence. The workloads in [benchmarks.md](benchmarks.md)
+  establish performance and memory baselines.
 
-## Define details still open
+## Open items
 
-Remaining design questions are maintained in [architecture.md](architecture.md), with decision provenance
-in [decisions.md](decisions.md). The UUID identity marker/tag, metadata UTF-8 policy, canonical naming of
-aliases and instantiated generic types, and v1 canonical identity framing limits are settled by D-035–D-038.
-The exact internal registry-key representation is intentionally an implementation detail under D-039; the observable registration, identity, reuse, and Channel-isolation rules remain specified in architecture.md. Process-lifetime runtime
-ownership with no library-managed shutdown or graceful process-exit drain is settled by D-034; Channel
-snapshot ordering/consistency, delivery retry behavior, and bounded notification backlog are recorded in
-D-027 and D-032–D-034. The acceptance scenarios are recorded in [acceptance.md](acceptance.md).
-Benchmark workloads and the measurement/acceptance protocol are approved and recorded in [benchmarks.md](benchmarks.md). Numeric product performance and memory targets remain open pending representative baselines; the initial runner resource ceilings are diagnostic execution limits, not product acceptance criteria. 
+- Numeric performance and memory targets, to be proposed after representative baselines are measured.
+  The benchmark resource ceilings are diagnostic execution limits, not product acceptance criteria.
+
+Settled design details and their provenance are in [architecture.md](architecture.md) and
+[decisions.md](decisions.md).

@@ -64,9 +64,9 @@ Separate accounts sharing one owner's folder need the restricted `drive` scope. 
 
 ## Emulator options (2026-11-28)
 
-Before relying on eventlog's own emulator (`internal/googletest`, plan item 12.7), a search looked for an existing Drive emulator:
+Before relying on eventlog's own emulator (`internal/googletest`), a search looked for an existing Drive emulator:
 
-- Google publishes none. Its emulators cover Bigtable, Datastore, Firestore, Pub/Sub, and Spanner (`gcloud beta emulators`), and, in the Firebase Local Emulator Suite, Firestore, Realtime Database, Cloud Storage for Firebase, Authentication, Hosting, Cloud Functions, Pub/Sub, and Extensions. The Firebase suite is a candidate for testing the security rules in 12.10.
+- Google publishes none. Its emulators cover Bigtable, Datastore, Firestore, Pub/Sub, and Spanner (`gcloud beta emulators`), and, in the Firebase Local Emulator Suite, Firestore, Realtime Database, Cloud Storage for Firebase, Authentication, Hosting, Cloud Functions, Pub/Sub, and Extensions. The Firebase suite was a candidate for testing the security rules; D-078 later chose to model the rules in eventlog's emulator instead.
 - Third-party Drive emulators exist but lack what eventlog depends on. vercel-labs/emulate (Node, in memory) has OAuth and basic file calls but documents no sharing, ownership transfer, owner or appProperties queries, or ranged reads. gfeh-drive-emulator (Rust, in memory, AGPL) has queries and uploads but no OAuth, no permissions, and refuses owner and appProperties queries. pubkey/google-drive-mock (Node) documents only create and get.
 
 Decision (user, 2026-11-28): keep eventlog's own emulator. The behaviours its security rests on (per-account visibility, inherited roles, ownership handover, owner-only trash, the tag and owner search) are modelled from the checks above, its state is on a real file system, and it counts calls and bytes for the benchmarks, in Go with the standard library only. Where it models behaviour without an observation, the package documentation lists it for checking in the manual runs.

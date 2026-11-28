@@ -1,8 +1,8 @@
 # Benchmark strategy
 
-**Status:** Benchmark workload scenarios, initial workload profiles, per-process diagnostic resource ceilings, and the measurement protocol are approved during Define. Numeric performance and product memory acceptance thresholds remain unapproved pending representative baselines. No benchmark implementation or measurements have started.
+**Status:** The workload scenarios, workload profiles, diagnostic resource ceilings, measurement protocol (D-040), and artifact retention (D-041) are approved. The [smoke suite](#smoke-suite) is implemented; no baseline has been measured. Numeric performance and product memory thresholds are not approved.
 
-This document defines the benchmark workloads used to evaluate the eventlog implementation. It is separate from the acceptance-test matrix: acceptance tests establish correctness, while benchmarks measure performance and resource behavior. A benchmark result is not valid unless its workload also verifies the relevant correctness guarantees.
+This document is the single definition of eventlog's benchmark workloads, metrics, and measurement protocol; [performance-strategy.md](performance-strategy.md) records applicability, environments, and CI policy. Acceptance tests ([acceptance.md](acceptance.md)) establish correctness, while benchmarks measure performance and resource behavior. A benchmark result is not valid unless its workload also verifies the relevant correctness guarantees.
 
 ## Initial workload profiles and resource budgets
 
@@ -28,9 +28,8 @@ Initial per-process resource budgets on the standard GitHub-hosted runner class 
 
 - Benchmark data stored on the runner is capped at 4 GiB per workload execution.
 - These memory and disk budgets are diagnostic execution ceilings, not product memory/performance acceptance thresholds, measured capabilities, or performance guarantees. If a workload exceeds a ceiling, stop or contain that execution where practicable, mark its result **incomplete/resource-limited**, and record the observed usage and termination reason. Do not report it as a successful benchmark or infer that the product failed an unapproved memory target.
-- The ceilings bound benchmark resource consumption on the selected runner class; they do not establish a product memory guarantee. Revisit them if observed runner capacity or workload needs justify a change.
-- Record the actual runner image/class, allocated CPU and memory, available disk, OS, filesystem, and toolchain version with every result. Runner specifications can change; record observed environment details rather than assuming a historical specification.
-- Run Linux and Windows separately. The profiles and resource budgets apply to both, but raw timings across different runner images/platforms must not be treated as directly comparable.
+- Revisit the ceilings only if observed runner capacity or workload needs justify a change.
+- The profiles and ceilings apply to both Linux and Windows.
 
 ## Measurement methodology
 
@@ -42,13 +41,12 @@ Unless a workload specifies otherwise:
 - Measure peak memory for recovery, replay, reconstruction, and backlog workloads.
 - Distinguish ordinary write/append latency from durable commit latency wherever the storage contract requires synchronization.
 - Vary one major workload dimension at a time where practical, including record size, payload size, history size, transaction size, concurrency, Reader count, and consumer speed.
-- Document hardware, operating system, filesystem, runtime/toolchain version, configuration, and benchmark command so results can be compared meaningfully.
-- Run comparable workloads on Linux and Windows. Document environmental differences rather than treating unlike hardware or filesystems as directly comparable.
 - Include correctness checks and report failures; never count lost, duplicated, reordered, or incorrectly recovered data as successful throughput.
-- **PR smoke suite:** execute each selected representative scenario once, without repeated statistical sampling. Treat results as informational early-warning evidence only.
+- **Smoke suite:** execute each selected representative scenario once, without repeated statistical sampling. Treat results as informational early-warning evidence only.
 - **Full/manual measurements:** perform one unreported warm-up execution followed by five measured repetitions for each workload/environment combination. Preserve the five individual results; report the median, minimum-to-maximum range, and median absolute deviation (MAD), alongside the workload's per-run latency percentiles and other applicable metrics. Do not discard an inconvenient sample unless a documented execution fault invalidates it; retain and explain invalidated samples.
-- Record the exact source SHA, runner image/class, allocated CPU and memory, available disk, operating system, filesystem, Go toolchain version, configuration, workload inputs, and exact command for every run. Compare baselines only within materially comparable environments; keep Linux and Windows results separate.
-- No numeric performance or product memory pass/fail thresholds are approved. Establish representative baselines first, then propose any justified numeric targets as a separately approved decision. Until then, all performance results are informational; no performance or memory measurement may fail CI based on a numeric threshold. Correctness failures remain independently enforceable.
+- Record with every run the exact source SHA, runner image/class (observed, not assumed from a historical specification), allocated CPU and memory, available disk, operating system, filesystem, Go toolchain version, configuration, workload inputs, and exact command.
+- Run Linux and Windows separately and keep their results in separate series; do not treat raw timings across different hardware, runner images, or filesystems as directly comparable.
+- No numeric performance or product memory pass/fail thresholds are approved. Establish representative baselines first, then propose any justified numeric targets as a separately approved decision. Until then, all performance results are informational and no performance or memory measurement may fail CI. Correctness failures remain independently enforceable.
 
 ## Layer 1 — Disk and storage
 
@@ -181,75 +179,56 @@ Use consumer-defined concrete Event and Channel types. Include the complete publ
 
 ## Benchmark execution strategy
 
-The approved execution strategy is designed around the resource limits of free GitHub-hosted runners for a public repository. It avoids requiring self-hosted runners, paid performance hardware, scheduled benchmark jobs, or expensive benchmark execution on every push to `main`.
+The execution strategy fits the resource limits of free GitHub-hosted runners for a public repository. It needs no self-hosted runners, paid performance hardware, scheduled benchmark jobs, or expensive benchmark execution on every push to `main`. There are two execution paths, and no scheduled benchmark runs:
 
-There are two execution paths:
+1. **Smoke suite:** a small, fast, representative subset for early detection of obvious regressions. Intended to run on Linux; no benchmark workflow is configured yet, so it currently runs locally ([commands.md](commands.md)).
+2. **Manual benchmark runs:** the full matrix or selected extended workloads, only when explicitly requested. This includes Windows coverage and resource-intensive investigations such as very large histories, sustained load, high concurrency, slow-consumer/backpressure stress, and interruption/recovery workloads. Extended workload sizes remain to be selected within actual free-runner limits.
 
-1. **Main-branch smoke suite:** Run a small, fast, representative subset on Linux for early detection of obvious performance regressions.
-2. **Manual benchmark runs:** Run the full approved benchmark matrix or selected extended workloads only when explicitly requested. This includes Windows coverage and resource-intensive investigations such as very large histories, sustained-load tests, high concurrency, slow-consumer/backpressure stress, and interruption/recovery workloads.
+### Smoke suite
 
-There are no scheduled benchmark runs.
+The smoke suite contains one representative scenario from each of the eight layers, plus three extra workloads. Every smoke benchmark checks the correctness of its workload and fails rather than hangs when a commit or notification does not arrive.
 
-### Approved main-branch smoke suite
-
-The PR smoke suite contains one representative benchmark scenario from each of the eight layers:
-
-| Layer | Scenario | Workload |
+| Layer | Scenario | Benchmark |
 |---|---|---|
-| 1. Disk and storage | B-D03 | Small append operations |
-| 2. Persistence format and transactions | B-T01 | Commit a single-record transaction |
-| 3. Metadata and recovery | B-M01 | Load valid metadata |
-| 4. Core event-log behavior | B-L01 | Append individual Events |
-| 5. Channel and Reader | B-R01 | Initial replay of committed history |
-| 6. Notification delivery | B-N01 | Successful notification delivery |
-| 7. Runtime lifecycle | B-RT03 | Concurrent PrepareLog calls |
-| 8. Public API and end-to-end | B-API03 | Append and receive an Event |
+| 1. Disk and storage | B-D03 Small append operations (128 bytes) | `BenchmarkSmallAppend` (`internal/filesystem`) |
+| 2. Persistence format and transactions | B-T01 Commit a single-record transaction (1 KiB) | `BenchmarkCommitSingleTransaction` (`internal/storage`) |
+| 3. Metadata and recovery | B-M01 Load valid metadata (manifest and index of 1,000 occurrences) | `BenchmarkLoadMetadata` (`internal/storage`) |
+| 4. Core event-log behavior | B-L01 Append individual Events (64 transactions per operation, until committed) | `BenchmarkAppendEvent` (root) |
+| 5. Channel and Reader | B-R01 Initial replay of 1,000 committed occurrences | `BenchmarkReplayDelivery` (root) |
+| 6. Notification delivery | B-N01 Successful live notification delivery | `BenchmarkNotificationDelivery` (root) |
+| 7. Runtime lifecycle | B-RT03 Eight concurrent PrepareLog calls on one runtime | `BenchmarkConcurrentPrepare` (root) |
+| 8. Public API and end-to-end | B-API03 Append and receive an Event through the public API | `BenchmarkPublicAppendAndReceive` (root, external test package) |
+| Extra | B-D02 Ranged read (200 bytes) | `BenchmarkReadRoundTrip` (`internal/filesystem`) |
+| Extra | B-F01 Encode and validate a 1 KiB Event record | `BenchmarkEncodeEventRecord` (`internal/record`) |
+| Extra | B-T03 / B-M06 Recover 1,000 and 10,000 committed transactions | `BenchmarkRecoverHistory` (`internal/storage`) |
 
-Resource constraints for this suite:
+B-T01 measures commits without a per-commit sync; the store's periodic sync is the durability boundary, so durable commit latency is not measured yet. `BenchmarkPublicAppendAndReceive` calls the one-time `Config` once per process and leaves its storage directory in the system temporary directory, because the process-lifetime runtime holds it until exit.
+Constraints for the smoke suite:
 
-- Linux only.
-- One benchmark execution per scenario; no repeated statistical sampling in the PR path. The five-repetition protocol applies to full/manual measurements, not the smoke suite.
-- Small, fixed, bounded datasets and short benchmark durations.
-- No large-history, sustained-load, or high-concurrency stress workloads.
-- No timing- or product-memory-based pass/fail thresholds. The smoke suite is an early-warning signal, not a statistically strong performance gate.
-- Correctness tests remain mandatory and independent of benchmark results; benchmark success cannot substitute for acceptance tests.
-
-The full benchmark matrix is not required on every push to `main`. Linux and Windows remain first-class correctness and benchmark platforms, but Windows benchmark runs are manual. Keep platform results separate and do not treat their absolute timings as directly comparable without accounting for runner and environment differences.
-
-Performance benchmark results are informational and diagnostic. There are no hard performance thresholds in CI, and performance measurements must not fail a CI run based on timing, throughput, or resource-use values. Correctness and acceptance tests remain independently enforceable and may fail CI for correctness defects. Extended manual workload sizes remain to be selected within actual free-runner limits. The warm-up and five-measured-repetition protocol is approved; any future numeric performance regression gates remain deferred until representative baselines and observed measurement noise justify a separately approved target. Benchmark execution must remain bounded and must not consume disproportionate CI capacity.
+- One execution per scenario; the five-repetition protocol applies to full/manual measurements only.
+- Small, fixed, bounded datasets and short durations; no large-history, sustained-load, or high-concurrency stress workloads.
+- No timing- or memory-based pass/fail thresholds. It is an early-warning signal, not a statistical performance gate.
+- Correctness tests remain mandatory and independent of benchmark results.
 
 ## Benchmark artifact retention and comparable-run selection
 
-Retain benchmark artifacts for **20 days** from the workflow run that produced them. This applies to uploaded benchmark evidence, including raw measured samples, summaries, workload inputs, correctness outcomes, and environment metadata. It is separate from GitHub Actions workflow run-history retention below.
+Retain benchmark artifacts for **20 days** from the workflow run that produced them. This applies to uploaded benchmark evidence, including raw measured samples, summaries, workload inputs, correctness outcomes, and environment metadata. GitHub Actions run-history retention is separate and defined in the [Git Workflow Standard](../standards/git-workflow.md#workflow-run-retention-and-scheduling).
 
-- Retain evidence from successful, failed, and incomplete/resource-limited runs for the retention period so that investigations remain possible.
-- A cancelled run does not need benchmark artifact retention.
-- For full/manual measurements, retain all individual measured samples, the unreported warm-up marker/result where available, summary statistics, correctness outcome, exact source SHA, and the complete environment/workload/command metadata already required by this document.
+- Retain evidence from successful, failed, and incomplete/resource-limited runs for the retention period so that investigations remain possible. A cancelled run needs no artifact retention.
+- For full/manual measurements, retain all individual measured samples, the warm-up result where available, summary statistics, correctness outcome, and the run metadata listed under [Measurement methodology](#measurement-methodology).
 - For smoke runs, retain the summary and environment metadata; raw output may also be retained where useful.
-- Expiry after 20 days is an evidence-storage policy, not permission to delete source specifications, decision records, or other project governance history.
+- Expiry after 20 days applies to benchmark evidence only, never to specifications or decision records.
 
-Select a comparison baseline only from the **latest successful, complete, correctness-valid run** that is materially comparable to the run being evaluated. Comparability requires the same workload ID and workload parameters, operating system, filesystem, materially equivalent runner image/class and allocated resources, Go toolchain version, and relevant configuration. Record the source SHA for every run; different source SHAs are expected when measuring changes and do not by themselves make runs incomparable.
+Select a comparison baseline only from the **latest successful, complete, correctness-valid run** that is materially comparable to the run being evaluated. Comparability requires the same workload ID and workload parameters, operating system, filesystem, materially equivalent runner image/class and allocated resources, Go toolchain version, and relevant configuration. Different source SHAs are expected when measuring changes and do not by themselves make runs incomparable.
 
 - Do not use failed, cancelled, incomplete/resource-limited, or correctness-invalid runs as baselines.
-- Keep Linux and Windows in separate comparison series.
-- Treat material changes to runner image/class, allocated resources, OS, filesystem, Go toolchain, workload parameters, or relevant configuration as a new comparison series rather than silently combining results.
-- Preserve and report invalidated samples with their reason; do not silently discard them or use them to claim a successful baseline.
-- A successful comparable run is eligible evidence, not an automatically approved product performance target or acceptance threshold.
+- Treat a material change to runner, resources, OS, filesystem, Go toolchain, workload parameters, or configuration as a new comparison series rather than silently combining results.
+- Preserve and report invalidated samples with their reason.
+- A successful comparable run is eligible evidence, not an approved performance target or acceptance threshold.
 
-## GitHub Actions run-history retention
+## Open items
 
-For each individual GitHub Actions workflow, retain the four most recent workflow runs. When that workflow starts, its run-history cleanup should remove older runs belonging to that same workflow, leaving the four newest runs available for comparison.
-
-Retention is per workflow, not a repository-wide limit. Runs belonging to other workflows must not be deleted by this workflow's cleanup. The retained run history is intended to support comparison of benchmark results and execution behavior.
-
-Retain failed runs as well as successful runs so failures remain available for investigation. Cancelled runs are excluded from the four-run retention set and should be removed during cleanup. The four retained runs are therefore the four most recent non-cancelled runs for that workflow.
-
-The eventual cleanup implementation must account for the currently running workflow run, required GitHub token permissions, and concurrent runs so that it does not accidentally delete one of the four runs intended to be retained. This policy does not itself specify a benchmark schedule or create scheduled runs.
-
-## Remaining Define work
-
-- Establish representative performance and memory baselines when an implementation exists; then propose any justified numeric product targets and thresholds for approval.
-- Reassess the diagnostic runner resource ceilings only if observed runner capacity or workload needs justify a change.
-- Complete the consistency review across requirements, architecture, decisions, acceptance tests, and benchmark strategy.
+- Measure durable commit latency (B-T01 with sync) separately from append latency.
+- Measure representative performance and memory baselines, then propose any justified numeric targets for approval.
 
 No benchmark results or performance guarantees are claimed by this document.

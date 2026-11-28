@@ -1,19 +1,20 @@
 # Architecture
 
-**Status:** Current technical design baseline; remaining open details are listed below.
+**Status:** Current technical design baseline. Parts of [multi-device operation](#multi-device-operation)
+are not built yet; that section says which. Remaining open details are listed [at the end](#open-items).
 
 This document owns technical design: components, responsibilities, boundaries, interfaces, algorithms,
 data/storage representations, lifecycle, and trade-offs. Requirements are owned by
 [requirements.md](requirements.md); this design must satisfy them rather than redefine product behavior.
-It describes intended design, not implementation or verification evidence.
-
+It describes intended design, not verification evidence.
 
 ## System boundary
 
-eventlog is an embedded Go library using local filesystem storage. A single process owns a log. It
-supports concurrent goroutine use but does not coordinate multiple processes or distributed writers.
-Consumer Event/Channel domain semantics remain outside the library; the consumer explicitly selects
-persisted fields.
+eventlog is an embedded Go library. Storage is a local directory or, through a web provider, a shared
+folder (Google Drive). Each device runs at most one eventlog process for a log and writes only its own
+per-device log; many devices may share one log with no central coordinator (D-056, D-060). Within a
+process, many goroutines may use the library concurrently. Consumer Event/Channel domain semantics
+remain outside the library; the consumer explicitly selects persisted fields.
 
 The public preparation entry point is `PrepareLog[TEvent, TChannel]`. `TEvent` is a concrete Event type constrained by the common `Event` interface; `TChannel` is a concrete Channel type constrained by `Channel`. `PrepareLog(ctx, newEvent, newChannel)` takes two constructor factories (D-049): `newEvent func(chan<- func() error) TEvent` and `newChannel func(chan Event, chan *ChannelError) TChannel`. eventlog creates every channel those factories receive; the consumer stores them and returns them from `Event.Transaction()`, `Channel.Notifications()`, and `Channel.Errors()`. The Event interface is `Fields() Fields` plus `Transaction() chan<- func() error`; the Channel interface is `Fields() Fields`, `Notifications() <-chan Event`, and `Errors() <-chan *ChannelError` (D-052). These approved contracts must not be expanded or changed without explicit user approval.
 Consumers receive values, not a Log handle; internal Log owns append/read/next, persistence, recovery,
@@ -21,7 +22,8 @@ change manager, synchronization and lifecycle. No public Log handle or
 Append/Read/Next/Close/Flush/Compact API is approved.
 
 Runtime configuration is mandatory and independent of generics/Context: `Config(options ...Option) error`
-with required `WithStorage(storage)`, where storage is `Local{Directory}` (D-068). Config validates before publishing; nil, duplicate, missing
+with required `WithStorage(storage)`, where storage is `Local{Directory}` or `Web{SettingsFile,
+DeviceStateDirectory}` (D-068; `Web` is not built yet). Config validates before publishing; nil, duplicate, missing
 and invalid options fail, and validation failure is retryable. Successful config is immutable and
 one-time; repeated or late calls match `ErrConfigAlreadySet`. PrepareLog before Config matches
 `ErrConfigNotInitialized`. Relative paths become absolute, lexically cleaned at Config time (no symlink
@@ -83,9 +85,16 @@ API is defined only in the root package `eventlog`; internal packages never defi
 | `internal/record` | Record types, framing, encoding, embedded canonical JSON Schemas (`internal/record/schemas/`), checksums, and transaction and stream validation |
 | `internal/storage` | Segment store, manifest, derived index, recovery, and compaction, expressed as file operations through `internal/filesystem` |
 | `internal/filesystem` | The file-system boundary (D-054): an HTTP client used by `internal/storage`, a localhost HTTP server started by `storage.Open`, and a single `Backend` interface the server delegates to. The OS backend uses the local file system and the ownership lock |
+| `internal/causal` | Hybrid logical clock used for causal metadata (D-064) |
+| `internal/googleauth` | Google sign-in client: loopback OAuth with PKCE, code exchange, token refresh, and the Google ID token (D-080) |
+| `internal/drive` | Drive v3 client (D-079) |
+| `internal/firebase` | Firebase Authentication and Realtime Database client (D-079) |
+| `internal/googletest` | Test-only in-process emulator of the Google services above (D-078, D-081) |
 
 Dependencies point one way: `identity` ← `fieldschema` ← `record` ← `storage` ← root, with `storage` →
-`filesystem`. Tests live beside the code they test.
+`filesystem`; `causal` is used by `record`, `storage`, and the root. The Google service clients are provider packages: only the web backend
+behind the file-system boundary will use them, and no core package imports them. Tests live beside the
+code they test.
 
 ### File-system boundary (D-054)
 
@@ -137,39 +146,22 @@ replace and rename, truncation, sync before success, offset reads) do not depend
 - **Recovery/index manager:** Validates manifest, segment generation, records, sequences, transaction
   Commit IDs/count/checksums and derived index. Incomplete trailing transaction truncates to its start;
   index is rebuilt from segment source if missing/inconsistent and atomically replaced.
-- **Reader/tailer:** One unified Reader progression serves each runtime Channel and continuously follows the committed global sequence, with no explicit replay-to-live boundary or separate Reader modes. It reads committed history in sequence order and, when caught up, waits for a wake-up hint indicating possible new commits. Wake-ups are not authoritative: after every wake (and after entering the wait), the Reader rechecks the committed append source so a missed or coalesced signal cannot lose an occurrence. A commit during catch-up is naturally consumed by the same progression. Global sequence/cursor/offset management is internal; consumers do not provide or receive storage cursors.
-  Cancellation and errors are explicit. Concrete Event values are reconstructed through the project's
-  existing internal event-type registration/codec mechanisms. Unknown persisted Event types and decode
-  failures are errors, never silently skipped. Typed Readers may filter concrete Event types for typed
-  reads, but independent typed Readers do not compose the heterogeneous notification stream.
-
+- **Reader/tailer:** One unified Reader progression per runtime Channel follows committed history from
+  replay into the live tail (see [Reader behavior](#reader-behavior)).
 - **Compactor:** Produces replacement segments/index without modifying reader-pinned files,
   validates/checksums and syncs them, finalizes, atomically switches manifest/index, and deletes old
   generations only after the last reader releases its pin.
 - **Transaction processor:** One worker per logical Channel runtime receives transaction functions from
   that Channel's shared, bounded transaction channel, applies them in send order, validates the result,
   rolls back rejected changes, and group-commits accepted changes (see Transactions).
-- **Notification dispatcher/backlog:** The Channel interface exposes `Notifications() <-chan Event` and `Errors() <-chan *ChannelError`. One Channel owns one heterogeneous notification stream and one shared error stream. No `Notify` callback/sink method, public helper struct, or consumer embedding requirement is permitted. eventlog delivers immutable concrete Event snapshots after commit without blocking persistence/scheduler on slow consumers. The in-memory pending-delivery buffer is finite; a full buffer applies backpressure to the Channel Reader, which waits and resumes from its held position when capacity becomes available. This bounds notification-backlog memory without blocking persistence or discarding committed history. The authoritative committed append log remains the source of pending history; no separate durable queue is introduced. The error stream carries `*ChannelError` values (D-052); its delivery rules are specified under Transactions. Recoverable delivery errors may be retried only while the pending occurrence is retained and order/completeness are preserved; a failed occurrence is never silently skipped to advance the Reader. When retry policy declares a failure terminal, the Channel Reader terminates, reports the error through `Errors()`, and closes its streams after fatal-error reporting. Committed pending history remains recoverable from the authoritative log for a future runtime. Retry policy is internal: temporary delivery failures retry the same pending occurrence using bounded backoff and a finite retry limit; retry does not advance the Reader or permit later occurrences to overtake. On retry exhaustion, the Channel Reader terminates and reports through Errors(); committed pending history remains recoverable from the authoritative log. Other Channel Readers continue independently. Numeric buffer capacity, limits, delay values, and classification details are implementation/test policy, not public configuration. Exactly-once consumer processing is not guaranteed without consumer acknowledgment or transactional integration.
+- **Notification dispatcher/backlog:** The Channel interface exposes `Notifications() <-chan Event` and `Errors() <-chan *ChannelError`. One Channel owns one heterogeneous notification stream and one shared error stream. No `Notify` callback/sink method, public helper struct, or consumer embedding requirement is permitted. eventlog delivers immutable concrete Event snapshots after commit. The error stream carries `*ChannelError` values (D-052); its delivery rules are specified under [Transactions](#transactions). Retry, backpressure, and crash-boundary rules are specified under [Notification delivery](#notification-delivery).
 
 ### Registry key implementation boundary
 
-The registry-key representation is an internal implementation detail and is not a persisted format or
-consumer-facing contract. Implementations may choose maps, composite keys, or another representation,
-provided they preserve these observable rules:
-
-- Event decoder registration is keyed by concrete Event Go type plus exposed field-name schema.
-  Re-registering the same combination reuses the registration; registering the same concrete type with a
-  different schema fails with the specified typed schema-conflict error without replacing the existing
-  registration.
-- Event instance reuse follows canonical logical Event identity.
-- Channel runtime reuse follows canonical logical Channel identity, not concrete Channel Go type alone.
-  Distinct logical Channels of the same concrete Go type have separate live pointers, runtimes, and Reader
-  progressions; repeated preparation of the same logical Channel reuses its existing pointer/runtime/Reader.
-- Event decoder registration, Event instance identity, and Channel runtime identity remain separate
-  registry concerns.
-
-No internal registry key is serialized or exposed through the public API. Changing the internal
-representation is permitted as long as these behaviors remain unchanged. This implementation boundary is approved by D-039.
+The registry-key representation is an internal implementation detail (D-039): it is never persisted or
+exposed, and may be any representation that preserves the registration, reuse, and conflict rules in
+[Preparation and registration](#preparation-and-registration). In particular, distinct logical Channels
+of one concrete Go type keep separate live pointers, runtimes, and Readers.
 
 ## Field selection, reconstruction, and identity integrity
 
@@ -194,8 +186,7 @@ Event, rewrite identity, or alter existing occurrences or HEAD.
 
 ## Record model and identity
 
-The record envelope supports three kinds: `channel`, `event`, and `commit` (the later Commit-marker
-decision supersedes the earlier two-kind proposal). Each record carries `schema_version: 1` and a global
+The record envelope supports three kinds: `channel`, `event`, and `commit`. Each record carries `schema_version: 1` and a global
 sequence number. Envelope includes version, sequence, kind and type-specific data; Channel payload
 contains ID/type/fields, Event payload contains ID/channel_id/type/fields, and Commit payload contains
 transaction ID/count/checksum. Versioned JSON is stored as NDJSON; there is no log header.
@@ -211,23 +202,19 @@ transaction ID/count/checksum. Versioned JSON is stored as NDJSON; there is no l
   consumer-selected identity field must contain a UUID, not an arbitrary primitive or nullable value.
   Non-identity data changes keep logical ID and create new physical occurrences.
 - **Occurrence/HEAD:** each accepted transaction change to an Event's selected fields creates an immutable physical
-  occurrence associated with one Channel. Older occurrences remain in history. Highest-sequence
-  occurrence determines HEAD/current Channel association and ordering. Logical promotion is not a
-  separate record.
+  occurrence associated with one Channel. Older occurrences remain in history. Within one device's log
+  the highest-sequence occurrence is HEAD; across devices the current state is chosen by the
+  [conflict rule](#delivery-conflicts-and-remote-changes). Logical promotion is not a separate record.
 - **Transaction ID:** the global sequence of the first transaction record. A persisted transaction
   belongs to one Channel and contains one or more Event occurrences, each optionally preceded by a
   Channel record carrying the Channel snapshot that occurrence was made with, then one Commit (D-050).
   A Channel record is written only when the Channel is new or its snapshot differs from the last one
   written.
-- **Sequence:** global across records and segments; Commit consumes a sequence but is excluded from
-  transaction record count and checksum.
+- **Sequence:** global across the records and segments of one device's log; Commit consumes a sequence
+  but is excluded from transaction record count and checksum. Across devices, order comes from causal
+  metadata (see [Delivery, conflicts, and remote changes](#delivery-conflicts-and-remote-changes)).
 
-Duplicate reconciliation: recovery deduplicates same-sequence identical physical copies. Same sequence
-with different content is corruption. Identical Channel ID/data may deduplicate; conflicting Channel data
-for one ID is corruption. Same logical Event ID at different sequences is valid history; the highest
-sequence defines HEAD, latest Channel association and ordering. Compaction preserves original sequence
-numbers and must not promote older occurrences due to duplicate copies. Temporary compaction artifacts
-are not authoritative recovery input and are cleaned only after finalized source segments validate.
+Duplicate physical records are reconciled during recovery (see [Open and recovery flow](#open-and-recovery-flow)).
 
 ## Typed field encoding
 
@@ -250,8 +237,8 @@ int/uint are fixed 64-bit regardless of architecture; named types use underlying
 Null, non-nil uses primitive tag. UUID identity uses its dedicated permanent tag `0x03` followed by exactly 16 canonical UUID bytes. Unknown or unassigned tags fail recovery; tags are permanent and reserved ranges
 remain unused.
 
-UUID v5 namespace is `26612f1d-f648-483a-9cfe-59c18f113891`. Event domain prefix is
-`eventlog\\x00event\\x00v1\\x00`; Channel domain prefix is `eventlog\\x00channel\\x00v1\\x00`.
+The UUID v5 namespace and the Event and Channel domain prefixes are listed under Identity encoder in
+[Internal components](#internal-components).
 
 Canonical identity encoding is separate from JSON: fixed encoding-format version, domain prefix,
 UTF-8 package path and runtime-provided concrete type name, exposed field-name schema, and designated
@@ -261,8 +248,7 @@ so its package path and name are those of the target type. For an instantiated g
 runtime-provided instantiated name is used as an opaque UTF-8 component; eventlog does not parse,
 reconstruct, or separately encode generic type arguments. Non-identity values are excluded from logical
 identity. Schema field names sort bytewise UTF-8; variable component lengths/counts use uint32 big-endian
-framing. Exact field-schema/identity-value byte composition is approved; see the approved layout section
-below.
+framing. The exact byte layout is in [Canonical identity byte composition](#canonical-identity-byte-composition).
 
 This naming rule relies on Go reflection's runtime type naming, not a separately specified stable
 serialization format. Go does not guarantee that the reflected name of an instantiated generic type is
@@ -276,11 +262,11 @@ Event and Channel identity fields must have Go underlying type [16]byte. The unn
 named types with that underlying type are accepted. The canonical UUID payload is the 16 array elements
 in index order (value[0] through value[15]). No string parsing, textual normalization, integer endianness
 conversion, or external UUID dependency is involved. Nullable UUID identity fields and all other
-underlying types are rejected. The UUID identity marker is permanently assigned tag `0x03` in the v1 identity type-tag namespace. It is distinct from Null (`0x00`), String (`0x01`), and Bool (`0x02`); the UUID payload is exactly the following 16 canonical bytes.
+underlying types are rejected (D-024). In the identity encoding, the UUID uses the permanent tag `0x03` (D-035).
 
 ## Canonical identity byte composition
 
-The exact canonical identity payload layout after the existing domain prefix is approved:
+The canonical identity payload after the domain prefix is:
 1. Format version byte `0x01`.
 2. Type package path: UTF-8 bytes framed by u32 BE byte length.
 3. Concrete type name: UTF-8 bytes framed by u32 BE byte length.
@@ -288,11 +274,9 @@ The exact canonical identity payload layout after the existing domain prefix is 
 5. Identity field name: UTF-8 bytes framed by u32 BE byte length.
 6. Identity value: the permanent UUID identity type tag `0x03`, followed by the UUID's canonical 16 bytes. The identity field must be part of the exposed schema and UUID-typed; nullable and arbitrary primitive identity values are forbidden.
 
-The already-approved namespace, Event/Channel domain prefixes, primitive field tags, big-endian framing, UUID v5 derivation, and non-identity value exclusion remain unchanged. UUID identity uses the permanent dedicated tag `0x03`; the accepted Go representation and byte extraction order are specified in the UUID identity contract. Format byte is intentionally redundant with the domain prefix's v1 marker.
+The format byte is intentionally redundant with the domain prefix's v1 marker.
 
-The UUID identity representation is specified in the UUID identity section below.
-
-Metadata keys and values must be valid UTF-8. Reject invalid UTF-8 before persistence and during recovery; do not replace, normalize, or otherwise transform metadata bytes. Canonically equivalent but byte-distinct Unicode strings remain distinct.
+Metadata keys and values must be valid UTF-8 (D-036). Reject invalid UTF-8 before persistence and during recovery; do not replace, normalize, or otherwise transform metadata bytes. Canonically equivalent but byte-distinct Unicode strings remain distinct.
 
 ### Canonical identity framing limits (v1)
 
@@ -305,7 +289,7 @@ The canonical identity encoding has explicit limits, measured in UTF-8 bytes for
 
 The 1 MiB aggregate limit applies in addition to the individual component and field-count limits; a payload that satisfies every individual limit but exceeds the aggregate limit is invalid. Enforce all limits when deriving an identity before persistence and when validating/recovering persisted identity data. Exceeding a limit produces an explicit error; values are never truncated. These limits govern canonical Event/Channel identity encoding only and do not establish limits for unrelated append-log records or metadata values.
 
-The canonical identity framing limits are settled by D-038.
+These limits are D-038.
 
 ## Append transaction flow
 
@@ -323,8 +307,8 @@ The canonical identity framing limits are settled by D-038.
 7.  Persist transaction on segment source; atomically update derived index metadata/HEAD/associations.
    Notify dispatcher only after successful commit.
 
-Validation failure leaves the log unchanged. New Channel and Event are fully atomic: no partial Channel
-or Event is persisted on invalid fields. Write interruption/crash must not expose partial append;
+New Channel and Event records are fully atomic: no partial Channel or Event is persisted on invalid
+fields. Write interruption/crash must not expose partial append;
 recovery truncates incomplete transaction from its start. Partial Commit is treated as incomplete
 transaction. Append returns an internal error; no consumer-facing Append API is approved. Recoverable
 atomicity is distinct from power-loss durability before sync.
@@ -363,7 +347,8 @@ sends. If the Channel's streams have already closed after a fatal Reader error, 
 rolled back without pausing.
 
 `ChannelError` has `Kind` (an `ErrorKind`: `TransactionRefused`, `TransactionPanicked`, `InvalidState`,
-`CommitFailed`, `ReaderFailed`, `DeliveryFailed`, `WriteNotPermitted`), `Cause` (the consumer's error, the panic value, the
+`CommitFailed`, `ReaderFailed`, `DeliveryFailed`, `WriteNotPermitted`, `ConcurrentChange`, `HistoryMissing`;
+`AuthorizationRequired` and `ChangeEventsUnavailable` are approved for web storage but not built), `Cause` (the consumer's error, the panic value, the
 field problem, or the I/O error, also returned by `Unwrap`), and `Events` (isolated copies of the attempted
 values of each Event the failed transaction changed, or of every Event in the batch for `CommitFailed`). Its
 message names the Channel identity, the kind, the Event types and identities, and the cause. `ReaderFailed`
@@ -386,7 +371,7 @@ zero-byte NDJSON file; no header record is written. Existing storage is recovere
 available. Runtime Channel resolution or creation is not attempted until this recovery has completed successfully.
 
 Recovery order:
-1.  Acquire exclusive single-process ownership.
+1.  Acquire this device's one-process lock.
 2.  Validate the manifest and identify its active generation/segment set.
 3.  Validate active segment files, record schemas and sequence continuity.
 4.  Validate transaction boundaries, Commit IDs, record counts and checksums.
@@ -394,7 +379,10 @@ Recovery order:
 6.  Validate or rebuild the generation-bound index from validated authoritative segments; atomically
    replace it if needed.
 7.  Clean orphan/temp artifacts only after finalized source segments validate and cleanup is safe.
-8.  Open for append and initialize the mandatory channel-scoped readers/change manager.
+8.  Open for append and start the channel-scoped Readers.
+
+This is the recovery of the device's own log. Other devices' logs are read read-only and never repaired
+(see [Delivery, conflicts, and remote changes](#delivery-conflicts-and-remote-changes)).
 
 A complete newline-terminated malformed record, unknown kind/tag, unsupported schema, duplicate/invalid
 sequence, missing Channel reference, or invalid fields is corruption; never silently skip it. Expose only
@@ -407,38 +395,58 @@ Duplicate reconciliation: identical physical copies at the same sequence are ded
 with different content is corruption. Channel records with same ID and identical data may deduplicate;
 conflicting data for one ID is corruption. Same logical Event ID at distinct sequences represents valid
 history and is retained; highest sequence determines HEAD, latest association and ordering. Compaction
-preserves original sequences and must not promote older occurrences because duplicate copies.
+preserves original sequences and must not promote older occurrences because of duplicate copies.
 
 ## Reader behavior
 
-The internal unified Reader progression is mandatory and channel-scoped: exactly one progression serves each runtime Channel, never all Channels. It follows one continuous committed-sequence path from the earliest committed occurrence still pending delivery through current commits, without a replay/live mode transition, mode-specific cursor, or handoff boundary. When caught up it waits on wake-up hints and rechecks the authoritative committed append source after waiting; hints may coalesce or be missed and never determine completeness. Commits arriving during catch-up are consumed by the same progression. Occurrences are ordered by internal global sequence. Do not create separate historical and live Readers or combine independent typed Readers to construct the heterogeneous notification stream.
+Exactly one internal Reader progression serves each runtime Channel, never all Channels. It follows one
+continuous path from the earliest committed occurrence still pending delivery through current commits,
+with no replay/live mode transition, mode-specific cursor, or handoff boundary (D-028). Within this
+device's log, occurrences are read in sequence order; occurrences from other devices are merged in by
+causal delivery (see [Delivery, conflicts, and remote changes](#delivery-conflicts-and-remote-changes)).
+When caught up, the Reader waits for a wake-up hint (a local commit or a refresh of other devices' logs)
+and then rechecks the authoritative committed logs; hints may coalesce or be missed and never determine
+completeness. Do not create separate historical and live Readers or combine independent typed Readers to
+construct the heterogeneous notification stream.
 
-Consumers do not provide or receive Channel UUIDs, sequence numbers, cursors or offsets. These remain
-library-owned. Context cancellation and explicit errors are required. Re-appended logical Events are
-separate occurrences. A Channel may contain multiple concrete Event types. The unified notification Reader reconstructs each
-committed Event through the existing internal type registration/codec mechanism. Typed Readers may filter
-for a requested concrete type while advancing, but they are not separate notification sources. Corruption,
-unknown persisted Event types, and decode failures are errors, never silently skipped.
+Consumers do not provide or receive sequence numbers, cursors, or offsets. The Reader reconstructs each
+committed Event into a fresh concrete Event pointer through the internal decoder registry; no occurrence
+wrapper is part of the consumer API. Corruption, unknown persisted Event types, and decode failures are
+errors, never silently skipped. Context cancellation and explicit errors are required.
 
-The reader stays internal. The common `Event` notification payload and `Notifications() <-chan Event` accessor, the concrete `TEvent` generic constraint, and `Errors() <-chan error` accessor are approved. Historical reconstruction and notification delivery use fresh concrete Event pointers; no occurrence wrapper is part of the approved consumer API.
+## Notification delivery
 
-## Runtime lifecycle and shutdown
+- No notification is emitted before its Commit succeeds. Delivery never rolls back or deletes a committed
+  Event.
+- Slow consumers apply backpressure to the Channel's delivery, never to append or persistence. The
+  in-memory pending-delivery buffer is finite; when it is full, the Reader waits and resumes from its held
+  position (D-033).
+- The Reader advances only after an occurrence is safely transferred to pending delivery. Pending
+  notifications are reconstructed from the authoritative committed log; there is no second durable
+  queue (D-025).
+- A failed delivery retries the same occurrence with internal bounded backoff and a finite retry limit;
+  later occurrences cannot overtake it. Retry exhaustion terminates that Channel's Reader with
+  `DeliveryFailed` (D-032). Other Channels continue independently.
+- On the next process start, committed occurrences whose notifications were not delivered are delivered
+  before newer ones. Delivery has no consumer acknowledgement, so duplicates may occur around a crash;
+  exactly-once processing is not guaranteed.
 
-The Log runtime is process-scoped and owns storage, append workers, Channel runtimes, Readers, and delivery workers. The Context passed to `PrepareLog` governs only that caller's preparation and waiting: canceling it must not shut down the shared Log or cancel other consumers. Internal append and delivery workers are not children of any one preparation caller's Context.
+## Runtime lifecycle
 
-eventlog owns the runtime lifecycle; consumers do not receive public `Start`, `Activate`, `Close`, or other lifecycle controls. Successful append Commit is the authoritative ordering point. The Channel's single unified Reader progression observes only committed records and drives notification delivery in global sequence order. No notification is emitted before its append Commit succeeds.
+The runtime is process-lifetime scoped (D-034). Once initialized, it owns storage, transaction
+processors, Channel runtimes, Readers, and delivery workers until the operating system terminates the
+process. The Context passed to `PrepareLog` governs only that caller's preparation and waiting; canceling
+it does not stop shared workers or affect other callers (D-026). Consumers receive no `Start`, `Activate`,
+`Close`, or other lifecycle controls.
 
-Slow consumers may apply backpressure to the notification delivery worker, but must not stall append/persistence or cause committed Events to be reordered or skipped. A delivery failure never rolls back or deletes a committed Event.
+There is no library-managed shutdown: eventlog registers no process-exit hooks or signal handlers, and
+does not drain notifications, close streams, or perform a final sync at exit. An incomplete append is
+discarded by recovery on the next start; writes not yet synced are not promised to survive power loss
+(see [Durability](#durability-segment-management-and-compaction)).
 
-Reader advancement is permitted only after the committed occurrence is safely transferred into the internal pending-delivery mechanism. Delivery backpressure holds the delivery worker, not persistence. Pending notifications are reconstructed from the authoritative committed append log; no second durable queue is introduced. Recovery resumes pending committed notifications before newer occurrences, preserving order. Without consumer acknowledgment or transactional integration, duplicates may occur across a crash boundary; exactly-once consumer processing is not guaranteed. Delivery failures retry the same occurrence using internal bounded backoff and a finite retry limit; Reader advancement and later delivery remain blocked until success. Retry exhaustion terminates that Channel Reader and is reported through `Errors()`; committed pending history remains recoverable. Other Channels continue independently.
-
-The Log runtime is process-lifetime scoped. Once initialized, it owns storage, append workers, Channel runtimes, Readers, and delivery workers until the operating system terminates the process. There is no library-managed runtime shutdown path: eventlog does not register process-exit hooks, install signal handlers, intercept process termination, or expose a public shutdown/flush/close operation. Runtime workers are not tied to any caller's Context and remain active for the process lifetime.
-
-Process termination is not a graceful-shutdown boundary. eventlog makes no guarantee that pending notifications are drained, notification/error streams are closed, or final writes are synchronously flushed at process exit. An interrupted append transaction is handled by the existing recovery rule and is discarded from its beginning if incomplete. Fully committed occurrences present in the authoritative append log, including occurrences whose notifications were not delivered, are recovered and delivered before newer occurrences on the next process start. Because delivery has no consumer acknowledgment, a crash around delivery may produce duplicates; exactly-once consumer processing is not guaranteed. The existing periodic sync policy remains the durability boundary for power-loss guarantees.
-
-A fatal Channel Reader error still terminates only that Reader, reports the first fatal error through its existing `Errors()` stream, and then closes that Channel's notification and error streams. It must not silently discard recoverable committed history. This per-Channel failure behavior does not shut down the process-scoped runtime. Stream closure is a consequence of a terminal per-Channel Reader failure, not a process-exit cleanup action; eventlog does not close streams merely because the process is terminating.
-
-D-030 and D-031 recorded a bounded graceful-drain shutdown design before the process-lifetime decision. D-034 supersedes that design for process termination: no graceful drain, timeout abort, shutdown-failure report, sender join, stream closure, or resource-release sequence is initiated by eventlog at process exit. Their recoverable-pending-history principle remains applicable.
+A fatal Reader error (`ReaderFailed` or `DeliveryFailed`) terminates only that Channel's Reader: the
+error is offered on `Errors()`, then the Channel's notification and error streams close. Committed
+history stays recoverable, and the runtime keeps running.
 
 ## Durability, segment management and compaction
 
@@ -507,10 +515,10 @@ existing readers continue on their pinned generation.
 
 ## Implementation notes
 
-The current implementation realizes this design as one Go package. Internal policy values (notification
+The implementation follows the [package layout](#package-layout). Internal policy values (notification
 buffer 64, transaction buffer 64, batch limit 64 transactions, five delivery attempts with doubling backoff
 from 10 ms, target segment size 64 MiB, compaction at 8 finalized segments, sync every 1 s or 1 MiB) are
-implementation/test policy, not public configuration. Single-process ownership uses an OS-held lock file
+implementation/test policy, not public configuration. The device's one-process lock is an OS-held lock file
 (`flock` on Linux, an unshared handle on Windows), taken through the file-system boundary's lock route and
 released by the operating system when the process exits. The derived
 index is held in memory and persisted to `index.json` at sync points; recovery always revalidates every
@@ -522,20 +530,26 @@ history, because delivery has no acknowledgement.
 
 ## Portability and dependencies
 
-Use only Go standard library dependencies and local filesystem storage, with one approved exception
-(D-046): `github.com/santhosh-tekuri/jsonschema/v6` validates records against the embedded canonical JSON
-Schemas. Linux and Windows are
+Use only Go standard library dependencies, with one approved exception (D-046):
+`github.com/santhosh-tekuri/jsonschema/v6` validates records against the embedded canonical JSON Schemas.
+The Google service clients and emulator are written with the standard library too. Linux and Windows are
 equal-priority supported platforms; macOS is excluded. If platform behavior differs or is unreliable,
 core functionality must use a strategy that works on both platforms. Correctness, recovery, predictable
 memory use and platform parity precede numeric performance targets.
 
-## Multi-device operation (D-060; approved, being implemented)
+## Multi-device operation
 
-**Status: Approved on 2026-11-27, being implemented in increments (cycle plan item 12).** This section
-designs the response to D-056 to D-059 and applies D-061 to D-073. Built so far: storage that refuses
-writes (D-068, D-072), the device and log layout on local storage, causal metadata in Event records
-(D-064), and reading other devices' logs in the store (D-073). Causal delivery, web storage, and change
-notifications are not built yet. Research:
+**Status:** Approved on 2026-11-27 (D-060) and being built in increments. This section designs the
+response to D-056 to D-059 and applies D-061 to D-081.
+
+- **Built:** storage that refuses writes (D-068, D-072), the device and log layout on local storage,
+  causal metadata in Event records (D-064), reading other devices' logs (D-073), causal delivery with
+  `ConcurrentChange` and `HistoryMissing` reporting (D-070, D-074), live state convergence (D-075), the
+  Google service clients (D-079 to D-081), and the Google services emulator (D-078).
+- **Not built:** the `Web` storage option and its settings file (D-076), the Drive backend, Firebase
+  change notifications, and the `AuthorizationRequired` and `ChangeEventsUnavailable` errors.
+
+Research:
 [causal ordering and conflicts](../research/causal-ordering-and-conflicts.md) and
 [cross-device notifications](../research/cross-device-notifications.md).
 
@@ -587,15 +601,11 @@ browser).
 - Public errors name generic storage conditions, never a provider: `*AuthorizationRequired`, and the
   ChannelError kinds `AuthorizationRequired`, `WriteNotPermitted`, and `ChangeEventsUnavailable`. Local
   storage produces `WriteNotPermitted` for a directory it may not write, and never the others.
-- **Storage that refuses writes:** when storage reports `fs.ErrPermission` for this device's writes at
-  start, transactions still run, and one that changes an Event is rolled back and refused with
-  `WriteNotPermitted` under the prefix rule; one that changes nothing is accepted (D-072). Reading,
-  replay, and change notifications keep working. If writes become refused while running, the failing
-  commit reports `CommitFailed` with the permission error as its cause, and later changes get
-  `WriteNotPermitted`. On Google Drive, a Viewer is such a device, and a device that
-  cannot write creates no device folder and no board entry.
-- Verified by the core's tests running unchanged against the local backend, and by a test that no core
-  package imports a provider package.
+- **Storage that refuses writes** is specified under [Transactions](#transactions) (D-072). On Google
+  Drive, a Viewer is such a device, and a device that cannot write creates no device folder and no board
+  entry.
+- Verified by the core's tests running unchanged against the local backend; a test that no core package
+  imports a provider package is still to be written (acceptance WS-13).
 - **Service clients (D-079):** each external service's HTTP client has its own internal package: the Drive
   v3 client in `internal/drive`, and the Firebase Authentication and Realtime Database client in
   `internal/firebase`, and Google sign-in (loopback OAuth with PKCE, code exchange, token refresh, and the
@@ -754,8 +764,6 @@ browser).
   return, for example restored from the trash, a file-change event wakes the Reader and delivery resumes in
   order. With D-069 this arises only for a file removed before an owner's device accepted it, or removed by
   the owner. A file of this device's own log that is missing remains `ReaderFailed`.
-- **Recovery:** a device fully recovers and may truncate only its own log; other devices' logs are read
-  read-only, and an incomplete trailing transaction there is treated as not yet committed.
 
 ### Sign-in, Firebase access, and free-plan bounds (D-066)
 
@@ -817,12 +825,12 @@ Approved on 2026-11-27; these settle the open points of this design.
      other's changes at their next start. Each Channel reports this once with a new ChannelError kind
      `ChangeEventsUnavailable`, so the loss of live updates is not silent.
 
-## Unresolved architectural details
+## Open items
 
-- Canonical type naming is settled by D-037: reflected package path and runtime-provided name, with aliases resolving to their target and instantiated generic names treated as opaque text; v1 framing limits are settled by D-038.
-- Numeric product performance and memory acceptance targets, to be proposed only after representative baselines are measured. The approved workload, environment-recording, repetition, warm-up, and statistical reporting protocol is specified in [benchmarks.md](benchmarks.md).
+- Numeric performance and memory targets, to be proposed only after representative baselines are
+  measured with the protocol in [benchmarks.md](benchmarks.md).
+- On Drive, whether a trashed file in the owner's folder stays readable by ID for other accounts (see
+  Compaction on Drive above).
 
-Channel identity immutability and snapshot consistency, Reader wake-up/recheck behavior, retry ordering and
-termination, and bounded notification backpressure are specified and approved; their numeric queue/retry
-parameters remain internal implementation/test policy.
-
+Numeric queue, retry, and buffer parameters are internal implementation/test policy (see
+[Implementation notes](#implementation-notes)).
