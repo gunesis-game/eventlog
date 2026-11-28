@@ -4,12 +4,29 @@
 package filesystem
 
 import (
+	"context"
 	"errors"
 	"net/http"
 )
 
 // ErrLocked reports that an ownership lock is already held.
 var ErrLocked = errors.New("lock is held")
+
+// ErrChangeEventsUnavailable reports that the backend cannot provide live
+// file-change notifications. File operations remain available.
+var ErrChangeEventsUnavailable = errors.New("change events unavailable")
+
+// ChangeEvent identifies a file whose contents may have advanced.
+type ChangeEvent struct {
+	Path string `json:"path"`
+	Size int64  `json:"size"`
+}
+
+// ChangeEventSource is an optional Backend capability. The returned channel
+// closes when the stream ends; callers may reconnect and catch up from storage.
+type ChangeEventSource interface {
+	ChangeEvents(context.Context) (<-chan ChangeEvent, error)
+}
 
 // Entry is one item of a folder listing.
 type Entry struct {
