@@ -83,21 +83,13 @@ No project document, workflow, contributor instruction, or later project-level p
 
 ## 5. Development-cycle mechanism
 
-Ordinary development tasks must be managed through the persisted development-cycle mechanism. Standard and eligible micro workflows require a persisted registry record, main-only work, and truthful verification. This template assumes a single maintainer and one agent working at a time: at most one cycle is `in-progress`, and every other open cycle is pending, paused, or blocked.
+Ordinary development tasks must use the persisted development-cycle mechanism defined in [docs/dev-life-cycle/README.md](docs/dev-life/README.md). This is mandatory in Operational Mode and is subject only to the governance-maintenance exemption in Section 1.
 
-The registry at `docs/dev-life-cycle/cycle-index.json` is authoritative for cycle identity, ordering, workflow, status, and current phase. Standard cycles require their plan and handoff files; micro cycles record their objective, eligibility rationale, acceptance condition, verification evidence, and outcome directly in the registry. Progress is coordinated through the persisted registry, handoffs, and ordinary Git history.
+The lifecycle README, `cycle-index.json`, its schema, and the required plan/handoff or micro-cycle record are authoritative for cycle state and mechanics. The registry is the source of truth for cycle identity, ordering, workflow, status, and phase; plans and handoffs are checkpoints, not competing authorities.
 
-The governance-maintenance exemption in Section 1 applies when changing `steering.md` or the lifecycle mechanism itself. Do not create a cycle for such a self-maintenance change.
+Do not invent an alternative tracker, treat chat history as durable state, or mark a cycle complete without satisfying its documented gates. If lifecycle records are invalid, inconsistent, or missing, stop and follow the lifecycle README's recovery rules.
 
-The lifecycle README is the single source of truth for cycle selection, prioritization, phase transitions, plan/handoff maintenance, progress checkpoints, verification, documentation audits, and completion gates.
-
-Do not invent an alternative tracker, treat chat history as durable state, or mark a cycle complete without satisfying its documented gates. If lifecycle records are invalid or inconsistent, follow the lifecycle README's recovery rules.
-
-**Cancellation and blockers:** Standard cycles may be paused, blocked, cancelled, or completed. A blocked cycle must include a concrete blocker and the action/owner needed to unblock it. Cancelled development cycles are terminal and retain their registry records; never delete or reuse a cycle record. This applies to lifecycle records, not GitHub Actions workflow runs, whose cancelled history is deleted under the Git Workflow Standard. Micro cycles that become blocked, cancelled, or need preemption must first be promoted to standard with plan/handoff records.
-
-**Current-request priority:** The user's current request determines which cycle is worked on; it does not need to be marked urgent. If it differs from the in-progress cycle, checkpoint and pause that cycle first, then start or resume the cycle for the new request. When that work completes, resume paused cycles (lowest execution order first) before pending work, unless the user directs otherwise. If it is unclear whether a request continues an open cycle, ask one short question rather than guessing.
-
-**Progress checkpoints:** Persist a handoff/registry checkpoint at each of these events: a material decision or investigation result, a phase transition, and before any pause, context switch, waiting period, or session end. Do not checkpoint on a timer. Take every timestamp from the system clock rather than estimating it. A checkpoint is evidence of state, not an ownership claim.
+Steering establishes the mandatory gate and authority. **Delegate** cycle selection, prioritization, transitions, cancellation/blocker handling, checkpoint timing, verification, documentation-audit cadence, and completion mechanics to the lifecycle README rather than duplicating them here.
 
 ## 6. Project documentation
 
