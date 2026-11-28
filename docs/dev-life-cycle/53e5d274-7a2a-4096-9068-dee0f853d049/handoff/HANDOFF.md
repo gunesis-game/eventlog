@@ -102,3 +102,8 @@ Cycle 2 was created because the session was incorrectly routed into ordinary lif
 - The earlier Assess/Define checkpoints are retained as historical records, not active instructions.
 - Continue only with narrowly scoped governance changes under Governance Mode. The wider documentation restructuring affecting project specifications is deferred and must be separately routed as Operational Mode with a valid cycle.
 - Next action: establish the session-mode classification gate in the entry README and steering before further work.
+
+
+## Post-cancellation governance outcome
+
+The cancellation checkpoint's next action—establishing session-mode classification before lifecycle entry—has been fulfilled in Governance Mode. Gate 0 is now present and fetch-back verified in `README.md`, `steering.md`, and `docs/dev-life-cycle/README.md. See commits `1a403d881e74f93ee4ed9ddacda50ab1d435da2d`, `0e3d18b46801d0bf7a6553ab102570527050d05`, and `8d3f238418643a400166f63f0b67103c237d301c`. Cycle 2 remains cancelled and must not be resumed; its earlier Assess/Define checkpoints are historical. The deferred documentation restructuring remains Operational Mode work requiring its own valid cycle.
