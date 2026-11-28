@@ -9,6 +9,7 @@ If a protection or a tool blocks a direct commit to `main`, stop and report it. 
 ## Purpose
 
 This standard defines the repository collaboration and evidence workflow for AI-assisted and human development. The [project policy](#project-policy) at the end records this repository's remaining choices. Never bypass protections, security controls, or failing checks.
+
 ## Repository interaction
 
 When GitHub MCP is available for the repository, agents use it to inspect repository state, read and write files, publish commits, and retrieve commit, workflow-run, job, log, and artifact evidence. Do not substitute assumptions, chat recollection, or an unverified local view for repository state. If the connector is unavailable or lacks permission, report the limitation; do not claim the protocol was followed.
@@ -63,10 +64,7 @@ Approved as D-043 in the [decision register](../project/decisions.md).
 
 - **Main only.** See [Main only](#main-only).
 - **Commits.** One coherent change per commit, with a concise message describing it. Do not force-push, rewrite shared history, or amend published commits; roll back with a new corrective commit.
-- **Repository protection (verified 2026-11-28 through the public GitHub API at commit `4544468`).** One active ruleset, "default branch" (ID 28287256), applies to every branch name:
-  - `creation`, `deletion`, and `non_fast_forward` block creating branches, deleting branches, and force-pushes. These enforce the [main-only rule](#main-only).
-  - `update` blocks every push, including to `main`, except by accounts on the ruleset's bypass list. Direct commits to `main` are made by bypass actors. An agent whose push is refused stops and reports it.
-  - `pull_request` requires a pull request to change a branch. This contradicts the main-only rule and has no effect, because branches cannot be created. It is a known mismatch in the settings, not a permitted workflow.
-  - CI checks cannot block a direct push; they run after it lands. Verification before committing is the committer's responsibility ([Implementation and verification loop](#implementation-and-verification-loop)).
-- **Not yet verified.** Who is on the bypass list (reading it needs repository admin access). Signed commits are not required by the ruleset, and current commits are unsigned; no signing or authorship requirement has been decided.
-- **CI.** The workflows and their triggers are listed in [commands.md](../project/commands.md#ci).
+- **Ruleset target for D-043.** The active default-branch ruleset should contain only `creation`, `deletion`, and `non_fast_forward`. These prevent additional branches, branch deletion, and force-pushes while allowing ordinary direct commits to `main`. It must not contain `update` or `pull_request`, and its bypass-actor list must be empty. This enforces main-only without requiring anyone to bypass a protection.
+- **Observed ruleset (verified 2026-11-28 through the public GitHub API at `79c638534778935e89933583ccf89f2478662328`).** The active ruleset "default branch" (ID 28287256) applies to all branch names, but currently also contains `update` and `pull_request`. Its bypass list contains an OrganizationAdmin entry, RepositoryRole ID 5, and Integration ID 1144995; the API reports that the connected identity can bypass. The actor identities have not been resolved. These settings conflict with D-043 and the ruleset target above; they are not permission to bypass protections or use pull requests. Until the ruleset is aligned, an agent must stop and report if a direct push is refused.
+- **CI.** CI checks cannot block a direct push; they run after it lands. Verification before committing is the committer's responsibility ([Implementation and verification loop](#implementation-and-verification-loop)). The workflows and their triggers are listed in [commands.md](../project/commands.md#ci).
+- **Signing and authorship.** Signed commits are not required by the observed ruleset, and current commits are unsigned. D-043 does not decide a signing or authorship requirement.
