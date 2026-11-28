@@ -598,7 +598,9 @@ browser).
   package imports a provider package.
 - **Service clients (D-079):** each external service's HTTP client has its own internal package: the Drive
   v3 client in `internal/drive`, and the Firebase Authentication and Realtime Database client in
-  `internal/firebase`. Each knows only its service's API, not eventlog's storage. The Drive backend behind
+  `internal/firebase`, and Google sign-in (loopback OAuth with PKCE, code exchange, token refresh, and the
+  Google ID token) in `internal/googleauth`, which both use: Drive for access tokens, Firebase for the ID
+  token it exchanges (D-080). Each knows only its service's API, not eventlog's storage. The Drive backend behind
   the file-system boundary composes them, and each client is tested on its own against the emulator.
   These are provider packages: no core package imports them.
 
