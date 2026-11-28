@@ -1,10 +1,10 @@
-# Cycle 2 — Documentation review handoff
+# Cycle 2 — Documentation review handoff (cancelled)
 
 ## Cycle objective and status
 - **Cycle UUID:** 53e5d274-7a2a-4096-9068-dee0f853d049
 - **Objective:** Context-efficient Markdown architecture with explicit, conditional reading hierarchy.
-- **Registry status / phase:** in-progress / assess
-- **Persisted phase:** assess
+- **Registry status / phase:** cancelled / define (terminal; phase retained as historical context)
+- **Persisted phase:** define (historical checkpoint only; cycle cancelled)
 - **Last updated:** 2026-11-28T10:07:22Z
 - **Last progress checkpoint:** 2026-11-28T10:07:22Z
 
@@ -92,3 +92,13 @@
 - **Plan:** updated and fetched back; see cycle plan's approval and Define checkpoint.
 - **Current repository revision:** plan checkpoint commit `1a62b62160af50ba2bd82c189b065c5d5d0fc85`
 - **Next action:** produce a concrete restructuring blueprint: exact file paths (new and retained), content ownership and moves, entry/task routing, links to conditionally loaded leaves, preservation strategy, and validation/context-path tests. Present it for approval before editing project docs.
+
+
+## Cancellation and mode correction — 2026-11-28
+
+Cycle 2 was created because the session was incorrectly routed into ordinary lifecycle work. The session intent was governance maintenance; session classification must precede lifecycle routing. The governance-maintenance exemption should have been used, not a standard cycle.
+
+- Registry now marks this cycle **cancelled**, with a reason. Its ID, sequence, execution order, start time, phase, plan, and handoff are preserved as history; cancelled cycles are terminal and must not be resumed.
+- The earlier Assess/Define checkpoints are retained as historical records, not active instructions.
+- Continue only with narrowly scoped governance changes under Governance Mode. The wider documentation restructuring affecting project specifications is deferred and must be separately routed as Operational Mode with a valid cycle.
+- Next action: establish the session-mode classification gate in the entry README and steering before further work.
