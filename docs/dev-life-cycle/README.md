@@ -50,6 +50,8 @@ docs/dev-life-cycle/
 
 Micro-cycles have no per-cycle plan or handoff directory. Their required compact record is stored directly in `cycle-index.json`. Do not store project-wide architecture or permanent requirements in cycle plans or handoffs.
 
+Historical or archived plans and handoffs are reference evidence only. Do not load them by default or treat their recorded next actions as current instructions. Read them only when the current task, state reconciliation, or scheduled documentation audit requires them; confirm any candidate action against the authoritative registry and current specifications before acting.
+
 ## Registry contract
 
 The registry uses schema version 3. Template adoption begins at schema v3; this document intentionally contains no historical schema migration procedure. Upstream template-version adoption and schema migration guidance belongs in the template repository's release/change notes. A new repository starts with:
