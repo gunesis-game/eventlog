@@ -50,7 +50,7 @@ docs/dev-life-cycle/
 
 Micro-cycles have no per-cycle plan or handoff directory. Their required compact record is stored directly in `cycle-index.json`. Do not store project-wide architecture or permanent requirements in cycle plans or handoffs.
 
-Historical or archived plans and handoffs are reference evidence only. Do not load them by default or treat their recorded next actions as current instructions. Read them only when the current task, state reconciliation, or scheduled documentation audit requires them; confirm any candidate action against the authoritative registry and current specifications before acting.
+Historical or archived plans and handoffs are reference evidence only. Do not load them by default or treat their recorded next actions as current instructions. Read them only when the current task or state reconciliation requires them, or when a user-requested/triggered audit is specifically scoped to historical evidence; confirm any candidate action against the authoritative registry and current specifications before acting.
 
 ## Registry contract
 
