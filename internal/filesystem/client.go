@@ -59,6 +59,7 @@ func (c *Client) do(method, route, p string, query url.Values, header http.Heade
 		request.Header[name] = values
 	}
 	request.Header.Set("Authorization", "Bearer "+c.token)
+	request.Header.Set("Accept", "text/event-stream")
 	response, err := c.http.Do(request)
 	if err != nil {
 		return nil, fmt.Errorf("file-system request %s %s: %w", method, p, err)
@@ -181,6 +182,7 @@ type ChangeEventStream struct {
 	body   io.ReadCloser
 	reader *bufio.Reader
 }
+
 // ChangeEvents opens the backend's server-sent change-event stream.
 // The initial events, if any, are supplied by the backend.
 func (c *Client) ChangeEvents(ctx context.Context) (*ChangeEventStream, error) {
@@ -203,6 +205,7 @@ func (c *Client) ChangeEvents(ctx context.Context) (*ChangeEventStream, error) {
 	}
 	return &ChangeEventStream{body: response.Body, reader: bufio.NewReader(response.Body)}, nil
 }
+
 // Next returns the next change hint, or io.EOF when the stream ends.
 func (s *ChangeEventStream) Next() (ChangeEvent, error) {
 	for {
@@ -243,6 +246,7 @@ func (s *ChangeEventStream) Next() (ChangeEvent, error) {
 		return event, nil
 	}
 }
+
 // Close closes the change-event stream.
 func (s *ChangeEventStream) Close() error {
 	return s.body.Close()
