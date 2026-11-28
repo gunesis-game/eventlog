@@ -90,7 +90,7 @@ The lifecycle README, `cycle-index.json`, its schema, and the required plan/hand
 
 Do not invent an alternative tracker, treat chat history as durable state, or mark a cycle complete without satisfying its documented gates. If lifecycle records are invalid, inconsistent, or missing, stop and follow the lifecycle README's recovery rules.
 
-Steering establishes the mandatory gate and authority. **Delegate** cycle selection, prioritization, transitions, cancellation/blocker handling, checkpoint timing, verification, documentation-audit cadence, and completion mechanics to the lifecycle README rather than duplicating them here.
+Steering establishes the mandatory gate and authority. **Delegate** cycle selection, prioritization, transitions, cancellation/blocker handling, checkpoint timing, task-scoped documentation review, bounded audit triggers, verification, and completion mechanics to the lifecycle README rather than duplicating them here.
 
 ## 6. Project documentation
 
