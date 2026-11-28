@@ -753,8 +753,9 @@ browser).
 - **Compaction on Drive (D-067):** compaction keeps its trigger and protocol, building the merged segment as
   a Drive file and removing replaced segments as it does today. The Drive backend carries out `Remove` by
   moving the file to the Drive trash, so reads already in progress on other devices can finish; Drive
-  empties the trash after 30 days. To verify during
-  implementation: that a trashed file in the owner's folder stays readable by ID for other accounts.
+  empties the trash after 30 days. The Google Drive API v3 contract states that other users with
+  access can continue reading a trashed file by ID until it is permanently deleted; see the
+  [Drive access research](../research/drive-access-model.md#trashed-file-read-access).
 - **Missing history (D-070):** when a file another device's manifest names, or that device's manifest
   itself, is reported missing (`fs.ErrNotExist`), each affected Channel reports one ChannelError of a new
   kind `HistoryMissing`, naming the device and the missing sequence range. A Channel is affected when it
@@ -829,8 +830,6 @@ Approved on 2026-11-27; these settle the open points of this design.
 
 - Numeric performance and memory targets, to be proposed only after representative baselines are
   measured with the protocol in [benchmarks.md](benchmarks.md).
-- On Drive, whether a trashed file in the owner's folder stays readable by ID for other accounts (see
-  Compaction on Drive above).
 
 Numeric queue, retry, and buffer parameters are internal implementation/test policy (see
 [Implementation notes](#implementation-notes)).
