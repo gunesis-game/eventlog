@@ -596,6 +596,11 @@ browser).
   cannot write creates no device folder and no board entry.
 - Verified by the core's tests running unchanged against the local backend, and by a test that no core
   package imports a provider package.
+- **Service clients (D-079):** each external service's HTTP client has its own internal package: the Drive
+  v3 client in `internal/drive`, and the Firebase Authentication and Realtime Database client in
+  `internal/firebase`. Each knows only its service's API, not eventlog's storage. The Drive backend behind
+  the file-system boundary composes them, and each client is tested on its own against the emulator.
+  These are provider packages: no core package imports them.
 
 ### Google Drive provider
 
