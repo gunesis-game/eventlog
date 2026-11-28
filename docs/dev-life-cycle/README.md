@@ -1,12 +1,26 @@
 # Persisted development lifecycle
 
+## Session-mode gate — precedes lifecycle entry
+
+The AI must classify the session's objective and scope before reading the registry, selecting/resuming a cycle, creating a cycle, or doing substantive work. This is Gate 0, established by the repository root README and `steering.md`.
+
+
+- **Governance Mode:** governance/AI operating rules maintenance within the defined exemption. Do not use the operational cycle mechanism. The exemption applies only while scope stays within its boundaries.
+- **Operational Mode:** ordinary product requirements, architecture, implementation, tests, defects, behavior, or substantive product documentation. The lifecycle is mandatory.
+- **Mode depends on intent and scope, not the filename being edited.** A governance-routing repair may touch a product README without becoming product work; substantive product changes are Operational.
+- **Mixed or uncertain scope:** clarify or split before proceeding. Stop at a scope crossing; do not expand the exemption silently.
+- References are conditional; do not recursively load all linked documents.
+
+This gate must be completed before the lifecycle protocol below is invoked.
+
+
 This directory contains the durable execution state for ordinary development work. Use of this mechanism is mandatory for ordinary project work; the narrowly scoped governance-maintenance exemption is defined below.
 
 The mechanism is deliberately project-agnostic: project-specific objectives, architecture, commands, quality gates, branch-protection details, and deployment constraints belong in the repository's own documentation and configuration. This template uses `main` as its working branch. It assumes a single maintainer and one agent working at a time, so at most one cycle is `in-progress`.
 
 ## Governance-maintenance exemption
 
-Changes limited to steering/lifecycle governance, generic engineering standards under `docs/standards/`, project-strategy templates under `docs/project/` (testing, performance, and Git workflow), the project decision-ledger template, the validator/workflow, or template release metadata/changelog—and intended to amend or repair those governance or adoption rules—are exempt from creating, selecting, resuming, or completing a development cycle. This explicit self-maintenance exemption prevents recursive cycles while allowing the standards and their lifecycle integration to be maintained together.
+Changes limited to session-mode governance routing in the root `README.md`, steering/lifecycle governance, generic engineering standards under `docs/standards/`, project-strategy templates under `docs/project/` (testing, performance, and Git workflow), the project decision-ledger template, the validator/workflow, or template release metadata/changelog—and intended to amend or repair those governance or adoption rules—are exempt from creating, selecting, resuming, or completing a development cycle. This explicit self-maintenance exemption prevents recursive cycles while allowing the standards and their lifecycle integration to be maintained together. Root `README.md` is included only when changing its AI session classification/governance routing instructions; ordinary product README content remains Operational work.
 
 Keep such changes strictly limited to those governance/template files. If ordinary product requirements, architecture, implementation, tests, or operational files are also changed, that ordinary work must use the normal cycle process. The exemption from cycle tracking does not waive other repository controls.
 
